@@ -8,6 +8,14 @@
 
 import { IDL } from '@icp-sdk/core/candid';
 
+export const Customer = IDL.Record({
+  'id' : IDL.Text,
+  'name' : IDL.Text,
+  'createdAt' : IDL.Int,
+  'email' : IDL.Text,
+  'address' : IDL.Text,
+  'phone' : IDL.Text,
+});
 export const RawMaterial = IDL.Record({
   'id' : IDL.Text,
   'createdAt' : IDL.Int,
@@ -17,16 +25,116 @@ export const RawMaterial = IDL.Record({
   'materialType' : IDL.Text,
   'weightPerMeter' : IDL.Float64,
 });
+export const UserRole = IDL.Variant({
+  'admin' : IDL.Null,
+  'user' : IDL.Null,
+  'guest' : IDL.Null,
+});
+export const UserProfile = IDL.Record({ 'name' : IDL.Text });
+export const Job = IDL.Record({
+  'id' : IDL.Text,
+  'name' : IDL.Text,
+  'createdAt' : IDL.Int,
+  'dispatchQty' : IDL.Float64,
+  'transportIncluded' : IDL.Bool,
+  'transportCost' : IDL.Float64,
+  'customerId' : IDL.Opt(IDL.Text),
+  'laborRate' : IDL.Float64,
+});
+export const WeldingLineItem = IDL.Record({
+  'finalPrice' : IDL.Float64,
+  'ratePerKg' : IDL.Float64,
+  'weightKg' : IDL.Float64,
+  'grade' : IDL.Text,
+});
+export const JobLineItem = IDL.Record({
+  'finalPrice' : IDL.Float64,
+  'lengthMeters' : IDL.Float64,
+  'rawWeight' : IDL.Float64,
+  'materialId' : IDL.Text,
+  'totalWeight' : IDL.Float64,
+});
+export const SavedJob = IDL.Record({
+  'job' : Job,
+  'customerName' : IDL.Opt(IDL.Text),
+  'weldingLineItems' : IDL.Vec(WeldingLineItem),
+  'ratePerKg' : IDL.Float64,
+  'jobLineItems' : IDL.Vec(JobLineItem),
+  'totalProductWeight' : IDL.Float64,
+  'totalFinalPrice' : IDL.Float64,
+});
 
 export const idlService = IDL.Service({
+  '_initializeAccessControlWithSecret' : IDL.Func([IDL.Text], [], []),
+  'addCustomer' : IDL.Func(
+      [IDL.Text, IDL.Text, IDL.Text, IDL.Text],
+      [Customer],
+      [],
+    ),
   'addMaterial' : IDL.Func(
       [IDL.Text, IDL.Text, IDL.Text, IDL.Float64, IDL.Float64],
       [RawMaterial],
       [],
     ),
+  'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
+  'deleteCustomer' : IDL.Func([IDL.Text], [IDL.Bool], []),
+  'deleteJob' : IDL.Func([IDL.Text], [IDL.Bool], []),
   'deleteMaterial' : IDL.Func([IDL.Text], [IDL.Bool], []),
+  'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
+  'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
+  'getCustomer' : IDL.Func([IDL.Text], [Customer], ['query']),
+  'getCustomers' : IDL.Func([], [IDL.Vec(Customer)], ['query']),
+  'getJob' : IDL.Func([IDL.Text], [SavedJob], ['query']),
+  'getJobs' : IDL.Func([], [IDL.Vec(SavedJob)], ['query']),
   'getMaterial' : IDL.Func([IDL.Text], [RawMaterial], ['query']),
   'getMaterials' : IDL.Func([], [IDL.Vec(RawMaterial)], ['query']),
+  'getUserProfile' : IDL.Func(
+      [IDL.Principal],
+      [IDL.Opt(UserProfile)],
+      ['query'],
+    ),
+  'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
+  'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
+  'saveJob' : IDL.Func(
+      [
+        IDL.Text,
+        IDL.Float64,
+        IDL.Bool,
+        IDL.Opt(IDL.Text),
+        IDL.Float64,
+        IDL.Float64,
+        IDL.Vec(JobLineItem),
+        IDL.Vec(WeldingLineItem),
+        IDL.Float64,
+        IDL.Float64,
+        IDL.Float64,
+      ],
+      [SavedJob],
+      [],
+    ),
+  'updateCustomer' : IDL.Func(
+      [IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Text],
+      [Customer],
+      [],
+    ),
+  'updateJob' : IDL.Func(
+      [
+        IDL.Text,
+        IDL.Text,
+        IDL.Float64,
+        IDL.Bool,
+        IDL.Opt(IDL.Text),
+        IDL.Float64,
+        IDL.Float64,
+        IDL.Vec(JobLineItem),
+        IDL.Vec(WeldingLineItem),
+        IDL.Float64,
+        IDL.Float64,
+        IDL.Float64,
+      ],
+      [SavedJob],
+      [],
+    ),
   'updateMaterial' : IDL.Func(
       [IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Float64, IDL.Float64],
       [RawMaterial],
@@ -37,6 +145,14 @@ export const idlService = IDL.Service({
 export const idlInitArgs = [];
 
 export const idlFactory = ({ IDL }) => {
+  const Customer = IDL.Record({
+    'id' : IDL.Text,
+    'name' : IDL.Text,
+    'createdAt' : IDL.Int,
+    'email' : IDL.Text,
+    'address' : IDL.Text,
+    'phone' : IDL.Text,
+  });
   const RawMaterial = IDL.Record({
     'id' : IDL.Text,
     'createdAt' : IDL.Int,
@@ -46,16 +162,116 @@ export const idlFactory = ({ IDL }) => {
     'materialType' : IDL.Text,
     'weightPerMeter' : IDL.Float64,
   });
+  const UserRole = IDL.Variant({
+    'admin' : IDL.Null,
+    'user' : IDL.Null,
+    'guest' : IDL.Null,
+  });
+  const UserProfile = IDL.Record({ 'name' : IDL.Text });
+  const Job = IDL.Record({
+    'id' : IDL.Text,
+    'name' : IDL.Text,
+    'createdAt' : IDL.Int,
+    'dispatchQty' : IDL.Float64,
+    'transportIncluded' : IDL.Bool,
+    'transportCost' : IDL.Float64,
+    'customerId' : IDL.Opt(IDL.Text),
+    'laborRate' : IDL.Float64,
+  });
+  const WeldingLineItem = IDL.Record({
+    'finalPrice' : IDL.Float64,
+    'ratePerKg' : IDL.Float64,
+    'weightKg' : IDL.Float64,
+    'grade' : IDL.Text,
+  });
+  const JobLineItem = IDL.Record({
+    'finalPrice' : IDL.Float64,
+    'lengthMeters' : IDL.Float64,
+    'rawWeight' : IDL.Float64,
+    'materialId' : IDL.Text,
+    'totalWeight' : IDL.Float64,
+  });
+  const SavedJob = IDL.Record({
+    'job' : Job,
+    'customerName' : IDL.Opt(IDL.Text),
+    'weldingLineItems' : IDL.Vec(WeldingLineItem),
+    'ratePerKg' : IDL.Float64,
+    'jobLineItems' : IDL.Vec(JobLineItem),
+    'totalProductWeight' : IDL.Float64,
+    'totalFinalPrice' : IDL.Float64,
+  });
   
   return IDL.Service({
+    '_initializeAccessControlWithSecret' : IDL.Func([IDL.Text], [], []),
+    'addCustomer' : IDL.Func(
+        [IDL.Text, IDL.Text, IDL.Text, IDL.Text],
+        [Customer],
+        [],
+      ),
     'addMaterial' : IDL.Func(
         [IDL.Text, IDL.Text, IDL.Text, IDL.Float64, IDL.Float64],
         [RawMaterial],
         [],
       ),
+    'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
+    'deleteCustomer' : IDL.Func([IDL.Text], [IDL.Bool], []),
+    'deleteJob' : IDL.Func([IDL.Text], [IDL.Bool], []),
     'deleteMaterial' : IDL.Func([IDL.Text], [IDL.Bool], []),
+    'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
+    'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
+    'getCustomer' : IDL.Func([IDL.Text], [Customer], ['query']),
+    'getCustomers' : IDL.Func([], [IDL.Vec(Customer)], ['query']),
+    'getJob' : IDL.Func([IDL.Text], [SavedJob], ['query']),
+    'getJobs' : IDL.Func([], [IDL.Vec(SavedJob)], ['query']),
     'getMaterial' : IDL.Func([IDL.Text], [RawMaterial], ['query']),
     'getMaterials' : IDL.Func([], [IDL.Vec(RawMaterial)], ['query']),
+    'getUserProfile' : IDL.Func(
+        [IDL.Principal],
+        [IDL.Opt(UserProfile)],
+        ['query'],
+      ),
+    'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
+    'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
+    'saveJob' : IDL.Func(
+        [
+          IDL.Text,
+          IDL.Float64,
+          IDL.Bool,
+          IDL.Opt(IDL.Text),
+          IDL.Float64,
+          IDL.Float64,
+          IDL.Vec(JobLineItem),
+          IDL.Vec(WeldingLineItem),
+          IDL.Float64,
+          IDL.Float64,
+          IDL.Float64,
+        ],
+        [SavedJob],
+        [],
+      ),
+    'updateCustomer' : IDL.Func(
+        [IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Text],
+        [Customer],
+        [],
+      ),
+    'updateJob' : IDL.Func(
+        [
+          IDL.Text,
+          IDL.Text,
+          IDL.Float64,
+          IDL.Bool,
+          IDL.Opt(IDL.Text),
+          IDL.Float64,
+          IDL.Float64,
+          IDL.Vec(JobLineItem),
+          IDL.Vec(WeldingLineItem),
+          IDL.Float64,
+          IDL.Float64,
+          IDL.Float64,
+        ],
+        [SavedJob],
+        [],
+      ),
     'updateMaterial' : IDL.Func(
         [IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Float64, IDL.Float64],
         [RawMaterial],

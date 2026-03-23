@@ -1,0 +1,1029 @@
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Slider } from "@/components/ui/slider";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Briefcase,
+  Calculator,
+  Loader2,
+  Package,
+  Pencil,
+  Plus,
+  Save,
+  Trash2,
+  Truck,
+  Wand2,
+  Wrench,
+  X,
+} from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
+import type {
+  JobLineItem,
+  RawMaterial,
+  SavedJob,
+  WeldingLineItem,
+} from "../backend";
+import {
+  useCustomers,
+  useMaterials,
+  useSaveJob,
+  useUpdateJob,
+} from "../hooks/useQueries";
+
+// ── Types ──────────────────────────────────────────────────────────────────
+interface MaterialRow {
+  rowId: string;
+  materialId: string;
+  lengthMeters: number;
+}
+
+interface WeldingRow {
+  rowId: string;
+  grade: "SS304" | "SS310";
+  weightKg: number;
+}
+
+const WELDING_RATES = { SS304: 650, SS310: 1250 };
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+function fmt(n: number) {
+  return new Intl.NumberFormat("en-IN", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(n);
+}
+
+function laborLabel(rate: number) {
+  if (rate <= 90)
+    return { label: "Easy", color: "bg-emerald-100 text-emerald-700" };
+  if (rate <= 110)
+    return { label: "Medium", color: "bg-amber-100 text-amber-700" };
+  if (rate <= 130)
+    return { label: "Hard", color: "bg-orange-100 text-orange-700" };
+  return { label: "Complex", color: "bg-red-100 text-red-700" };
+}
+
+/** Per-row: compute material cost only (no labor/overhead/profit) */
+function calcMaterialRow(mat: RawMaterial, lengthMeters: number) {
+  const rawWeight = mat.weightPerMeter * lengthMeters;
+  const totalWeight = rawWeight * 1.12;
+  const materialCost = totalWeight * mat.currentRate;
+  return { rawWeight, totalWeight, materialCost };
+}
+
+let rowCounter = 0;
+function nextId() {
+  rowCounter += 1;
+  return `row-${rowCounter}`;
+}
+
+// ── Component ──────────────────────────────────────────────────────────────
+interface JobCalculatorProps {
+  editJobOnMount?: SavedJob | null;
+  onEditConsumed?: () => void;
+}
+
+export function JobCalculator({
+  editJobOnMount,
+  onEditConsumed,
+}: JobCalculatorProps) {
+  const { data: materials = [], isLoading: materialsLoading } = useMaterials();
+  const { data: customers = [] } = useCustomers();
+  const saveJobMutation = useSaveJob();
+  const updateJobMutation = useUpdateJob();
+
+  const formTopRef = useRef<HTMLDivElement>(null);
+
+  const [jobName, setJobName] = useState("");
+  const [laborRate, setLaborRate] = useState(100);
+  const [transportIncluded, setTransportIncluded] = useState(false);
+  const [transportCost, setTransportCost] = useState(0);
+  const [dispatchQty, setDispatchQty] = useState(1);
+  const [customerId, setCustomerId] = useState<string>("none");
+  const [materialRows, setMaterialRows] = useState<MaterialRow[]>([]);
+  const [weldingRows, setWeldingRows] = useState<WeldingRow[]>([]);
+  const [editingJobId, setEditingJobId] = useState<string | null>(null);
+
+  // Load job for editing when passed from Job History
+  useEffect(() => {
+    if (!editJobOnMount) return;
+    const sj = editJobOnMount;
+    setJobName(sj.job.name);
+    setLaborRate(sj.job.laborRate);
+    setTransportIncluded(sj.job.transportIncluded);
+    setTransportCost(sj.job.transportCost ?? 0);
+    setDispatchQty(sj.job.dispatchQty ?? 1);
+    setCustomerId(sj.job.customerId ?? "none");
+    setMaterialRows(
+      sj.jobLineItems.map((item) => ({
+        rowId: nextId(),
+        materialId: item.materialId,
+        lengthMeters: item.lengthMeters,
+      })),
+    );
+    setWeldingRows(
+      sj.weldingLineItems.map((item) => ({
+        rowId: nextId(),
+        grade: item.grade as "SS304" | "SS310",
+        weightKg: item.weightKg,
+      })),
+    );
+    setEditingJobId(sj.job.id);
+    formTopRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    onEditConsumed?.();
+  }, [editJobOnMount, onEditConsumed]);
+
+  // ── Per-row calculations (material cost only) ────────────────────────────
+  const matCalcs = useMemo(() => {
+    return materialRows.map((row) => {
+      const mat = materials.find((m) => m.id === row.materialId);
+      if (!mat || row.lengthMeters <= 0) return null;
+      return { ...calcMaterialRow(mat, row.lengthMeters), mat };
+    });
+  }, [materialRows, materials]);
+
+  const weldCalcs = useMemo(() => {
+    return weldingRows.map((row) => {
+      if (row.weightKg <= 0) return null;
+      const weldingCost = row.weightKg * WELDING_RATES[row.grade];
+      return { weldingCost };
+    });
+  }, [weldingRows]);
+
+  // ── Aggregate summary — labor, overhead, profit calculated ONCE ──────────
+  const summary = useMemo(() => {
+    let totalMaterialCost = 0;
+    let totalWeight = 0;
+    let totalRawWeight = 0;
+    for (const c of matCalcs) {
+      if (c) {
+        totalMaterialCost += c.materialCost;
+        totalWeight += c.totalWeight;
+        totalRawWeight += c.rawWeight;
+      }
+    }
+    let weldingCost = 0;
+    for (const c of weldCalcs) {
+      if (c) weldingCost += c.weldingCost;
+    }
+    const laborCost = totalWeight * laborRate;
+    const overhead = (totalMaterialCost + laborCost + weldingCost) * 0.05;
+    const profit =
+      (totalMaterialCost + laborCost + weldingCost + overhead) * 0.1;
+    const transportTotal = transportIncluded ? transportCost : 0;
+    const totalFinalPrice =
+      totalMaterialCost +
+      laborCost +
+      weldingCost +
+      overhead +
+      profit +
+      transportTotal;
+    const totalProductWeight = totalRawWeight;
+    const ratePerKg =
+      totalProductWeight > 0 ? totalFinalPrice / totalProductWeight : 0;
+    return {
+      totalMaterialCost,
+      laborCost,
+      weldingCost,
+      overhead,
+      profit,
+      transportTotal,
+      totalFinalPrice,
+      totalProductWeight,
+      ratePerKg,
+    };
+  }, [matCalcs, weldCalcs, laborRate, transportIncluded, transportCost]);
+
+  // ── Row mutations ────────────────────────────────────────────────────────
+  const addMaterialRow = () => {
+    if (materials.length === 0) return;
+    setMaterialRows((prev) => [
+      ...prev,
+      { rowId: nextId(), materialId: materials[0].id, lengthMeters: 0 },
+    ]);
+  };
+
+  const addWeldingRow = () => {
+    setWeldingRows((prev) => [
+      ...prev,
+      { rowId: nextId(), grade: "SS304", weightKg: 0 },
+    ]);
+  };
+
+  const removeMaterialRow = (rowId: string) =>
+    setMaterialRows((prev) => prev.filter((r) => r.rowId !== rowId));
+
+  const removeWeldingRow = (rowId: string) =>
+    setWeldingRows((prev) => prev.filter((r) => r.rowId !== rowId));
+
+  const updateMaterialRow = (rowId: string, patch: Partial<MaterialRow>) =>
+    setMaterialRows((prev) =>
+      prev.map((r) => (r.rowId === rowId ? { ...r, ...patch } : r)),
+    );
+
+  const updateWeldingRow = (rowId: string, patch: Partial<WeldingRow>) =>
+    setWeldingRows((prev) =>
+      prev.map((r) => (r.rowId === rowId ? { ...r, ...patch } : r)),
+    );
+
+  // ── Form reset ───────────────────────────────────────────────────────────
+  const resetForm = () => {
+    setJobName("");
+    setLaborRate(100);
+    setTransportIncluded(false);
+    setTransportCost(0);
+    setDispatchQty(1);
+    setCustomerId("none");
+    setMaterialRows([]);
+    setWeldingRows([]);
+    setEditingJobId(null);
+  };
+
+  // ── Build save payload ───────────────────────────────────────────────────
+  const buildPayload = () => {
+    const jobLineItems: JobLineItem[] = matCalcs
+      .map((c, i) => {
+        if (!c) return null;
+        return {
+          materialId: materialRows[i].materialId,
+          lengthMeters: materialRows[i].lengthMeters,
+          rawWeight: c.rawWeight,
+          totalWeight: c.totalWeight,
+          finalPrice: c.materialCost,
+        };
+      })
+      .filter((x): x is JobLineItem => x !== null);
+
+    const weldingLineItems: WeldingLineItem[] = weldingRows.map((row, i) => ({
+      grade: row.grade,
+      weightKg: row.weightKg,
+      ratePerKg: WELDING_RATES[row.grade],
+      finalPrice: weldCalcs[i]?.weldingCost ?? 0,
+    }));
+
+    return {
+      name: jobName.trim(),
+      laborRate,
+      transportIncluded,
+      transportCost: transportIncluded ? transportCost : 0,
+      dispatchQty: transportIncluded ? dispatchQty : 1,
+      customerId: customerId === "none" ? null : customerId,
+      jobLineItems,
+      weldingLineItems,
+      totalFinalPrice: summary.totalFinalPrice,
+      totalProductWeight: summary.totalProductWeight,
+      ratePerKg: summary.ratePerKg,
+    };
+  };
+
+  const validate = () => {
+    if (!jobName.trim()) {
+      toast.error("Please enter a job name");
+      return false;
+    }
+    if (materialRows.length === 0 && weldingRows.length === 0) {
+      toast.error("Add at least one material or welding item");
+      return false;
+    }
+    return true;
+  };
+
+  const handleSaveJob = async () => {
+    if (!validate()) return;
+    try {
+      await saveJobMutation.mutateAsync(buildPayload());
+      toast.success("Job saved successfully!");
+      resetForm();
+    } catch {
+      toast.error("Failed to save job");
+    }
+  };
+
+  const handleUpdateJob = async () => {
+    if (!validate() || !editingJobId) return;
+    try {
+      await updateJobMutation.mutateAsync({
+        id: editingJobId,
+        ...buildPayload(),
+      });
+      toast.success("Job updated successfully!");
+      resetForm();
+    } catch {
+      toast.error("Failed to update job");
+    }
+  };
+
+  const difficulty = laborLabel(laborRate);
+  const hasAnyCalcs = matCalcs.some(Boolean) || weldCalcs.some(Boolean);
+  const isMutating = saveJobMutation.isPending || updateJobMutation.isPending;
+
+  return (
+    <div className="flex flex-col gap-6">
+      <div className="flex items-start justify-between" ref={formTopRef}>
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Job Calculator</h1>
+          <nav className="flex items-center gap-1.5 mt-1 text-sm text-muted-foreground">
+            <span>Home</span>
+            <span>/</span>
+            <span className="text-foreground font-medium">Job Calculator</span>
+          </nav>
+        </div>
+        {editingJobId && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="flex items-center gap-2 bg-amber-50 border border-amber-200 text-amber-700 rounded-lg px-3 py-2 text-sm font-medium"
+          >
+            <Pencil size={14} />
+            Editing job
+          </motion.div>
+        )}
+      </div>
+
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 items-start">
+        {/* Calculator form */}
+        <div className="xl:col-span-2 flex flex-col gap-5">
+          {/* Job Setup */}
+          <Card className="shadow-card border-border">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Briefcase size={16} className="text-primary" />
+                Job Setup
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="job-name">Job Name</Label>
+                  <Input
+                    id="job-name"
+                    placeholder="e.g. SS Railing - Phase 1"
+                    value={jobName}
+                    onChange={(e) => setJobName(e.target.value)}
+                    data-ocid="job.input"
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="job-customer">Customer</Label>
+                  <Select value={customerId} onValueChange={setCustomerId}>
+                    <SelectTrigger
+                      id="job-customer"
+                      data-ocid="job.customer.select"
+                    >
+                      <SelectValue placeholder="No Customer" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">No Customer</SelectItem>
+                      {customers.map((c) => (
+                        <SelectItem key={c.id} value={c.id}>
+                          {c.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label className="flex items-center gap-2">
+                  Labour Rate
+                  <Badge
+                    className={`text-xs border-0 rounded-full px-2 py-0 ${difficulty.color}`}
+                  >
+                    {difficulty.label}
+                  </Badge>
+                  <span className="ml-auto font-semibold text-foreground">
+                    ₹{laborRate}/kg
+                  </span>
+                </Label>
+                <Slider
+                  min={80}
+                  max={150}
+                  step={5}
+                  value={[laborRate]}
+                  onValueChange={([v]) => setLaborRate(v)}
+                  className="mt-1"
+                  data-ocid="job.labor_rate.toggle"
+                />
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span>₹80</span>
+                  <span>₹150</span>
+                </div>
+              </div>
+
+              {/* Transport section */}
+              <div className="flex flex-col gap-3">
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="transport"
+                    checked={transportIncluded}
+                    onCheckedChange={(v) => setTransportIncluded(v === true)}
+                    data-ocid="job.transport.checkbox"
+                  />
+                  <Label
+                    htmlFor="transport"
+                    className="flex items-center gap-1.5 cursor-pointer font-normal"
+                  >
+                    <Truck size={14} className="text-muted-foreground" />
+                    Include transport in this job's scope
+                  </Label>
+                </div>
+
+                <AnimatePresence>
+                  {transportIncluded && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: "auto" }}
+                      exit={{ opacity: 0, height: 0 }}
+                      transition={{ duration: 0.2 }}
+                      className="overflow-hidden"
+                    >
+                      <div className="grid grid-cols-2 gap-3 p-3 rounded-lg bg-muted/50 border border-border ml-6">
+                        <div className="flex flex-col gap-1.5">
+                          <Label
+                            htmlFor="dispatch-qty"
+                            className="text-xs text-muted-foreground"
+                          >
+                            Dispatch Qty (units/order)
+                          </Label>
+                          <Input
+                            id="dispatch-qty"
+                            type="number"
+                            min={1}
+                            step={1}
+                            placeholder="1"
+                            value={dispatchQty || ""}
+                            onChange={(e) =>
+                              setDispatchQty(
+                                Math.max(
+                                  1,
+                                  Math.round(
+                                    Number.parseFloat(e.target.value) || 1,
+                                  ),
+                                ),
+                              )
+                            }
+                            className="h-8 text-sm font-mono"
+                            data-ocid="job.dispatch_qty.input"
+                          />
+                        </div>
+                        <div className="flex flex-col gap-1.5">
+                          <Label
+                            htmlFor="transport-cost"
+                            className="text-xs text-muted-foreground"
+                          >
+                            Transport Cost / Order (₹)
+                          </Label>
+                          <Input
+                            id="transport-cost"
+                            type="number"
+                            min={0}
+                            step={0.01}
+                            placeholder="0.00"
+                            value={transportCost || ""}
+                            onChange={(e) =>
+                              setTransportCost(
+                                Number.parseFloat(e.target.value) || 0,
+                              )
+                            }
+                            className="h-8 text-sm font-mono"
+                            data-ocid="job.transport_cost.input"
+                          />
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Material Line Items */}
+          <Card className="shadow-card border-border">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Package size={16} className="text-primary" />
+                  Material Line Items
+                </CardTitle>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="gap-1.5 h-8 text-xs"
+                  onClick={addMaterialRow}
+                  disabled={materialsLoading || materials.length === 0}
+                  data-ocid="job.add_material.button"
+                >
+                  <Plus size={13} />
+                  Add Material
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {materialRows.length === 0 ? (
+                <div
+                  className="flex flex-col items-center justify-center py-10 text-center rounded-lg border border-dashed border-border"
+                  data-ocid="job.material.empty_state"
+                >
+                  <Package
+                    size={32}
+                    className="text-muted-foreground/30 mb-2"
+                  />
+                  <p className="text-sm text-muted-foreground">
+                    No materials added yet
+                  </p>
+                  <p className="text-xs text-muted-foreground/60 mt-0.5">
+                    Click "Add Material" to begin
+                  </p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-muted/50 hover:bg-muted/50">
+                        <TableHead className="text-xs font-semibold uppercase tracking-wide w-48">
+                          Material
+                        </TableHead>
+                        <TableHead className="text-xs font-semibold uppercase tracking-wide w-28">
+                          Length (m)
+                        </TableHead>
+                        <TableHead className="text-xs font-semibold uppercase tracking-wide">
+                          Raw Wt (kg)
+                        </TableHead>
+                        <TableHead className="text-xs font-semibold uppercase tracking-wide">
+                          Total Wt (kg)
+                        </TableHead>
+                        <TableHead className="text-xs font-semibold uppercase tracking-wide text-right">
+                          Mat. Cost
+                        </TableHead>
+                        <TableHead className="w-10" />
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      <AnimatePresence mode="popLayout">
+                        {materialRows.map((row, idx) => {
+                          const calc = matCalcs[idx];
+                          return (
+                            <motion.tr
+                              key={row.rowId}
+                              initial={{ opacity: 0, y: 4 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              exit={{ opacity: 0 }}
+                              transition={{ duration: 0.15 }}
+                              className="border-b border-border/60"
+                              data-ocid={`job.material.item.${idx + 1}`}
+                            >
+                              <TableCell className="py-2">
+                                <Select
+                                  value={row.materialId}
+                                  onValueChange={(v) =>
+                                    updateMaterialRow(row.rowId, {
+                                      materialId: v,
+                                    })
+                                  }
+                                >
+                                  <SelectTrigger
+                                    className="h-8 text-xs"
+                                    data-ocid={`job.material.select.${idx + 1}`}
+                                  >
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {materialsLoading ? (
+                                      <SelectItem value="loading" disabled>
+                                        Loading…
+                                      </SelectItem>
+                                    ) : (
+                                      materials.map((m) => (
+                                        <SelectItem key={m.id} value={m.id}>
+                                          {m.grade} · {m.materialType} ·{" "}
+                                          {m.size}
+                                        </SelectItem>
+                                      ))
+                                    )}
+                                  </SelectContent>
+                                </Select>
+                              </TableCell>
+                              <TableCell className="py-2">
+                                <Input
+                                  type="number"
+                                  min={0}
+                                  step={0.01}
+                                  placeholder="0.00"
+                                  value={row.lengthMeters || ""}
+                                  onChange={(e) =>
+                                    updateMaterialRow(row.rowId, {
+                                      lengthMeters:
+                                        Number.parseFloat(e.target.value) || 0,
+                                    })
+                                  }
+                                  className="h-8 text-xs font-mono"
+                                  data-ocid={`job.material.length.input.${idx + 1}`}
+                                />
+                              </TableCell>
+                              <TableCell className="text-xs font-mono py-2 text-muted-foreground">
+                                {calc ? fmt(calc.rawWeight) : "—"}
+                              </TableCell>
+                              <TableCell className="text-xs font-mono py-2 text-muted-foreground">
+                                {calc ? fmt(calc.totalWeight) : "—"}
+                              </TableCell>
+                              <TableCell className="text-xs font-mono py-2 text-right font-semibold">
+                                {calc ? `₹${fmt(calc.materialCost)}` : "—"}
+                              </TableCell>
+                              <TableCell className="py-2">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7 text-destructive hover:bg-destructive/10"
+                                  onClick={() => removeMaterialRow(row.rowId)}
+                                  data-ocid={`job.material.delete_button.${idx + 1}`}
+                                >
+                                  <Trash2 size={13} />
+                                </Button>
+                              </TableCell>
+                            </motion.tr>
+                          );
+                        })}
+                      </AnimatePresence>
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+              {matCalcs.some(Boolean) && (
+                <div className="mt-3 pt-3 border-t border-border">
+                  <p className="text-xs text-muted-foreground font-medium">
+                    Formula: Total Wt = Raw × 1.12 · Labour, Overhead &amp;
+                    Profit calculated once on total job
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Welding Line Items */}
+          <Card className="shadow-card border-border">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Wrench size={16} className="text-primary" />
+                  Welding Materials
+                </CardTitle>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="gap-1.5 h-8 text-xs"
+                  onClick={addWeldingRow}
+                  data-ocid="job.add_welding.button"
+                >
+                  <Plus size={13} />
+                  Add Welding
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {weldingRows.length === 0 ? (
+                <div
+                  className="flex flex-col items-center justify-center py-8 text-center rounded-lg border border-dashed border-border"
+                  data-ocid="job.welding.empty_state"
+                >
+                  <Wrench size={28} className="text-muted-foreground/30 mb-2" />
+                  <p className="text-sm text-muted-foreground">
+                    No welding items
+                  </p>
+                  <p className="text-xs text-muted-foreground/60 mt-0.5">
+                    SS304 @ ₹650/kg · SS310 @ ₹1,250/kg
+                  </p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-muted/50 hover:bg-muted/50">
+                        <TableHead className="text-xs font-semibold uppercase tracking-wide w-40">
+                          Grade
+                        </TableHead>
+                        <TableHead className="text-xs font-semibold uppercase tracking-wide w-36">
+                          Weight (kg)
+                        </TableHead>
+                        <TableHead className="text-xs font-semibold uppercase tracking-wide">
+                          Rate (₹/kg)
+                        </TableHead>
+                        <TableHead className="text-xs font-semibold uppercase tracking-wide text-right">
+                          Welding Cost
+                        </TableHead>
+                        <TableHead className="w-10" />
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      <AnimatePresence mode="popLayout">
+                        {weldingRows.map((row, idx) => {
+                          const calc = weldCalcs[idx];
+                          return (
+                            <motion.tr
+                              key={row.rowId}
+                              initial={{ opacity: 0, y: 4 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              exit={{ opacity: 0 }}
+                              transition={{ duration: 0.15 }}
+                              className="border-b border-border/60"
+                              data-ocid={`job.welding.item.${idx + 1}`}
+                            >
+                              <TableCell className="py-2">
+                                <Select
+                                  value={row.grade}
+                                  onValueChange={(v) =>
+                                    updateWeldingRow(row.rowId, {
+                                      grade: v as "SS304" | "SS310",
+                                    })
+                                  }
+                                >
+                                  <SelectTrigger
+                                    className="h-8 text-xs"
+                                    data-ocid={`job.welding.grade.select.${idx + 1}`}
+                                  >
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="SS304">
+                                      SS304 — ₹650/kg
+                                    </SelectItem>
+                                    <SelectItem value="SS310">
+                                      SS310 — ₹1,250/kg
+                                    </SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </TableCell>
+                              <TableCell className="py-2">
+                                <Input
+                                  type="number"
+                                  min={0}
+                                  step={0.01}
+                                  placeholder="0.00"
+                                  value={row.weightKg || ""}
+                                  onChange={(e) =>
+                                    updateWeldingRow(row.rowId, {
+                                      weightKg:
+                                        Number.parseFloat(e.target.value) || 0,
+                                    })
+                                  }
+                                  className="h-8 text-xs font-mono"
+                                  data-ocid={`job.welding.weight.input.${idx + 1}`}
+                                />
+                              </TableCell>
+                              <TableCell className="text-xs font-mono py-2 text-muted-foreground">
+                                ₹{fmt(WELDING_RATES[row.grade])}
+                              </TableCell>
+                              <TableCell className="text-xs font-mono py-2 text-right font-semibold">
+                                {calc ? `₹${fmt(calc.weldingCost)}` : "—"}
+                              </TableCell>
+                              <TableCell className="py-2">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7 text-destructive hover:bg-destructive/10"
+                                  onClick={() => removeWeldingRow(row.rowId)}
+                                  data-ocid={`job.welding.delete_button.${idx + 1}`}
+                                >
+                                  <Trash2 size={13} />
+                                </Button>
+                              </TableCell>
+                            </motion.tr>
+                          );
+                        })}
+                      </AnimatePresence>
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Summary sticky card */}
+        <div className="xl:col-span-1">
+          <div className="sticky top-20 flex flex-col gap-4">
+            <Card className="shadow-card border-border bg-card">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Calculator size={16} className="text-primary" />
+                  Job Summary
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="flex flex-col gap-4">
+                <div className="flex flex-col gap-3">
+                  <div
+                    className="flex flex-col gap-0.5 p-3 rounded-lg bg-primary/10 border border-primary/20"
+                    data-ocid="job.total_price.card"
+                  >
+                    <span className="text-xs text-muted-foreground uppercase tracking-wide font-medium">
+                      Total Final Price
+                    </span>
+                    <span className="text-2xl font-bold text-primary tabular-nums">
+                      ₹{fmt(summary.totalFinalPrice)}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div
+                      className="flex flex-col gap-0.5 p-3 rounded-lg bg-muted border border-border"
+                      data-ocid="job.product_weight.card"
+                    >
+                      <span className="text-xs text-muted-foreground uppercase tracking-wide font-medium leading-tight">
+                        Approx Weight
+                      </span>
+                      <span className="text-lg font-bold tabular-nums">
+                        {fmt(summary.totalProductWeight)}
+                        <span className="text-xs font-normal text-muted-foreground ml-1">
+                          kg
+                        </span>
+                      </span>
+                    </div>
+                    <div
+                      className="flex flex-col gap-0.5 p-3 rounded-lg bg-muted border border-border"
+                      data-ocid="job.rate_per_kg.card"
+                    >
+                      <span className="text-xs text-muted-foreground uppercase tracking-wide font-medium leading-tight">
+                        Rate/kg
+                      </span>
+                      <span className="text-lg font-bold tabular-nums">
+                        ₹{fmt(summary.ratePerKg)}
+                        <span className="text-xs font-normal text-muted-foreground ml-1">
+                          /kg
+                        </span>
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <Separator />
+
+                {/* Cost Breakdown */}
+                <div className="flex flex-col gap-2">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                    Cost Breakdown
+                  </p>
+
+                  {!hasAnyCalcs ? (
+                    <p className="text-xs text-muted-foreground italic">
+                      Add items above to see breakdown
+                    </p>
+                  ) : (
+                    <>
+                      {matCalcs.map((c, i) => {
+                        if (!c) return null;
+                        return (
+                          <div
+                            key={materialRows[i].rowId}
+                            className="flex justify-between text-xs py-0.5"
+                          >
+                            <span className="text-muted-foreground truncate pr-2">
+                              {c.mat.grade} · {c.mat.materialType} ·{" "}
+                              {c.mat.size}
+                            </span>
+                            <span className="font-mono font-medium shrink-0">
+                              ₹{fmt(c.materialCost)}
+                            </span>
+                          </div>
+                        );
+                      })}
+
+                      <div className="mt-1 pt-2 border-t border-border/60 flex flex-col gap-1.5">
+                        <div className="flex justify-between text-xs">
+                          <span className="text-muted-foreground font-medium">
+                            Total Material Cost
+                          </span>
+                          <span className="font-mono">
+                            ₹{fmt(summary.totalMaterialCost)}
+                          </span>
+                        </div>
+                        <div className="flex justify-between text-xs">
+                          <span className="text-muted-foreground">
+                            Labour (₹{laborRate}/kg)
+                          </span>
+                          <span className="font-mono">
+                            ₹{fmt(summary.laborCost)}
+                          </span>
+                        </div>
+                        {summary.weldingCost > 0 && (
+                          <div className="flex justify-between text-xs">
+                            <span className="text-muted-foreground">
+                              Welding Total
+                            </span>
+                            <span className="font-mono">
+                              ₹{fmt(summary.weldingCost)}
+                            </span>
+                          </div>
+                        )}
+                        <div className="flex justify-between text-xs">
+                          <span className="text-muted-foreground">
+                            Overhead (5%)
+                          </span>
+                          <span className="font-mono">
+                            ₹{fmt(summary.overhead)}
+                          </span>
+                        </div>
+                        <div className="flex justify-between text-xs">
+                          <span className="text-muted-foreground">
+                            Profit (10%)
+                          </span>
+                          <span className="font-mono">
+                            ₹{fmt(summary.profit)}
+                          </span>
+                        </div>
+                        {transportIncluded && summary.transportTotal > 0 && (
+                          <div className="flex justify-between text-xs">
+                            <span className="text-muted-foreground flex items-center gap-1">
+                              <Truck size={11} />
+                              Transport (qty: {dispatchQty})
+                            </span>
+                            <span className="font-mono">
+                              ₹{fmt(summary.transportTotal)}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+
+                      <Separator className="my-0.5" />
+
+                      <div className="flex justify-between text-sm font-bold">
+                        <span>Total</span>
+                        <span className="font-mono text-primary">
+                          ₹{fmt(summary.totalFinalPrice)}
+                        </span>
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                <Separator />
+
+                {editingJobId ? (
+                  <div className="flex flex-col gap-2">
+                    <Button
+                      className="w-full gap-2"
+                      onClick={handleUpdateJob}
+                      disabled={isMutating}
+                      data-ocid="job.submit_button"
+                    >
+                      {isMutating ? (
+                        <Loader2 size={15} className="animate-spin" />
+                      ) : (
+                        <Save size={15} />
+                      )}
+                      {isMutating ? "Updating…" : "Update Job"}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="w-full gap-2"
+                      onClick={resetForm}
+                      disabled={isMutating}
+                      data-ocid="job.cancel_button"
+                    >
+                      <X size={15} />
+                      Cancel Edit
+                    </Button>
+                  </div>
+                ) : (
+                  <Button
+                    className="w-full gap-2"
+                    onClick={handleSaveJob}
+                    disabled={isMutating}
+                    data-ocid="job.submit_button"
+                  >
+                    {isMutating ? (
+                      <Loader2 size={15} className="animate-spin" />
+                    ) : (
+                      <Wand2 size={15} />
+                    )}
+                    {isMutating ? "Saving…" : "Save Job"}
+                  </Button>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

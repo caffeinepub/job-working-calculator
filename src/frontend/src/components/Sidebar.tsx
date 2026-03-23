@@ -1,51 +1,48 @@
 import { cn } from "@/lib/utils";
 import {
-  BarChart2,
   Briefcase,
   Calculator,
+  History,
   LayoutDashboard,
   Package,
   Users,
 } from "lucide-react";
 
+export type AppPage =
+  | "dashboard"
+  | "rawMaterials"
+  | "jobCalculator"
+  | "jobHistory"
+  | "customers";
+
 type NavItem = {
   label: string;
   icon: React.ReactNode;
-  active?: boolean;
-  comingSoon?: boolean;
-  href?: string;
+  page: AppPage;
 };
 
 const navItems: NavItem[] = [
   {
     label: "Dashboard",
     icon: <LayoutDashboard size={18} />,
-    href: "#",
+    page: "dashboard",
   },
+  { label: "Job History", icon: <History size={18} />, page: "jobHistory" },
   {
-    label: "Raw Materials",
-    icon: <Package size={18} />,
-    active: true,
-    href: "#",
-  },
-  {
-    label: "Job Costing",
+    label: "Job Calculator",
     icon: <Briefcase size={18} />,
-    comingSoon: true,
+    page: "jobCalculator",
   },
-  {
-    label: "Labor",
-    icon: <Users size={18} />,
-    comingSoon: true,
-  },
-  {
-    label: "Reports",
-    icon: <BarChart2 size={18} />,
-    comingSoon: true,
-  },
+  { label: "Raw Materials", icon: <Package size={18} />, page: "rawMaterials" },
+  { label: "Customers", icon: <Users size={18} />, page: "customers" },
 ];
 
-export function Sidebar() {
+interface SidebarProps {
+  currentPage: AppPage;
+  onNavigate: (page: AppPage) => void;
+}
+
+export function Sidebar({ currentPage, onNavigate }: SidebarProps) {
   return (
     <aside className="fixed left-0 top-0 h-screen w-60 flex flex-col bg-sidebar border-r border-sidebar-border z-30">
       {/* Brand */}
@@ -63,28 +60,26 @@ export function Sidebar() {
         className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto"
         data-ocid="sidebar.panel"
       >
-        {navItems.map((item) => (
-          <div
-            key={item.label}
-            className={cn(
-              "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors",
-              item.active
-                ? "bg-sidebar-primary text-sidebar-primary-foreground"
-                : item.comingSoon
-                  ? "text-sidebar-foreground/40 cursor-not-allowed"
-                  : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground cursor-pointer",
-            )}
-            data-ocid={`nav.${item.label.toLowerCase().replace(/\s+/g, "_")}.link`}
-          >
-            <span className="shrink-0">{item.icon}</span>
-            <span className="flex-1">{item.label}</span>
-            {item.comingSoon && (
-              <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-sidebar-foreground/10 text-sidebar-foreground/50">
-                Soon
-              </span>
-            )}
-          </div>
-        ))}
+        {navItems.map((item) => {
+          const isActive = item.page === currentPage;
+          return (
+            <button
+              key={item.label}
+              type="button"
+              onClick={() => onNavigate(item.page)}
+              className={cn(
+                "w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors cursor-pointer",
+                isActive
+                  ? "bg-sidebar-primary text-sidebar-primary-foreground"
+                  : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+              )}
+              data-ocid={`nav.${item.page}.link`}
+            >
+              <span className="shrink-0">{item.icon}</span>
+              <span className="flex-1 text-left">{item.label}</span>
+            </button>
+          );
+        })}
       </nav>
 
       {/* Footer */}

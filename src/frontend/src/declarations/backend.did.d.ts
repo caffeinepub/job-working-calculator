@@ -10,6 +10,31 @@ import type { ActorMethod } from '@icp-sdk/core/agent';
 import type { IDL } from '@icp-sdk/core/candid';
 import type { Principal } from '@icp-sdk/core/principal';
 
+export interface Customer {
+  'id' : string,
+  'name' : string,
+  'createdAt' : bigint,
+  'email' : string,
+  'address' : string,
+  'phone' : string,
+}
+export interface Job {
+  'id' : string,
+  'name' : string,
+  'createdAt' : bigint,
+  'dispatchQty' : number,
+  'transportIncluded' : boolean,
+  'transportCost' : number,
+  'customerId' : [] | [string],
+  'laborRate' : number,
+}
+export interface JobLineItem {
+  'finalPrice' : number,
+  'lengthMeters' : number,
+  'rawWeight' : number,
+  'materialId' : string,
+  'totalWeight' : number,
+}
 export interface RawMaterial {
   'id' : string,
   'createdAt' : bigint,
@@ -19,14 +44,84 @@ export interface RawMaterial {
   'materialType' : string,
   'weightPerMeter' : number,
 }
+export interface SavedJob {
+  'job' : Job,
+  'customerName' : [] | [string],
+  'weldingLineItems' : Array<WeldingLineItem>,
+  'ratePerKg' : number,
+  'jobLineItems' : Array<JobLineItem>,
+  'totalProductWeight' : number,
+  'totalFinalPrice' : number,
+}
+export interface UserProfile { 'name' : string }
+export type UserRole = { 'admin' : null } |
+  { 'user' : null } |
+  { 'guest' : null };
+export interface WeldingLineItem {
+  'finalPrice' : number,
+  'ratePerKg' : number,
+  'weightKg' : number,
+  'grade' : string,
+}
 export interface _SERVICE {
+  '_initializeAccessControlWithSecret' : ActorMethod<[string], undefined>,
+  'addCustomer' : ActorMethod<[string, string, string, string], Customer>,
   'addMaterial' : ActorMethod<
     [string, string, string, number, number],
     RawMaterial
   >,
+  'assignCallerUserRole' : ActorMethod<[Principal, UserRole], undefined>,
+  'deleteCustomer' : ActorMethod<[string], boolean>,
+  'deleteJob' : ActorMethod<[string], boolean>,
   'deleteMaterial' : ActorMethod<[string], boolean>,
+  'getCallerUserProfile' : ActorMethod<[], [] | [UserProfile]>,
+  'getCallerUserRole' : ActorMethod<[], UserRole>,
+  'getCustomer' : ActorMethod<[string], Customer>,
+  'getCustomers' : ActorMethod<[], Array<Customer>>,
+  'getJob' : ActorMethod<[string], SavedJob>,
+  'getJobs' : ActorMethod<[], Array<SavedJob>>,
   'getMaterial' : ActorMethod<[string], RawMaterial>,
   'getMaterials' : ActorMethod<[], Array<RawMaterial>>,
+  'getUserProfile' : ActorMethod<[Principal], [] | [UserProfile]>,
+  'isCallerAdmin' : ActorMethod<[], boolean>,
+  'saveCallerUserProfile' : ActorMethod<[UserProfile], undefined>,
+  'saveJob' : ActorMethod<
+    [
+      string,
+      number,
+      boolean,
+      [] | [string],
+      number,
+      number,
+      Array<JobLineItem>,
+      Array<WeldingLineItem>,
+      number,
+      number,
+      number,
+    ],
+    SavedJob
+  >,
+  'updateCustomer' : ActorMethod<
+    [string, string, string, string, string],
+    Customer
+  >,
+  'updateJob' : ActorMethod<
+    [
+      string,
+      string,
+      number,
+      boolean,
+      [] | [string],
+      number,
+      number,
+      Array<JobLineItem>,
+      Array<WeldingLineItem>,
+      number,
+      number,
+      number,
+    ],
+    SavedJob
+  >,
   'updateMaterial' : ActorMethod<
     [string, string, string, string, number, number],
     RawMaterial

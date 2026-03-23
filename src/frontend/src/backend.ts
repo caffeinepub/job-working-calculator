@@ -89,6 +89,21 @@ export class ExternalBlob {
         return this;
     }
 }
+export interface WeldingLineItem {
+    finalPrice: number;
+    ratePerKg: number;
+    weightKg: number;
+    grade: string;
+}
+export interface SavedJob {
+    job: Job;
+    customerName?: string;
+    weldingLineItems: Array<WeldingLineItem>;
+    ratePerKg: number;
+    jobLineItems: Array<JobLineItem>;
+    totalProductWeight: number;
+    totalFinalPrice: number;
+}
 export interface RawMaterial {
     id: string;
     createdAt: bigint;
@@ -98,15 +113,94 @@ export interface RawMaterial {
     materialType: string;
     weightPerMeter: number;
 }
+export interface JobLineItem {
+    finalPrice: number;
+    lengthMeters: number;
+    rawWeight: number;
+    materialId: string;
+    totalWeight: number;
+}
+export interface Job {
+    id: string;
+    name: string;
+    createdAt: bigint;
+    dispatchQty: number;
+    transportIncluded: boolean;
+    transportCost: number;
+    customerId?: string;
+    laborRate: number;
+}
+export interface Customer {
+    id: string;
+    name: string;
+    createdAt: bigint;
+    email: string;
+    address: string;
+    phone: string;
+}
+export interface UserProfile {
+    name: string;
+}
+export enum UserRole {
+    admin = "admin",
+    user = "user",
+    guest = "guest"
+}
 export interface backendInterface {
+    _initializeAccessControlWithSecret(userSecret: string): Promise<void>;
+    addCustomer(name: string, phone: string, email: string, address: string): Promise<Customer>;
     addMaterial(grade: string, materialType: string, size: string, weightPerMeter: number, currentRate: number): Promise<RawMaterial>;
+    assignCallerUserRole(user: Principal, role: UserRole): Promise<void>;
+    deleteCustomer(id: string): Promise<boolean>;
+    deleteJob(id: string): Promise<boolean>;
     deleteMaterial(id: string): Promise<boolean>;
+    getCallerUserProfile(): Promise<UserProfile | null>;
+    getCallerUserRole(): Promise<UserRole>;
+    getCustomer(id: string): Promise<Customer>;
+    getCustomers(): Promise<Array<Customer>>;
+    getJob(id: string): Promise<SavedJob>;
+    getJobs(): Promise<Array<SavedJob>>;
     getMaterial(id: string): Promise<RawMaterial>;
     getMaterials(): Promise<Array<RawMaterial>>;
+    getUserProfile(user: Principal): Promise<UserProfile | null>;
+    isCallerAdmin(): Promise<boolean>;
+    saveCallerUserProfile(profile: UserProfile): Promise<void>;
+    saveJob(name: string, laborRate: number, transportIncluded: boolean, customerId: string | null, transportCost: number, dispatchQty: number, jobLineItems: Array<JobLineItem>, weldingLineItems: Array<WeldingLineItem>, totalFinalPrice: number, totalProductWeight: number, ratePerKg: number): Promise<SavedJob>;
+    updateCustomer(id: string, name: string, phone: string, email: string, address: string): Promise<Customer>;
+    updateJob(id: string, name: string, laborRate: number, transportIncluded: boolean, customerId: string | null, transportCost: number, dispatchQty: number, jobLineItems: Array<JobLineItem>, weldingLineItems: Array<WeldingLineItem>, totalFinalPrice: number, totalProductWeight: number, ratePerKg: number): Promise<SavedJob>;
     updateMaterial(id: string, grade: string, materialType: string, size: string, weightPerMeter: number, currentRate: number): Promise<RawMaterial>;
 }
+import type { Job as _Job, JobLineItem as _JobLineItem, SavedJob as _SavedJob, UserProfile as _UserProfile, UserRole as _UserRole, WeldingLineItem as _WeldingLineItem } from "./declarations/backend.did.d.ts";
 export class Backend implements backendInterface {
     constructor(private actor: ActorSubclass<_SERVICE>, private _uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, private _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, private processError?: (error: unknown) => never){}
+    async _initializeAccessControlWithSecret(arg0: string): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor._initializeAccessControlWithSecret(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor._initializeAccessControlWithSecret(arg0);
+            return result;
+        }
+    }
+    async addCustomer(arg0: string, arg1: string, arg2: string, arg3: string): Promise<Customer> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.addCustomer(arg0, arg1, arg2, arg3);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.addCustomer(arg0, arg1, arg2, arg3);
+            return result;
+        }
+    }
     async addMaterial(arg0: string, arg1: string, arg2: string, arg3: number, arg4: number): Promise<RawMaterial> {
         if (this.processError) {
             try {
@@ -118,6 +212,48 @@ export class Backend implements backendInterface {
             }
         } else {
             const result = await this.actor.addMaterial(arg0, arg1, arg2, arg3, arg4);
+            return result;
+        }
+    }
+    async assignCallerUserRole(arg0: Principal, arg1: UserRole): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.assignCallerUserRole(arg0, to_candid_UserRole_n1(this._uploadFile, this._downloadFile, arg1));
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.assignCallerUserRole(arg0, to_candid_UserRole_n1(this._uploadFile, this._downloadFile, arg1));
+            return result;
+        }
+    }
+    async deleteCustomer(arg0: string): Promise<boolean> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.deleteCustomer(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.deleteCustomer(arg0);
+            return result;
+        }
+    }
+    async deleteJob(arg0: string): Promise<boolean> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.deleteJob(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.deleteJob(arg0);
             return result;
         }
     }
@@ -133,6 +269,90 @@ export class Backend implements backendInterface {
         } else {
             const result = await this.actor.deleteMaterial(arg0);
             return result;
+        }
+    }
+    async getCallerUserProfile(): Promise<UserProfile | null> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getCallerUserProfile();
+                return from_candid_opt_n3(this._uploadFile, this._downloadFile, result);
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getCallerUserProfile();
+            return from_candid_opt_n3(this._uploadFile, this._downloadFile, result);
+        }
+    }
+    async getCallerUserRole(): Promise<UserRole> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getCallerUserRole();
+                return from_candid_UserRole_n4(this._uploadFile, this._downloadFile, result);
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getCallerUserRole();
+            return from_candid_UserRole_n4(this._uploadFile, this._downloadFile, result);
+        }
+    }
+    async getCustomer(arg0: string): Promise<Customer> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getCustomer(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getCustomer(arg0);
+            return result;
+        }
+    }
+    async getCustomers(): Promise<Array<Customer>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getCustomers();
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getCustomers();
+            return result;
+        }
+    }
+    async getJob(arg0: string): Promise<SavedJob> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getJob(arg0);
+                return from_candid_SavedJob_n6(this._uploadFile, this._downloadFile, result);
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getJob(arg0);
+            return from_candid_SavedJob_n6(this._uploadFile, this._downloadFile, result);
+        }
+    }
+    async getJobs(): Promise<Array<SavedJob>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getJobs();
+                return from_candid_vec_n11(this._uploadFile, this._downloadFile, result);
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getJobs();
+            return from_candid_vec_n11(this._uploadFile, this._downloadFile, result);
         }
     }
     async getMaterial(arg0: string): Promise<RawMaterial> {
@@ -163,6 +383,90 @@ export class Backend implements backendInterface {
             return result;
         }
     }
+    async getUserProfile(arg0: Principal): Promise<UserProfile | null> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getUserProfile(arg0);
+                return from_candid_opt_n3(this._uploadFile, this._downloadFile, result);
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getUserProfile(arg0);
+            return from_candid_opt_n3(this._uploadFile, this._downloadFile, result);
+        }
+    }
+    async isCallerAdmin(): Promise<boolean> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.isCallerAdmin();
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.isCallerAdmin();
+            return result;
+        }
+    }
+    async saveCallerUserProfile(arg0: UserProfile): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.saveCallerUserProfile(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.saveCallerUserProfile(arg0);
+            return result;
+        }
+    }
+    async saveJob(arg0: string, arg1: number, arg2: boolean, arg3: string | null, arg4: number, arg5: number, arg6: Array<JobLineItem>, arg7: Array<WeldingLineItem>, arg8: number, arg9: number, arg10: number): Promise<SavedJob> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.saveJob(arg0, arg1, arg2, to_candid_opt_n12(this._uploadFile, this._downloadFile, arg3), arg4, arg5, arg6, arg7, arg8, arg9, arg10);
+                return from_candid_SavedJob_n6(this._uploadFile, this._downloadFile, result);
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.saveJob(arg0, arg1, arg2, to_candid_opt_n12(this._uploadFile, this._downloadFile, arg3), arg4, arg5, arg6, arg7, arg8, arg9, arg10);
+            return from_candid_SavedJob_n6(this._uploadFile, this._downloadFile, result);
+        }
+    }
+    async updateCustomer(arg0: string, arg1: string, arg2: string, arg3: string, arg4: string): Promise<Customer> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.updateCustomer(arg0, arg1, arg2, arg3, arg4);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.updateCustomer(arg0, arg1, arg2, arg3, arg4);
+            return result;
+        }
+    }
+    async updateJob(arg0: string, arg1: string, arg2: number, arg3: boolean, arg4: string | null, arg5: number, arg6: number, arg7: Array<JobLineItem>, arg8: Array<WeldingLineItem>, arg9: number, arg10: number, arg11: number): Promise<SavedJob> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.updateJob(arg0, arg1, arg2, arg3, to_candid_opt_n12(this._uploadFile, this._downloadFile, arg4), arg5, arg6, arg7, arg8, arg9, arg10, arg11);
+                return from_candid_SavedJob_n6(this._uploadFile, this._downloadFile, result);
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.updateJob(arg0, arg1, arg2, arg3, to_candid_opt_n12(this._uploadFile, this._downloadFile, arg4), arg5, arg6, arg7, arg8, arg9, arg10, arg11);
+            return from_candid_SavedJob_n6(this._uploadFile, this._downloadFile, result);
+        }
+    }
     async updateMaterial(arg0: string, arg1: string, arg2: string, arg3: string, arg4: number, arg5: number): Promise<RawMaterial> {
         if (this.processError) {
             try {
@@ -177,6 +481,111 @@ export class Backend implements backendInterface {
             return result;
         }
     }
+}
+function from_candid_Job_n8(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: _Job): Job {
+    return from_candid_record_n9(_uploadFile, _downloadFile, value);
+}
+function from_candid_SavedJob_n6(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: _SavedJob): SavedJob {
+    return from_candid_record_n7(_uploadFile, _downloadFile, value);
+}
+function from_candid_UserRole_n4(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: _UserRole): UserRole {
+    return from_candid_variant_n5(_uploadFile, _downloadFile, value);
+}
+function from_candid_opt_n10(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: [] | [string]): string | null {
+    return value.length === 0 ? null : value[0];
+}
+function from_candid_opt_n3(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: [] | [_UserProfile]): UserProfile | null {
+    return value.length === 0 ? null : value[0];
+}
+function from_candid_record_n7(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
+    job: _Job;
+    customerName: [] | [string];
+    weldingLineItems: Array<_WeldingLineItem>;
+    ratePerKg: number;
+    jobLineItems: Array<_JobLineItem>;
+    totalProductWeight: number;
+    totalFinalPrice: number;
+}): {
+    job: Job;
+    customerName?: string;
+    weldingLineItems: Array<WeldingLineItem>;
+    ratePerKg: number;
+    jobLineItems: Array<JobLineItem>;
+    totalProductWeight: number;
+    totalFinalPrice: number;
+} {
+    return {
+        job: from_candid_Job_n8(_uploadFile, _downloadFile, value.job),
+        customerName: record_opt_to_undefined(from_candid_opt_n10(_uploadFile, _downloadFile, value.customerName)),
+        weldingLineItems: value.weldingLineItems,
+        ratePerKg: value.ratePerKg,
+        jobLineItems: value.jobLineItems,
+        totalProductWeight: value.totalProductWeight,
+        totalFinalPrice: value.totalFinalPrice
+    };
+}
+function from_candid_record_n9(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
+    id: string;
+    name: string;
+    createdAt: bigint;
+    dispatchQty: number;
+    transportIncluded: boolean;
+    transportCost: number;
+    customerId: [] | [string];
+    laborRate: number;
+}): {
+    id: string;
+    name: string;
+    createdAt: bigint;
+    dispatchQty: number;
+    transportIncluded: boolean;
+    transportCost: number;
+    customerId?: string;
+    laborRate: number;
+} {
+    return {
+        id: value.id,
+        name: value.name,
+        createdAt: value.createdAt,
+        dispatchQty: value.dispatchQty,
+        transportIncluded: value.transportIncluded,
+        transportCost: value.transportCost,
+        customerId: record_opt_to_undefined(from_candid_opt_n10(_uploadFile, _downloadFile, value.customerId)),
+        laborRate: value.laborRate
+    };
+}
+function from_candid_variant_n5(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
+    admin: null;
+} | {
+    user: null;
+} | {
+    guest: null;
+}): UserRole {
+    return "admin" in value ? UserRole.admin : "user" in value ? UserRole.user : "guest" in value ? UserRole.guest : value;
+}
+function from_candid_vec_n11(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: Array<_SavedJob>): Array<SavedJob> {
+    return value.map((x)=>from_candid_SavedJob_n6(_uploadFile, _downloadFile, x));
+}
+function to_candid_UserRole_n1(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: UserRole): _UserRole {
+    return to_candid_variant_n2(_uploadFile, _downloadFile, value);
+}
+function to_candid_opt_n12(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: string | null): [] | [string] {
+    return value === null ? candid_none() : candid_some(value);
+}
+function to_candid_variant_n2(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: UserRole): {
+    admin: null;
+} | {
+    user: null;
+} | {
+    guest: null;
+} {
+    return value == UserRole.admin ? {
+        admin: null
+    } : value == UserRole.user ? {
+        user: null
+    } : value == UserRole.guest ? {
+        guest: null
+    } : value;
 }
 export interface CreateActorOptions {
     agent?: Agent;
