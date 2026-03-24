@@ -1,15 +1,17 @@
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+// import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Toaster } from "@/components/ui/sonner";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Calculator, ChevronDown, LogIn, LogOut } from "lucide-react";
+import { Calculator, Menu } from "lucide-react";
 import { useState } from "react";
 import type { SavedJob } from "./backend";
 import type { AppPage } from "./components/Sidebar";
 import { Sidebar } from "./components/Sidebar";
-import { useInternetIdentity } from "./hooks/useInternetIdentity";
+// import { useInternetIdentity } from "./hooks/useInternetIdentity"; // Auth bypassed temporarily
 import { Customers } from "./pages/Customers";
 import { Dashboard } from "./pages/Dashboard";
+import { ExportData } from "./pages/ExportData";
+import { Formulas } from "./pages/Formulas";
 import { JobCalculator } from "./pages/JobCalculator";
 import { JobHistory } from "./pages/JobHistory";
 import { RawMaterials } from "./pages/RawMaterials";
@@ -26,8 +28,13 @@ const PAGE_TITLES: Record<AppPage, string> = {
   jobCalculator: "Job Calculator",
   jobHistory: "Job History",
   customers: "Customers",
+  formulas: "Formulas & Settings",
+  export: "Export & Backup",
 };
 
+/*
+ * LOGIN SCREEN — commented out until auth issues are resolved.
+ *
 function LoginScreen() {
   const { login, isLoggingIn } = useInternetIdentity();
   return (
@@ -58,11 +65,11 @@ function LoginScreen() {
             ) : (
               <LogIn size={16} />
             )}
-            {isLoggingIn ? "Signing in…" : "Sign In"}
+            {isLoggingIn ? "Signing in\u2026" : "Sign In"}
           </Button>
         </div>
         <p className="text-center text-xs text-muted-foreground mt-6">
-          © {new Date().getFullYear()}{" "}
+          &copy; {new Date().getFullYear()}{" "}
           <a
             href={`https://caffeine.ai?utm_source=caffeine-footer&utm_medium=referral&utm_content=${encodeURIComponent(window.location.hostname)}`}
             target="_blank"
@@ -76,27 +83,27 @@ function LoginScreen() {
     </div>
   );
 }
+*/
 
 function AppShell() {
-  const { isLoginSuccess, isInitializing, identity, clear } =
-    useInternetIdentity();
+  // Auth check bypassed temporarily — uncomment when login is fixed
+  // const { isLoginSuccess, isInitializing, identity, clear } = useInternetIdentity();
+  //
+  // if (isInitializing) {
+  //   return (
+  //     <div className="min-h-screen bg-background flex items-center justify-center">
+  //       <div className="w-8 h-8 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+  //     </div>
+  //   );
+  // }
+  //
+  // if (!isLoginSuccess) {
+  //   return <LoginScreen />;
+  // }
+
   const [currentPage, setCurrentPage] = useState<AppPage>("dashboard");
   const [editingJob, setEditingJob] = useState<SavedJob | null>(null);
-
-  if (isInitializing) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
-      </div>
-    );
-  }
-
-  if (!isLoginSuccess) {
-    return <LoginScreen />;
-  }
-
-  const principalStr = identity?.getPrincipal().toString() ?? "";
-  const shortPrincipal = principalStr ? `${principalStr.slice(0, 5)}…` : "User";
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const handleEditJob = (savedJob: SavedJob) => {
     setEditingJob(savedJob);
@@ -104,38 +111,70 @@ function AppShell() {
   };
 
   return (
-    <div className="flex h-screen bg-background">
-      <Sidebar currentPage={currentPage} onNavigate={setCurrentPage} />
+    <div className="flex h-screen bg-background overflow-hidden">
+      {/* Desktop sidebar — fixed, always visible on md+ */}
+      <div className="hidden md:flex md:fixed md:left-0 md:top-0 md:h-screen md:z-30">
+        <Sidebar currentPage={currentPage} onNavigate={setCurrentPage} />
+      </div>
 
-      {/* Main area */}
-      <div className="flex-1 flex flex-col ml-60 min-h-screen">
-        {/* Top header */}
-        <header className="sticky top-0 z-20 bg-card border-b border-border h-14 flex items-center justify-between px-6 shrink-0 shadow-xs">
-          <div className="text-sm font-medium text-muted-foreground">
-            {PAGE_TITLES[currentPage]}
+      {/* Mobile sidebar overlay */}
+      {mobileMenuOpen && (
+        <div className="fixed inset-0 z-40 flex md:hidden">
+          {/* Backdrop */}
+          <button
+            type="button"
+            className="absolute inset-0 bg-black/50"
+            onClick={() => setMobileMenuOpen(false)}
+            aria-label="Close menu"
+          />
+          {/* Drawer */}
+          <div className="relative z-50 flex h-full">
+            <Sidebar
+              currentPage={currentPage}
+              onNavigate={setCurrentPage}
+              onClose={() => setMobileMenuOpen(false)}
+            />
           </div>
+        </div>
+      )}
+
+      {/* Main area — min-w-0 prevents flex child from overflowing parent */}
+      <div className="flex-1 flex flex-col min-h-0 min-w-0 md:ml-60">
+        {/* Top header */}
+        <header className="sticky top-0 z-20 bg-card border-b border-border h-14 flex items-center justify-between px-4 md:px-6 shrink-0 shadow-xs">
           <div className="flex items-center gap-3">
+            {/* Hamburger — mobile only */}
             <Button
               variant="ghost"
-              size="sm"
-              className="flex items-center gap-2 px-2.5 py-1.5"
-              onClick={() => clear()}
-              data-ocid="header.logout.button"
+              size="icon"
+              className="md:hidden h-8 w-8"
+              onClick={() => setMobileMenuOpen(true)}
+              aria-label="Open menu"
+              data-ocid="header.open_modal_button"
             >
-              <Avatar className="w-6 h-6">
-                <AvatarFallback className="text-xs bg-primary text-primary-foreground font-semibold">
-                  {shortPrincipal[0]?.toUpperCase() ?? "U"}
-                </AvatarFallback>
-              </Avatar>
-              <span className="text-sm font-medium">{shortPrincipal}</span>
-              <ChevronDown size={13} className="text-muted-foreground" />
-              <LogOut size={13} className="text-muted-foreground" />
+              <Menu size={20} />
             </Button>
+            {/* Page title */}
+            <div className="flex items-center gap-2">
+              <div className="hidden md:flex w-6 h-6 rounded-md bg-primary items-center justify-center shrink-0">
+                <Calculator size={12} className="text-primary-foreground" />
+              </div>
+              <span className="text-sm font-medium text-muted-foreground">
+                {PAGE_TITLES[currentPage]}
+              </span>
+            </div>
+          </div>
+
+          {/* Right side — auth commented out */}
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground/50 hidden sm:inline">
+              JobCalc Pro
+            </span>
           </div>
         </header>
 
-        {/* Page content */}
-        <main className="flex-1 overflow-y-auto p-6">
+        {/* Page content — overflow-auto handles both axes; tables scroll horizontally inside */}
+        <main className="flex-1 overflow-auto overflow-x-hidden p-4 md:p-6">
           {currentPage === "dashboard" && (
             <Dashboard onNavigate={setCurrentPage} />
           )}
@@ -150,6 +189,8 @@ function AppShell() {
             <JobHistory onEditJob={handleEditJob} />
           )}
           {currentPage === "customers" && <Customers />}
+          {currentPage === "formulas" && <Formulas />}
+          {currentPage === "export" && <ExportData />}
         </main>
       </div>
     </div>

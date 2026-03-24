@@ -1,9 +1,9 @@
 /**
  * Weight Per Meter calculator for common steel sections.
- * Steel density: 7850 kg/m³
+ * Steel density: 7930 kg/m³ (SS304)
  */
 
-const STEEL_DENSITY = 7850; // kg/m³
+const STEEL_DENSITY = 7930; // kg/m³ — SS304 density
 
 export type MaterialType =
   | "Round Bar"
@@ -14,7 +14,8 @@ export type MaterialType =
   | "Channel (ISMC)"
   | "I-Beam (ISMB)"
   | "Plate"
-  | "Sheet";
+  | "Sheet"
+  | "Wire Mesh";
 
 export const MATERIAL_TYPES: MaterialType[] = [
   "Round Bar",
@@ -26,7 +27,12 @@ export const MATERIAL_TYPES: MaterialType[] = [
   "I-Beam (ISMB)",
   "Plate",
   "Sheet",
+  "Wire Mesh",
 ];
+
+export function isWireMesh(type: string): boolean {
+  return type === "Wire Mesh";
+}
 
 export function getSizeHint(type: MaterialType): string {
   switch (type) {
@@ -48,6 +54,8 @@ export function getSizeHint(type: MaterialType): string {
       return "e.g. 2000x8 mm (width x thickness)";
     case "Sheet":
       return "e.g. 1250x2 mm (width x thickness)";
+    case "Wire Mesh":
+      return "e.g. 12x12x3 mm (gap_w x gap_h x rod_dia)";
     default:
       return "";
   }
@@ -164,6 +172,36 @@ export function calculateWeightPerMeter(
         if (Number.isNaN(depth)) return null;
         if (ISMB_TABLE[depth]) return ISMB_TABLE[depth];
         return depth * 0.12;
+      }
+
+      case "Wire Mesh": {
+        // size format: "gapW x gapH x dia" in mm
+        const parts = cleaned.split(/[xX*]/);
+        if (parts.length < 3) return null;
+        const gapW = parseFloat2(parts[0]);
+        const gapH = parseFloat2(parts[1]);
+        const dia = parseFloat2(parts[2]);
+        if (
+          Number.isNaN(gapW) ||
+          Number.isNaN(gapH) ||
+          Number.isNaN(dia) ||
+          gapW <= 0 ||
+          gapH <= 0 ||
+          dia <= 0
+        )
+          return null;
+        // Rods per meter in each direction (pitch = gap + dia)
+        const countX = 1000 / (gapW + dia);
+        const countY = 1000 / (gapH + dia);
+        // Weight per m²: each rod in X direction spans 1m length, each in Y spans 1m
+        // Volume per m² = (countX + countY) * (π/4) * (dia/1000)² * 1m
+        const weightPerM2 =
+          (countX + countY) * (Math.PI / 4) * (dia / 1000) ** 2 * STEEL_DENSITY;
+        // Apply crimp factor (1.03) for crimped wire mesh — accounts for extra wire length due to crimping
+        const CRIMP_FACTOR = 1.03;
+        // Convert kg/m² to kg/sqft (1 m² = 10.764 sqft)
+        const weightPerSqft = (weightPerM2 * CRIMP_FACTOR) / 10.764;
+        return weightPerSqft;
       }
 
       default:

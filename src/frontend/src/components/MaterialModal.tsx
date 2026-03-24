@@ -19,17 +19,19 @@ import { Switch } from "@/components/ui/switch";
 import { Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { RawMaterial } from "../backend";
+import { useMaterialOptions } from "../hooks/useMaterialOptions";
 import {
   MATERIAL_TYPES,
   type MaterialType,
   calculateWeightPerMeter,
   formatWeight,
   getSizeHint,
+  isWireMesh,
 } from "../utils/weightCalculator";
 
 type FormData = {
   grade: string;
-  materialType: MaterialType;
+  materialType: MaterialType | "";
   size: string;
   weightPerMeter: string;
   currentRate: string;
@@ -52,7 +54,7 @@ type Props = {
 
 const DEFAULT_FORM: FormData = {
   grade: "",
-  materialType: "Round Bar",
+  materialType: "",
   size: "",
   weightPerMeter: "",
   currentRate: "",
@@ -65,6 +67,9 @@ function ModalContent({
   editItem,
   isSaving,
 }: Omit<Props, "open">) {
+  const { grades, customTypes, builtInTypes } = useMaterialOptions();
+  const allTypes = [...builtInTypes, ...customTypes];
+
   const [form, setForm] = useState<FormData>(() => {
     if (editItem) {
       return {
@@ -82,10 +87,15 @@ function ModalContent({
   const materialType = form.materialType;
   const size = form.size;
   const manualOverride = form.manualOverride;
+  const isMesh = materialType
+    ? isWireMesh(materialType as MaterialType)
+    : false;
+  const typeSelected = materialType !== "";
 
   useEffect(() => {
+    if (!materialType) return;
     if (manualOverride) return;
-    const calc = calculateWeightPerMeter(materialType, size);
+    const calc = calculateWeightPerMeter(materialType as MaterialType, size);
     if (calc !== null) {
       setForm((prev) => ({ ...prev, weightPerMeter: formatWeight(calc) }));
     } else {
@@ -98,6 +108,7 @@ function ModalContent({
     const r = Number.parseFloat(form.currentRate);
     if (
       !form.grade.trim() ||
+      !form.materialType ||
       !form.size.trim() ||
       Number.isNaN(w) ||
       Number.isNaN(r)
@@ -114,11 +125,17 @@ function ModalContent({
 
   const isValid =
     form.grade.trim() &&
+    form.materialType &&
     form.size.trim() &&
     form.weightPerMeter &&
     !Number.isNaN(Number.parseFloat(form.weightPerMeter)) &&
     form.currentRate &&
     !Number.isNaN(Number.parseFloat(form.currentRate));
+
+  // For MATERIAL_TYPES filtering — include all types that match built-in MaterialType
+  const selectableTypes = allTypes.filter(
+    (t) => MATERIAL_TYPES.includes(t as MaterialType) || true,
+  );
 
   return (
     <>
@@ -131,23 +148,29 @@ function ModalContent({
       <div className="space-y-4 py-2">
         {/* Grade */}
         <div className="space-y-1.5">
-          <Label htmlFor="grade" className="text-sm font-medium">
-            Grade
-          </Label>
-          <Input
-            id="grade"
-            placeholder="e.g. IS 2062, ASTM A36"
-            value={form.grade}
-            onChange={(e) => setForm((p) => ({ ...p, grade: e.target.value }))}
-            data-ocid="material.grade.input"
-          />
+          <Label className="text-sm font-medium">Grade</Label>
+          <Select
+            value={form.grade || undefined}
+            onValueChange={(v) => setForm((p) => ({ ...p, grade: v }))}
+          >
+            <SelectTrigger data-ocid="material.grade.select">
+              <SelectValue placeholder="Select grade" />
+            </SelectTrigger>
+            <SelectContent>
+              {grades.map((g) => (
+                <SelectItem key={g} value={g}>
+                  {g}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         {/* Type */}
         <div className="space-y-1.5">
           <Label className="text-sm font-medium">Material Type</Label>
           <Select
-            value={form.materialType}
+            value={form.materialType || undefined}
             onValueChange={(v) =>
               setForm((p) => ({
                 ...p,
@@ -158,10 +181,10 @@ function ModalContent({
             }
           >
             <SelectTrigger data-ocid="material.type.select">
-              <SelectValue />
+              <SelectValue placeholder="Select type" />
             </SelectTrigger>
             <SelectContent>
-              {MATERIAL_TYPES.map((t) => (
+              {selectableTypes.map((t) => (
                 <SelectItem key={t} value={t}>
                   {t}
                 </SelectItem>
@@ -177,21 +200,34 @@ function ModalContent({
           </Label>
           <Input
             id="size"
-            placeholder={getSizeHint(form.materialType)}
+            placeholder={
+              typeSelected
+                ? getSizeHint(form.materialType as MaterialType)
+                : "Select a type first"
+            }
             value={form.size}
             onChange={(e) => setForm((p) => ({ ...p, size: e.target.value }))}
+            disabled={!typeSelected}
+            className={!typeSelected ? "bg-muted text-muted-foreground" : ""}
             data-ocid="material.size.input"
           />
-          <p className="text-xs text-muted-foreground">
-            {getSizeHint(form.materialType)}
-          </p>
+          {typeSelected && (
+            <p className="text-xs text-muted-foreground">
+              {getSizeHint(form.materialType as MaterialType)}
+            </p>
+          )}
+          {!typeSelected && (
+            <p className="text-xs text-muted-foreground">
+              Select a material type first
+            </p>
+          )}
         </div>
 
-        {/* Weight Per Meter */}
+        {/* Weight Per Meter / Per Sqft */}
         <div className="space-y-1.5">
           <div className="flex items-center justify-between">
             <Label htmlFor="weight" className="text-sm font-medium">
-              Weight Per Meter (kg/m)
+              {isMesh ? "Weight Per Sqft (kg/sqft)" : "Weight Per Meter (kg/m)"}
             </Label>
             <div className="flex items-center gap-2">
               <span className="text-xs text-muted-foreground">
@@ -202,6 +238,7 @@ function ModalContent({
                 onCheckedChange={(v) =>
                   setForm((p) => ({ ...p, manualOverride: v }))
                 }
+                disabled={!typeSelected}
                 data-ocid="material.manual_override.switch"
               />
             </div>
@@ -210,28 +247,35 @@ function ModalContent({
             id="weight"
             type="number"
             step="0.001"
-            placeholder="Auto-calculated"
+            placeholder={
+              typeSelected ? "Auto-calculated" : "Select a type first"
+            }
             value={form.weightPerMeter}
             onChange={(e) =>
               setForm((p) => ({ ...p, weightPerMeter: e.target.value }))
             }
-            disabled={!form.manualOverride}
+            disabled={!typeSelected || !form.manualOverride}
             className={
-              !form.manualOverride ? "bg-muted text-muted-foreground" : ""
+              !typeSelected || !form.manualOverride
+                ? "bg-muted text-muted-foreground"
+                : ""
             }
             data-ocid="material.weight.input"
           />
-          {!form.manualOverride && !form.weightPerMeter && form.size && (
-            <p className="text-xs text-muted-foreground">
-              Enter a valid size to auto-calculate
-            </p>
-          )}
+          {typeSelected &&
+            !form.manualOverride &&
+            !form.weightPerMeter &&
+            form.size && (
+              <p className="text-xs text-muted-foreground">
+                Enter a valid size to auto-calculate
+              </p>
+            )}
         </div>
 
         {/* Current Rate */}
         <div className="space-y-1.5">
           <Label htmlFor="rate" className="text-sm font-medium">
-            Current Rate (₹/kg)
+            {isMesh ? "Current Rate (₹/sqft)" : "Current Rate (₹/kg)"}
           </Label>
           <Input
             id="rate"

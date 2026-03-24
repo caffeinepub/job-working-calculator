@@ -39,7 +39,7 @@ import {
   useMaterials,
   useUpdateMaterial,
 } from "../hooks/useQueries";
-import { MATERIAL_TYPES } from "../utils/weightCalculator";
+import { MATERIAL_TYPES, isWireMesh } from "../utils/weightCalculator";
 
 type SortKey = keyof Pick<
   RawMaterial,
@@ -57,6 +57,7 @@ const TYPE_COLORS: Record<string, string> = {
   "I-Beam (ISMB)": "bg-pink-100 text-pink-700",
   Plate: "bg-slate-100 text-slate-700",
   Sheet: "bg-teal-100 text-teal-700",
+  "Wire Mesh": "bg-rose-100 text-rose-700",
 };
 
 const SKELETON_IDS = ["sk1", "sk2", "sk3", "sk4", "sk5"];
@@ -127,7 +128,8 @@ export function RawMaterials() {
   const [sortKey, setSortKey] = useState<SortKey>("grade");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
 
-  const displayData = materials.length > 0 ? materials : SAMPLE_WITH_IDS;
+  const isSampleData = materials.length === 0;
+  const displayData = !isSampleData ? materials : SAMPLE_WITH_IDS;
 
   const grades = useMemo(
     () => Array.from(new Set(displayData.map((m) => m.grade))).sort(),
@@ -246,6 +248,30 @@ export function RawMaterials() {
         </Button>
       </div>
 
+      {/* Sample data banner */}
+      {isSampleData && !isLoading && (
+        <div className="flex items-center justify-between gap-4 p-4 rounded-lg border border-amber-300 bg-amber-50 text-amber-900">
+          <div className="flex items-center gap-2">
+            <span className="text-amber-600 shrink-0">⚠️</span>
+            <p className="text-sm font-medium">
+              You're viewing sample data. Add your first material to get
+              started.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setEditItem(null);
+              setModalOpen(true);
+            }}
+            className="shrink-0 text-xs font-semibold bg-amber-600 text-white px-3 py-1.5 rounded-md hover:bg-amber-700 transition-colors"
+            data-ocid="material.sample_banner.button"
+          >
+            Add Material
+          </button>
+        </div>
+      )}
+
       {/* Main card */}
       <div className="bg-card rounded-lg shadow-card border border-border">
         {/* Card header */}
@@ -338,8 +364,8 @@ export function RawMaterials() {
                       ["grade", "Grade"],
                       ["materialType", "Type"],
                       ["size", "Size"],
-                      ["weightPerMeter", "Weight/Meter (kg/m)"],
-                      ["currentRate", "Current Rate (₹/kg)"],
+                      ["weightPerMeter", "Weight/Unit"],
+                      ["currentRate", "Rate"],
                     ] as [SortKey, string][]
                   ).map(([key, label]) => (
                     <TableHead
@@ -409,10 +435,16 @@ export function RawMaterials() {
                           {m.size}
                         </TableCell>
                         <TableCell className="text-sm font-mono">
-                          {m.weightPerMeter.toFixed(3)}
+                          {m.weightPerMeter.toFixed(3)}{" "}
+                          <span className="text-xs text-muted-foreground">
+                            {isWireMesh(m.materialType) ? "kg/sqft" : "kg/m"}
+                          </span>
                         </TableCell>
                         <TableCell className="text-sm font-mono">
-                          ₹{m.currentRate.toFixed(2)}
+                          ₹{m.currentRate.toFixed(2)}{" "}
+                          <span className="text-xs text-muted-foreground">
+                            {isWireMesh(m.materialType) ? "/sqft" : "/kg"}
+                          </span>
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-1">

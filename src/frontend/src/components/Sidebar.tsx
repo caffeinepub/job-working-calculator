@@ -2,6 +2,8 @@ import { cn } from "@/lib/utils";
 import {
   Briefcase,
   Calculator,
+  Download,
+  FlaskConical,
   History,
   LayoutDashboard,
   Package,
@@ -13,7 +15,9 @@ export type AppPage =
   | "rawMaterials"
   | "jobCalculator"
   | "jobHistory"
-  | "customers";
+  | "customers"
+  | "formulas"
+  | "export";
 
 type NavItem = {
   label: string;
@@ -29,24 +33,36 @@ const navItems: NavItem[] = [
   },
   { label: "Job History", icon: <History size={18} />, page: "jobHistory" },
   {
-    label: "Job Calculator",
+    label: "SS Fabrication",
     icon: <Briefcase size={18} />,
     page: "jobCalculator",
   },
   { label: "Raw Materials", icon: <Package size={18} />, page: "rawMaterials" },
   { label: "Customers", icon: <Users size={18} />, page: "customers" },
+  {
+    label: "Formulas & Settings",
+    icon: <FlaskConical size={18} />,
+    page: "formulas",
+  },
+  { label: "Export & Backup", icon: <Download size={18} />, page: "export" },
 ];
 
 interface SidebarProps {
   currentPage: AppPage;
   onNavigate: (page: AppPage) => void;
+  onClose?: () => void;
 }
 
-export function Sidebar({ currentPage, onNavigate }: SidebarProps) {
+export function Sidebar({ currentPage, onNavigate, onClose }: SidebarProps) {
+  const handleNavigate = (page: AppPage) => {
+    onNavigate(page);
+    onClose?.();
+  };
+
   return (
-    <aside className="fixed left-0 top-0 h-screen w-60 flex flex-col bg-sidebar border-r border-sidebar-border z-30">
+    <aside className="flex flex-col h-full w-60 bg-sidebar border-r border-sidebar-border">
       {/* Brand */}
-      <div className="flex items-center gap-2.5 px-5 py-5 border-b border-sidebar-border">
+      <div className="flex items-center gap-2.5 px-5 py-5 border-b border-sidebar-border shrink-0">
         <div className="w-8 h-8 rounded-md bg-sidebar-primary flex items-center justify-center shrink-0">
           <Calculator size={16} className="text-sidebar-primary-foreground" />
         </div>
@@ -66,7 +82,7 @@ export function Sidebar({ currentPage, onNavigate }: SidebarProps) {
             <button
               key={item.label}
               type="button"
-              onClick={() => onNavigate(item.page)}
+              onClick={() => handleNavigate(item.page)}
               className={cn(
                 "w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors cursor-pointer",
                 isActive
@@ -83,9 +99,9 @@ export function Sidebar({ currentPage, onNavigate }: SidebarProps) {
       </nav>
 
       {/* Footer */}
-      <div className="px-5 py-4 border-t border-sidebar-border">
+      <div className="px-5 py-4 border-t border-sidebar-border shrink-0">
         <p className="text-sidebar-foreground/40 text-xs">
-          © {new Date().getFullYear()}{" "}
+          &copy; {new Date().getFullYear()}{" "}
           <a
             href={`https://caffeine.ai?utm_source=caffeine-footer&utm_medium=referral&utm_content=${encodeURIComponent(window.location.hostname)}`}
             target="_blank"

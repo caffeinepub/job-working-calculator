@@ -7,7 +7,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Briefcase, IndianRupee, Package, TrendingUp } from "lucide-react";
+import { Briefcase, Package } from "lucide-react";
 import { useMemo } from "react";
 import type { AppPage } from "../components/Sidebar";
 import { useJobs, useMaterials } from "../hooks/useQueries";
@@ -40,12 +40,6 @@ export function Dashboard({ onNavigate }: DashboardProps) {
       const d = bigIntToDate(sj.job.createdAt);
       return d.getMonth() === thisMonth && d.getFullYear() === thisYear;
     });
-    const revenueThisMonth = jobsThisMonth.reduce(
-      (acc, sj) => acc + sj.totalFinalPrice,
-      0,
-    );
-    const totalRevenue = jobs.reduce((acc, sj) => acc + sj.totalFinalPrice, 0);
-
     const matUsage: Record<string, number> = {};
     for (const sj of jobs) {
       for (const item of sj.jobLineItems) {
@@ -70,8 +64,6 @@ export function Dashboard({ onNavigate }: DashboardProps) {
 
     return {
       jobsThisMonthCount: jobsThisMonth.length,
-      revenueThisMonth,
-      totalRevenue,
       totalJobs: jobs.length,
       topMaterials,
       recentJobs,
@@ -85,20 +77,6 @@ export function Dashboard({ onNavigate }: DashboardProps) {
       value: stats.jobsThisMonthCount.toString(),
       icon: <Briefcase size={20} className="text-primary" />,
       sub: "completed jobs",
-    },
-    {
-      key: "rev-month",
-      title: "Revenue This Month",
-      value: `₹${fmt(stats.revenueThisMonth)}`,
-      icon: <IndianRupee size={20} className="text-emerald-600" />,
-      sub: "this month",
-    },
-    {
-      key: "rev-total",
-      title: "Total Revenue",
-      value: `₹${fmt(stats.totalRevenue)}`,
-      icon: <TrendingUp size={20} className="text-blue-600" />,
-      sub: "all time",
     },
     {
       key: "jobs-total",
@@ -118,7 +96,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {statCards.map((card) => (
           <Card key={card.key} className="shadow-card border-border">
             <CardContent className="pt-5 pb-4">
