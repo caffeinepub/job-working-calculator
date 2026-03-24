@@ -16,11 +16,16 @@ export const Customer = IDL.Record({
   'address' : IDL.Text,
   'phone' : IDL.Text,
 });
+export const RateHistoryEntry = IDL.Record({
+  'changedAt' : IDL.Int,
+  'rate' : IDL.Float64,
+});
 export const RawMaterial = IDL.Record({
   'id' : IDL.Text,
   'createdAt' : IDL.Int,
   'size' : IDL.Text,
   'currentRate' : IDL.Float64,
+  'rateHistory' : IDL.Vec(RateHistoryEntry),
   'grade' : IDL.Text,
   'materialType' : IDL.Text,
   'weightPerMeter' : IDL.Float64,
@@ -80,6 +85,7 @@ export const idlService = IDL.Service({
   'deleteCustomer' : IDL.Func([IDL.Text], [IDL.Bool], []),
   'deleteJob' : IDL.Func([IDL.Text], [IDL.Bool], []),
   'deleteMaterial' : IDL.Func([IDL.Text], [IDL.Bool], []),
+  'deleteRateHistoryEntry' : IDL.Func([IDL.Text, IDL.Nat], [RawMaterial], []),
   'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
   'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
   'getCustomer' : IDL.Func([IDL.Text], [Customer], ['query']),
@@ -153,11 +159,16 @@ export const idlFactory = ({ IDL }) => {
     'address' : IDL.Text,
     'phone' : IDL.Text,
   });
+  const RateHistoryEntry = IDL.Record({
+    'changedAt' : IDL.Int,
+    'rate' : IDL.Float64,
+  });
   const RawMaterial = IDL.Record({
     'id' : IDL.Text,
     'createdAt' : IDL.Int,
     'size' : IDL.Text,
     'currentRate' : IDL.Float64,
+    'rateHistory' : IDL.Vec(RateHistoryEntry),
     'grade' : IDL.Text,
     'materialType' : IDL.Text,
     'weightPerMeter' : IDL.Float64,
@@ -217,6 +228,7 @@ export const idlFactory = ({ IDL }) => {
     'deleteCustomer' : IDL.Func([IDL.Text], [IDL.Bool], []),
     'deleteJob' : IDL.Func([IDL.Text], [IDL.Bool], []),
     'deleteMaterial' : IDL.Func([IDL.Text], [IDL.Bool], []),
+    'deleteRateHistoryEntry' : IDL.Func([IDL.Text, IDL.Nat], [RawMaterial], []),
     'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
     'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
     'getCustomer' : IDL.Func([IDL.Text], [Customer], ['query']),

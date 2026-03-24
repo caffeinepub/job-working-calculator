@@ -42,18 +42,21 @@ import {
   Loader2,
   Pencil,
   Printer,
+  RefreshCw,
   Search,
   Trash2,
   Truck,
+  X,
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import type { SavedJob } from "../backend";
+import type { RawMaterial, SavedJob } from "../backend";
 import {
   useCustomers,
   useDeleteJob,
   useJobs,
   useMaterials,
+  useUpdateMaterial,
 } from "../hooks/useQueries";
 
 function fmt(n: number) {
@@ -90,14 +93,12 @@ function JobDetailDialog({
 }: {
   job: SavedJob;
   onClose: () => void;
-  materials: Array<{
-    id: string;
-    grade: string;
-    materialType: string;
-    size: string;
-    currentRate: number;
-  }>;
+  materials: RawMaterial[];
 }) {
+  const updateMaterialMutation = useUpdateMaterial();
+  const [showRateChecker, setShowRateChecker] = useState(false);
+  const [newRates, setNewRates] = useState<Record<string, string>>({});
+
   const handlePrint = () => window.print();
 
   const totalMaterial = job.jobLineItems.reduce(
@@ -111,6 +112,61 @@ function JobDetailDialog({
   const laborCost = job.job.laborRate * job.totalProductWeight * 1.12;
   const overhead = (totalMaterial + laborCost + totalWelding) * 0.05;
   const profit = (totalMaterial + laborCost + totalWelding + overhead) * 0.1;
+
+  // Unique materials used in this job
+  const uniqueJobMaterials = useMemo(() => {
+    const seen = new Set<string>();
+    return job.jobLineItems
+      .filter((item) => {
+        if (seen.has(item.materialId)) return false;
+        seen.add(item.materialId);
+        return true;
+      })
+      .map((item) => materials.find((m) => m.id === item.materialId))
+      .filter((m): m is RawMaterial => !!m);
+  }, [job.jobLineItems, materials]);
+
+  const openRateChecker = () => {
+    const initial: Record<string, string> = {};
+    for (const mat of uniqueJobMaterials) {
+      initial[mat.id] = String(mat.currentRate);
+    }
+    setNewRates(initial);
+    setShowRateChecker(true);
+  };
+
+  const applyRateUpdates = async () => {
+    const updates = uniqueJobMaterials.filter(
+      (mat) =>
+        newRates[mat.id] !== undefined &&
+        Number(newRates[mat.id]) !== mat.currentRate,
+    );
+
+    if (updates.length === 0) {
+      toast.info("No rate changes to apply.");
+      setShowRateChecker(false);
+      return;
+    }
+
+    try {
+      await Promise.all(
+        updates.map((mat) =>
+          updateMaterialMutation.mutateAsync({
+            id: mat.id,
+            grade: mat.grade,
+            materialType: mat.materialType,
+            size: mat.size,
+            weightPerMeter: mat.weightPerMeter,
+            currentRate: Number(newRates[mat.id]),
+          }),
+        ),
+      );
+      toast.success("Rates updated. Rate history recorded.");
+      setShowRateChecker(false);
+    } catch {
+      toast.error("Failed to update some rates. Please try again.");
+    }
+  };
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
@@ -301,6 +357,105 @@ function JobDetailDialog({
           </div>
         </div>
 
+        {/* Rate Checker Panel */}
+        {showRateChecker && (
+          <div
+            className="mt-2 rounded-lg border border-border bg-muted/20 p-4"
+            data-ocid="jobhistory.rate_checker.panel"
+          >
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold flex items-center gap-2">
+                <RefreshCw size={14} className="text-primary" />
+                Check & Update Rates
+              </h3>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6"
+                onClick={() => setShowRateChecker(false)}
+                data-ocid="jobhistory.rate_checker.close_button"
+              >
+                <X size={13} />
+              </Button>
+            </div>
+
+            {uniqueJobMaterials.length === 0 ? (
+              <p className="text-xs text-muted-foreground italic">
+                No materials linked to this job.
+              </p>
+            ) : (
+              <>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="border-b border-border">
+                        <th className="text-left pb-2 font-semibold text-muted-foreground">
+                          Material
+                        </th>
+                        <th className="text-right pb-2 font-semibold text-muted-foreground">
+                          Current Rate
+                        </th>
+                        <th className="text-right pb-2 font-semibold text-muted-foreground pl-3">
+                          New Rate
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {uniqueJobMaterials.map((mat) => (
+                        <tr key={mat.id} className="border-b border-border/40">
+                          <td className="py-2 pr-3">
+                            <span className="font-medium">
+                              {mat.grade} · {mat.materialType}
+                            </span>
+                            <span className="ml-1 text-muted-foreground">
+                              {mat.size}
+                            </span>
+                          </td>
+                          <td className="py-2 text-right font-mono">
+                            ₹{mat.currentRate.toFixed(2)}
+                          </td>
+                          <td className="py-2 pl-3">
+                            <Input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              value={newRates[mat.id] ?? ""}
+                              onChange={(e) =>
+                                setNewRates((prev) => ({
+                                  ...prev,
+                                  [mat.id]: e.target.value,
+                                }))
+                              }
+                              className="h-7 w-24 text-xs text-right ml-auto"
+                              data-ocid="jobhistory.rate_checker.input"
+                            />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="flex justify-end mt-3">
+                  <Button
+                    size="sm"
+                    onClick={applyRateUpdates}
+                    disabled={updateMaterialMutation.isPending}
+                    className="gap-2"
+                    data-ocid="jobhistory.rate_checker.submit_button"
+                  >
+                    {updateMaterialMutation.isPending ? (
+                      <Loader2 size={13} className="animate-spin" />
+                    ) : (
+                      <RefreshCw size={13} />
+                    )}
+                    Apply Rate Updates
+                  </Button>
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
         <div className="flex justify-end gap-2 pt-2 print:hidden">
           <Button
             variant="outline"
@@ -309,6 +464,17 @@ function JobDetailDialog({
           >
             Close
           </Button>
+          {!showRateChecker && job.jobLineItems.length > 0 && (
+            <Button
+              variant="outline"
+              onClick={openRateChecker}
+              className="gap-2"
+              data-ocid="jobhistory.rate_checker.open_modal_button"
+            >
+              <RefreshCw size={14} />
+              Check & Update Rates
+            </Button>
+          )}
           <Button
             onClick={handlePrint}
             className="gap-2"

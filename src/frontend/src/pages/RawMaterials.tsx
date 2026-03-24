@@ -21,6 +21,7 @@ import {
   ArrowDown,
   ArrowUp,
   ArrowUpDown,
+  Clock,
   Package,
   Pencil,
   Plus,
@@ -36,6 +37,7 @@ import { MaterialModal } from "../components/MaterialModal";
 import {
   useAddMaterial,
   useDeleteMaterial,
+  useDeleteRateHistoryEntry,
   useMaterials,
   useUpdateMaterial,
 } from "../hooks/useQueries";
@@ -69,6 +71,7 @@ const SAMPLE_MATERIALS: Omit<RawMaterial, "id" | "createdAt">[] = [
     size: "20 mm",
     weightPerMeter: 2.466,
     currentRate: 68.5,
+    rateHistory: [],
   },
   {
     grade: "IS 2062",
@@ -76,6 +79,7 @@ const SAMPLE_MATERIALS: Omit<RawMaterial, "id" | "createdAt">[] = [
     size: "50x6 mm",
     weightPerMeter: 2.355,
     currentRate: 66.0,
+    rateHistory: [],
   },
   {
     grade: "IS 1239",
@@ -83,6 +87,7 @@ const SAMPLE_MATERIALS: Omit<RawMaterial, "id" | "createdAt">[] = [
     size: "60.3x3.6 mm",
     weightPerMeter: 5.03,
     currentRate: 72.0,
+    rateHistory: [],
   },
   {
     grade: "IS 2062",
@@ -90,6 +95,7 @@ const SAMPLE_MATERIALS: Omit<RawMaterial, "id" | "createdAt">[] = [
     size: "65x65x6 mm",
     weightPerMeter: 5.8,
     currentRate: 67.5,
+    rateHistory: [],
   },
   {
     grade: "ASTM A36",
@@ -97,6 +103,7 @@ const SAMPLE_MATERIALS: Omit<RawMaterial, "id" | "createdAt">[] = [
     size: "200 mm",
     weightPerMeter: 25.4,
     currentRate: 74.0,
+    rateHistory: [],
   },
   {
     grade: "IS 2062",
@@ -104,6 +111,7 @@ const SAMPLE_MATERIALS: Omit<RawMaterial, "id" | "createdAt">[] = [
     size: "25 mm",
     weightPerMeter: 4.906,
     currentRate: 65.0,
+    rateHistory: [],
   },
 ];
 
@@ -113,11 +121,22 @@ const SAMPLE_WITH_IDS = SAMPLE_MATERIALS.map((m, i) => ({
   createdAt: BigInt(0),
 }));
 
+function formatHistoryDate(changedAt: bigint) {
+  const ms = Number(changedAt) / 1_000_000;
+  if (ms === 0) return "—";
+  return new Date(ms).toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+}
+
 export function RawMaterials() {
   const { data: materials = [], isLoading, isError } = useMaterials();
   const addMutation = useAddMaterial();
   const updateMutation = useUpdateMaterial();
   const deleteMutation = useDeleteMaterial();
+  const deleteHistoryMutation = useDeleteRateHistoryEntry();
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editItem, setEditItem] = useState<RawMaterial | null>(null);
@@ -127,6 +146,9 @@ export function RawMaterials() {
   const [filterType, setFilterType] = useState("all");
   const [sortKey, setSortKey] = useState<SortKey>("grade");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
+  const [expandedHistoryIds, setExpandedHistoryIds] = useState<Set<string>>(
+    new Set(),
+  );
 
   const isSampleData = materials.length === 0;
   const displayData = !isSampleData ? materials : SAMPLE_WITH_IDS;
@@ -171,6 +193,18 @@ export function RawMaterials() {
       setSortKey(key);
       setSortDir("asc");
     }
+  };
+
+  const toggleHistory = (id: string) => {
+    setExpandedHistoryIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
   };
 
   const SortIcon = ({ col }: { col: SortKey }) => {
@@ -218,6 +252,15 @@ export function RawMaterials() {
       setDeleteItem(null);
     } catch {
       toast.error("Failed to delete material");
+    }
+  };
+
+  const handleDeleteHistory = async (materialId: string, index: number) => {
+    try {
+      await deleteHistoryMutation.mutateAsync({ materialId, index });
+      toast.success("Rate history entry deleted");
+    } catch {
+      toast.error("Failed to delete history entry");
     }
   };
 
@@ -409,69 +452,141 @@ export function RawMaterials() {
                     </TableRow>
                   ) : (
                     filtered.map((m, idx) => (
-                      <motion.tr
-                        key={m.id}
-                        initial={{ opacity: 0, y: 6 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0 }}
-                        transition={{ duration: 0.15, delay: idx * 0.02 }}
-                        className="border-b border-border/60 hover:bg-muted/30 transition-colors"
-                        data-ocid={`material.item.${idx + 1}`}
-                      >
-                        <TableCell className="text-sm font-medium">
-                          {m.grade}
-                        </TableCell>
-                        <TableCell>
-                          <Badge
-                            variant="secondary"
-                            className={`text-xs font-medium rounded-full px-2.5 py-0.5 border-0 ${
-                              TYPE_COLORS[m.materialType] ?? ""
-                            }`}
+                      <>
+                        <motion.tr
+                          key={m.id}
+                          initial={{ opacity: 0, y: 6 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0 }}
+                          transition={{ duration: 0.15, delay: idx * 0.02 }}
+                          className="border-b border-border/60 hover:bg-muted/30 transition-colors"
+                          data-ocid={`material.item.${idx + 1}`}
+                        >
+                          <TableCell className="text-sm font-medium">
+                            {m.grade}
+                          </TableCell>
+                          <TableCell>
+                            <Badge
+                              variant="secondary"
+                              className={`text-xs font-medium rounded-full px-2.5 py-0.5 border-0 ${
+                                TYPE_COLORS[m.materialType] ?? ""
+                              }`}
+                            >
+                              {m.materialType}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-sm font-mono">
+                            {m.size}
+                          </TableCell>
+                          <TableCell className="text-sm font-mono">
+                            {m.weightPerMeter.toFixed(3)}{" "}
+                            <span className="text-xs text-muted-foreground">
+                              {isWireMesh(m.materialType) ? "kg/sqft" : "kg/m"}
+                            </span>
+                          </TableCell>
+                          <TableCell className="text-sm font-mono">
+                            ₹{m.currentRate.toFixed(2)}{" "}
+                            <span className="text-xs text-muted-foreground">
+                              {isWireMesh(m.materialType) ? "/sqft" : "/kg"}
+                            </span>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex items-center justify-end gap-1">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className={`h-8 w-8 transition-colors ${
+                                  expandedHistoryIds.has(m.id)
+                                    ? "text-primary bg-primary/10"
+                                    : "text-muted-foreground hover:text-primary hover:bg-primary/10"
+                                }`}
+                                onClick={() => toggleHistory(m.id)}
+                                title="Rate History"
+                                data-ocid={`material.history.toggle.${idx + 1}`}
+                              >
+                                <Clock size={14} />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-primary hover:text-primary hover:bg-primary/10"
+                                onClick={() => {
+                                  setEditItem(m);
+                                  setModalOpen(true);
+                                }}
+                                data-ocid={`material.edit_button.${idx + 1}`}
+                              >
+                                <Pencil size={14} />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                onClick={() => setDeleteItem(m)}
+                                data-ocid={`material.delete_button.${idx + 1}`}
+                              >
+                                <Trash2 size={14} />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </motion.tr>
+                        {expandedHistoryIds.has(m.id) && (
+                          <tr
+                            key={`history-${m.id}`}
+                            className="bg-muted/20 border-b border-border/40"
                           >
-                            {m.materialType}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-sm font-mono">
-                          {m.size}
-                        </TableCell>
-                        <TableCell className="text-sm font-mono">
-                          {m.weightPerMeter.toFixed(3)}{" "}
-                          <span className="text-xs text-muted-foreground">
-                            {isWireMesh(m.materialType) ? "kg/sqft" : "kg/m"}
-                          </span>
-                        </TableCell>
-                        <TableCell className="text-sm font-mono">
-                          ₹{m.currentRate.toFixed(2)}{" "}
-                          <span className="text-xs text-muted-foreground">
-                            {isWireMesh(m.materialType) ? "/sqft" : "/kg"}
-                          </span>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex items-center justify-end gap-1">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 text-primary hover:text-primary hover:bg-primary/10"
-                              onClick={() => {
-                                setEditItem(m);
-                                setModalOpen(true);
-                              }}
-                              data-ocid={`material.edit_button.${idx + 1}`}
-                            >
-                              <Pencil size={14} />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-                              onClick={() => setDeleteItem(m)}
-                              data-ocid={`material.delete_button.${idx + 1}`}
-                            >
-                              <Trash2 size={14} />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </motion.tr>
+                            <td colSpan={6} className="px-6 py-3">
+                              <div className="flex items-center gap-2 mb-2">
+                                <Clock
+                                  size={13}
+                                  className="text-muted-foreground"
+                                />
+                                <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                                  Rate History — {m.grade} {m.materialType}{" "}
+                                  {m.size}
+                                </span>
+                              </div>
+                              {m.rateHistory.length === 0 ? (
+                                <p className="text-xs text-muted-foreground italic pl-1">
+                                  No rate history yet.
+                                </p>
+                              ) : (
+                                <div className="flex flex-col gap-1">
+                                  {m.rateHistory.map((entry, histIdx) => (
+                                    <div
+                                      key={`${entry.rate}-${String(entry.changedAt)}`}
+                                      className="flex items-center justify-between rounded-md bg-background border border-border/60 px-3 py-1.5"
+                                    >
+                                      <div className="flex items-center gap-4">
+                                        <span className="text-xs font-mono font-semibold">
+                                          ₹{entry.rate.toFixed(2)}/kg
+                                        </span>
+                                        <span className="text-xs text-muted-foreground">
+                                          {formatHistoryDate(entry.changedAt)}
+                                        </span>
+                                      </div>
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-6 w-6 text-destructive hover:bg-destructive/10"
+                                        onClick={() =>
+                                          handleDeleteHistory(m.id, histIdx)
+                                        }
+                                        disabled={
+                                          deleteHistoryMutation.isPending
+                                        }
+                                        data-ocid={`material.history.delete_button.${histIdx + 1}`}
+                                      >
+                                        <Trash2 size={11} />
+                                      </Button>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </td>
+                          </tr>
+                        )}
+                      </>
                     ))
                   )}
                 </AnimatePresence>

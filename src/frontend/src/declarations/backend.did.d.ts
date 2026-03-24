@@ -35,11 +35,13 @@ export interface JobLineItem {
   'materialId' : string,
   'totalWeight' : number,
 }
+export interface RateHistoryEntry { 'changedAt' : bigint, 'rate' : number }
 export interface RawMaterial {
   'id' : string,
   'createdAt' : bigint,
   'size' : string,
   'currentRate' : number,
+  'rateHistory' : Array<RateHistoryEntry>,
   'grade' : string,
   'materialType' : string,
   'weightPerMeter' : number,
@@ -74,6 +76,7 @@ export interface _SERVICE {
   'deleteCustomer' : ActorMethod<[string], boolean>,
   'deleteJob' : ActorMethod<[string], boolean>,
   'deleteMaterial' : ActorMethod<[string], boolean>,
+  'deleteRateHistoryEntry' : ActorMethod<[string, bigint], RawMaterial>,
   'getCallerUserProfile' : ActorMethod<[], [] | [UserProfile]>,
   'getCallerUserRole' : ActorMethod<[], UserRole>,
   'getCustomer' : ActorMethod<[string], Customer>,

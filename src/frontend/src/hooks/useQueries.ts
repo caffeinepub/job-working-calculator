@@ -76,6 +76,18 @@ export function useDeleteMaterial() {
   });
 }
 
+export function useDeleteRateHistoryEntry() {
+  const { actor } = useActor();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: { materialId: string; index: number }) => {
+      if (!actor) throw new Error("No actor");
+      return actor.deleteRateHistoryEntry(data.materialId, BigInt(data.index));
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["materials"] }),
+  });
+}
+
 export function useJobs() {
   const { actor, isFetching } = useActor();
   return useQuery({

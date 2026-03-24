@@ -109,9 +109,14 @@ export interface RawMaterial {
     createdAt: bigint;
     size: string;
     currentRate: number;
+    rateHistory: Array<RateHistoryEntry>;
     grade: string;
     materialType: string;
     weightPerMeter: number;
+}
+export interface RateHistoryEntry {
+    changedAt: bigint;
+    rate: number;
 }
 export interface JobLineItem {
     finalPrice: number;
@@ -154,6 +159,7 @@ export interface backendInterface {
     deleteCustomer(id: string): Promise<boolean>;
     deleteJob(id: string): Promise<boolean>;
     deleteMaterial(id: string): Promise<boolean>;
+    deleteRateHistoryEntry(materialId: string, index: bigint): Promise<RawMaterial>;
     getCallerUserProfile(): Promise<UserProfile | null>;
     getCallerUserRole(): Promise<UserRole>;
     getCustomer(id: string): Promise<Customer>;
@@ -268,6 +274,20 @@ export class Backend implements backendInterface {
             }
         } else {
             const result = await this.actor.deleteMaterial(arg0);
+            return result;
+        }
+    }
+    async deleteRateHistoryEntry(arg0: string, arg1: bigint): Promise<RawMaterial> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.deleteRateHistoryEntry(arg0, arg1);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.deleteRateHistoryEntry(arg0, arg1);
             return result;
         }
     }

@@ -27,9 +27,14 @@ export interface RawMaterial {
     createdAt: bigint;
     size: string;
     currentRate: number;
+    rateHistory: Array<RateHistoryEntry>;
     grade: string;
     materialType: string;
     weightPerMeter: number;
+}
+export interface RateHistoryEntry {
+    changedAt: bigint;
+    rate: number;
 }
 export interface JobLineItem {
     finalPrice: number;
@@ -71,6 +76,7 @@ export interface backendInterface {
     deleteCustomer(id: string): Promise<boolean>;
     deleteJob(id: string): Promise<boolean>;
     deleteMaterial(id: string): Promise<boolean>;
+    deleteRateHistoryEntry(materialId: string, index: bigint): Promise<RawMaterial>;
     getCallerUserProfile(): Promise<UserProfile | null>;
     getCallerUserRole(): Promise<UserRole>;
     getCustomer(id: string): Promise<Customer>;
