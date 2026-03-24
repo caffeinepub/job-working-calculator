@@ -26,6 +26,7 @@ import {
   calculateWeightPerMeter,
   formatWeight,
   getSizeHint,
+  isMachined,
   isWireMesh,
 } from "../utils/weightCalculator";
 
@@ -90,45 +91,61 @@ function ModalContent({
   const isMesh = materialType
     ? isWireMesh(materialType as MaterialType)
     : false;
+  const isMachined_ = materialType ? isMachined(materialType) : false;
   const typeSelected = materialType !== "";
 
   useEffect(() => {
     if (!materialType) return;
     if (manualOverride) return;
+    if (isMachined_) {
+      setForm((prev) => ({ ...prev, weightPerMeter: "" }));
+      return;
+    }
     const calc = calculateWeightPerMeter(materialType as MaterialType, size);
     if (calc !== null) {
       setForm((prev) => ({ ...prev, weightPerMeter: formatWeight(calc) }));
     } else {
       setForm((prev) => ({ ...prev, weightPerMeter: "" }));
     }
-  }, [materialType, size, manualOverride]);
+  }, [materialType, size, manualOverride, isMachined_]);
 
   const handleSave = () => {
-    const w = Number.parseFloat(form.weightPerMeter);
     const r = Number.parseFloat(form.currentRate);
     if (
       !form.grade.trim() ||
       !form.materialType ||
       !form.size.trim() ||
-      Number.isNaN(w) ||
       Number.isNaN(r)
     )
       return;
-    onSave({
-      grade: form.grade.trim(),
-      materialType: form.materialType,
-      size: form.size.trim(),
-      weightPerMeter: w,
-      currentRate: r,
-    });
+    if (!isMachined_) {
+      const w = Number.parseFloat(form.weightPerMeter);
+      if (Number.isNaN(w)) return;
+      onSave({
+        grade: form.grade.trim(),
+        materialType: form.materialType,
+        size: form.size.trim(),
+        weightPerMeter: w,
+        currentRate: r,
+      });
+    } else {
+      onSave({
+        grade: form.grade.trim(),
+        materialType: form.materialType,
+        size: form.size.trim(),
+        weightPerMeter: 0,
+        currentRate: r,
+      });
+    }
   };
 
   const isValid =
     form.grade.trim() &&
     form.materialType &&
     form.size.trim() &&
-    form.weightPerMeter &&
-    !Number.isNaN(Number.parseFloat(form.weightPerMeter)) &&
+    (isMachined_ ||
+      (form.weightPerMeter &&
+        !Number.isNaN(Number.parseFloat(form.weightPerMeter)))) &&
     form.currentRate &&
     !Number.isNaN(Number.parseFloat(form.currentRate));
 
@@ -196,14 +213,16 @@ function ModalContent({
         {/* Size */}
         <div className="space-y-1.5">
           <Label htmlFor="size" className="text-sm font-medium">
-            Size
+            {isMachined_ ? "Item Name / Description" : "Size"}
           </Label>
           <Input
             id="size"
             placeholder={
-              typeSelected
-                ? getSizeHint(form.materialType as MaterialType)
-                : "Select a type first"
+              !typeSelected
+                ? "Select a type first"
+                : isMachined_
+                  ? "e.g. M12 Bolt, Bracket"
+                  : getSizeHint(form.materialType as MaterialType)
             }
             value={form.size}
             onChange={(e) => setForm((p) => ({ ...p, size: e.target.value }))}
@@ -213,7 +232,9 @@ function ModalContent({
           />
           {typeSelected && (
             <p className="text-xs text-muted-foreground">
-              {getSizeHint(form.materialType as MaterialType)}
+              {isMachined_
+                ? "Enter the name/description of this machined item"
+                : getSizeHint(form.materialType as MaterialType)}
             </p>
           )}
           {!typeSelected && (
@@ -223,59 +244,67 @@ function ModalContent({
           )}
         </div>
 
-        {/* Weight Per Meter / Per Sqft */}
-        <div className="space-y-1.5">
-          <div className="flex items-center justify-between">
-            <Label htmlFor="weight" className="text-sm font-medium">
-              {isMesh ? "Weight Per Sqft (kg/sqft)" : "Weight Per Meter (kg/m)"}
-            </Label>
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-muted-foreground">
-                Manual override
-              </span>
-              <Switch
-                checked={form.manualOverride}
-                onCheckedChange={(v) =>
-                  setForm((p) => ({ ...p, manualOverride: v }))
-                }
-                disabled={!typeSelected}
-                data-ocid="material.manual_override.switch"
-              />
+        {/* Weight Per Meter / Per Sqft — hidden for Machined */}
+        {!isMachined_ && (
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="weight" className="text-sm font-medium">
+                {isMesh
+                  ? "Weight Per Sqft (kg/sqft)"
+                  : "Weight Per Meter (kg/m)"}
+              </Label>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">
+                  Manual override
+                </span>
+                <Switch
+                  checked={form.manualOverride}
+                  onCheckedChange={(v) =>
+                    setForm((p) => ({ ...p, manualOverride: v }))
+                  }
+                  disabled={!typeSelected}
+                  data-ocid="material.manual_override.switch"
+                />
+              </div>
             </div>
+            <Input
+              id="weight"
+              type="number"
+              step="0.001"
+              placeholder={
+                typeSelected ? "Auto-calculated" : "Select a type first"
+              }
+              value={form.weightPerMeter}
+              onChange={(e) =>
+                setForm((p) => ({ ...p, weightPerMeter: e.target.value }))
+              }
+              disabled={!typeSelected || !form.manualOverride}
+              className={
+                !typeSelected || !form.manualOverride
+                  ? "bg-muted text-muted-foreground"
+                  : ""
+              }
+              data-ocid="material.weight.input"
+            />
+            {typeSelected &&
+              !form.manualOverride &&
+              !form.weightPerMeter &&
+              form.size && (
+                <p className="text-xs text-muted-foreground">
+                  Enter a valid size to auto-calculate
+                </p>
+              )}
           </div>
-          <Input
-            id="weight"
-            type="number"
-            step="0.001"
-            placeholder={
-              typeSelected ? "Auto-calculated" : "Select a type first"
-            }
-            value={form.weightPerMeter}
-            onChange={(e) =>
-              setForm((p) => ({ ...p, weightPerMeter: e.target.value }))
-            }
-            disabled={!typeSelected || !form.manualOverride}
-            className={
-              !typeSelected || !form.manualOverride
-                ? "bg-muted text-muted-foreground"
-                : ""
-            }
-            data-ocid="material.weight.input"
-          />
-          {typeSelected &&
-            !form.manualOverride &&
-            !form.weightPerMeter &&
-            form.size && (
-              <p className="text-xs text-muted-foreground">
-                Enter a valid size to auto-calculate
-              </p>
-            )}
-        </div>
+        )}
 
         {/* Current Rate */}
         <div className="space-y-1.5">
           <Label htmlFor="rate" className="text-sm font-medium">
-            {isMesh ? "Current Rate (₹/sqft)" : "Current Rate (₹/kg)"}
+            {isMachined_
+              ? "Rate (\u20b9/unit)"
+              : isMesh
+                ? "Current Rate (\u20b9/sqft)"
+                : "Current Rate (\u20b9/kg)"}
           </Label>
           <Input
             id="rate"

@@ -13,6 +13,7 @@ const BUILT_IN_TYPES = [
   "Plate",
   "Sheet",
   "Wire Mesh",
+  "Machined",
 ];
 
 type StoredOptions = {

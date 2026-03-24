@@ -15,7 +15,8 @@ export type MaterialType =
   | "I-Beam (ISMB)"
   | "Plate"
   | "Sheet"
-  | "Wire Mesh";
+  | "Wire Mesh"
+  | "Machined";
 
 export const MATERIAL_TYPES: MaterialType[] = [
   "Round Bar",
@@ -28,10 +29,15 @@ export const MATERIAL_TYPES: MaterialType[] = [
   "Plate",
   "Sheet",
   "Wire Mesh",
+  "Machined",
 ];
 
 export function isWireMesh(type: string): boolean {
   return type === "Wire Mesh";
+}
+
+export function isMachined(type: string): boolean {
+  return type === "Machined";
 }
 
 export function getSizeHint(type: MaterialType): string {
@@ -56,6 +62,8 @@ export function getSizeHint(type: MaterialType): string {
       return "e.g. 1250x2 mm (width x thickness)";
     case "Wire Mesh":
       return "e.g. 12x12x3 mm (gap_w x gap_h x rod_dia)";
+    case "Machined":
+      return "e.g. M12 Bolt, Bracket, Flange";
     default:
       return "";
   }
@@ -203,6 +211,9 @@ export function calculateWeightPerMeter(
         const weightPerSqft = (weightPerM2 * CRIMP_FACTOR) / 10.764;
         return weightPerSqft;
       }
+
+      case "Machined":
+        return null;
 
       default:
         return null;

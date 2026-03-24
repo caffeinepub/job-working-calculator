@@ -139,7 +139,7 @@ function AppShell() {
       )}
 
       {/* Main area — min-w-0 prevents flex child from overflowing parent */}
-      <div className="flex-1 flex flex-col min-h-0 min-w-0 md:ml-60">
+      <div className="flex-1 flex flex-col min-w-0 md:ml-60 overflow-hidden">
         {/* Top header */}
         <header className="sticky top-0 z-20 bg-card border-b border-border h-14 flex items-center justify-between px-4 md:px-6 shrink-0 shadow-xs">
           <div className="flex items-center gap-3">
@@ -174,7 +174,7 @@ function AppShell() {
         </header>
 
         {/* Page content — overflow-auto handles both axes; tables scroll horizontally inside */}
-        <main className="flex-1 overflow-auto overflow-x-hidden p-4 md:p-6">
+        <main className="flex-1 overflow-auto min-h-0 p-4 md:p-6">
           {currentPage === "dashboard" && (
             <Dashboard onNavigate={setCurrentPage} />
           )}

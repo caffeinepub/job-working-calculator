@@ -59,7 +59,7 @@ import {
   useSaveJob,
   useUpdateJob,
 } from "../hooks/useQueries";
-import { isWireMesh } from "../utils/weightCalculator";
+import { isMachined, isWireMesh } from "../utils/weightCalculator";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 interface MaterialRow {
@@ -130,6 +130,10 @@ function calcMaterialRow(
   lengthOrArea: number,
   wastageMultiplier = 1.12,
 ) {
+  if (isMachined(mat.materialType)) {
+    const materialCost = lengthOrArea * mat.currentRate;
+    return { rawWeight: 0, totalWeight: 0, materialCost };
+  }
   if (isWireMesh(mat.materialType)) {
     const areaSqft = lengthOrArea;
     const MESH_WASTAGE = 1.22;
@@ -227,6 +231,15 @@ export function JobCalculator({
       const mat = materials.find((m) => m.id === row.materialId);
       if (!mat) return null;
 
+      if (isMachined(mat.materialType)) {
+        const qty = row.lengthMeters;
+        if (qty <= 0) return null;
+        return {
+          ...calcMaterialRow(mat, qty, wastageMultiplier),
+          mat,
+          areaSqft: null,
+        };
+      }
       if (isWireMesh(mat.materialType)) {
         const areaSqft = calcMeshAreaSqft(row);
         if (areaSqft === null || areaSqft <= 0) return null;
@@ -309,11 +322,13 @@ export function JobCalculator({
 
   // ── Row mutations ────────────────────────────────────────────────────────
   const addMaterialRow = () => {
+    if (materials.length === 0) return;
+    const firstMat = materials[0];
     setMaterialRows((prev) => [
       ...prev,
       {
         rowId: nextId(),
-        materialId: "",
+        materialId: firstMat.id,
         lengthMeters: 0,
         meshShape: "rectangle",
       },
@@ -443,7 +458,7 @@ export function JobCalculator({
   const isMutating = saveJobMutation.isPending || updateJobMutation.isPending;
 
   return (
-    <div className="flex flex-col gap-6 max-w-full">
+    <div className="flex flex-col gap-6">
       <div className="flex items-start justify-between" ref={formTopRef}>
         <div>
           <h1 className="text-2xl font-bold text-foreground">
@@ -469,7 +484,7 @@ export function JobCalculator({
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 items-start">
         {/* Calculator form */}
-        <div className="xl:col-span-2 flex flex-col gap-5 min-w-0">
+        <div className="xl:col-span-2 flex flex-col gap-5">
           {/* Job Setup */}
           <Card className="shadow-card border-border">
             <CardHeader className="pb-3">
@@ -679,8 +694,8 @@ export function JobCalculator({
                   </p>
                 </div>
               ) : (
-                <div className="overflow-x-auto w-full max-w-full">
-                  <Table className="min-w-[600px]">
+                <div className="overflow-x-auto">
+                  <Table>
                     <TableHeader>
                       <TableRow className="bg-muted/50 hover:bg-muted/50">
                         <TableHead className="text-xs font-semibold uppercase tracking-wide w-48">
@@ -702,179 +717,149 @@ export function JobCalculator({
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {materialRows.map((row, idx) => {
-                        const calc = matCalcs[idx];
-                        const mat = materials.find(
-                          (m) => m.id === row.materialId,
-                        );
-                        const isMesh = isWireMesh(mat?.materialType ?? "");
-                        const meshShape = row.meshShape ?? "rectangle";
-                        const areaSqft = isMesh ? calcMeshAreaSqft(row) : null;
+                      <AnimatePresence mode="popLayout">
+                        {materialRows.map((row, idx) => {
+                          const calc = matCalcs[idx];
+                          const mat = materials.find(
+                            (m) => m.id === row.materialId,
+                          );
+                          const isMesh = isWireMesh(mat?.materialType ?? "");
+                          const isMachined_ = isMachined(
+                            mat?.materialType ?? "",
+                          );
+                          const meshShape = row.meshShape ?? "rectangle";
+                          const areaSqft = isMesh
+                            ? calcMeshAreaSqft(row)
+                            : null;
 
-                        return (
-                          <TableRow
-                            key={row.rowId}
-                            className="border-b border-border/60"
-                            data-ocid={`job.material.item.${idx + 1}`}
-                          >
-                            <TableCell className="py-2">
-                              <Select
-                                value={row.materialId}
-                                onValueChange={(v) => {
-                                  const newMat = materials.find(
-                                    (m) => m.id === v,
-                                  );
-                                  updateMaterialRow(row.rowId, {
-                                    materialId: v,
-                                    lengthMeters: 0,
-                                    meshShape: "rectangle",
-                                    meshL: undefined,
-                                    meshW: undefined,
-                                    meshH: undefined,
-                                    meshD: undefined,
-                                  });
-                                  // suppress unused var warning
-                                  void newMat;
-                                }}
-                              >
-                                <SelectTrigger
-                                  className="h-8 text-xs"
-                                  data-ocid={`job.material.select.${idx + 1}`}
-                                >
-                                  <SelectValue placeholder="-- Select Material --" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="" disabled>
-                                    -- Select Material --
-                                  </SelectItem>
-                                  {materialsLoading ? (
-                                    <SelectItem value="loading" disabled>
-                                      Loading…
-                                    </SelectItem>
-                                  ) : (
-                                    materials.map((m) => (
-                                      <SelectItem key={m.id} value={m.id}>
-                                        {m.grade} · {m.materialType} · {m.size}
-                                      </SelectItem>
-                                    ))
-                                  )}
-                                </SelectContent>
-                              </Select>
-                            </TableCell>
-
-                            {/* Dimension cell — differs for Wire Mesh */}
-                            <TableCell className="py-2">
-                              {!isMesh ? (
-                                <Input
-                                  type="number"
-                                  min={0}
-                                  step={0.01}
-                                  placeholder="0.00"
-                                  value={row.lengthMeters || ""}
-                                  onChange={(e) =>
+                          return (
+                            <motion.tr
+                              key={row.rowId}
+                              initial={{ opacity: 0, y: 4 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              exit={{ opacity: 0 }}
+                              transition={{ duration: 0.15 }}
+                              className="border-b border-border/60"
+                              data-ocid={`job.material.item.${idx + 1}`}
+                            >
+                              <TableCell className="py-2">
+                                <Select
+                                  value={row.materialId}
+                                  onValueChange={(v) => {
+                                    const newMat = materials.find(
+                                      (m) => m.id === v,
+                                    );
                                     updateMaterialRow(row.rowId, {
-                                      lengthMeters:
-                                        Number.parseFloat(e.target.value) || 0,
-                                    })
-                                  }
-                                  className="h-8 text-xs font-mono"
-                                  data-ocid={`job.material.length.input.${idx + 1}`}
-                                />
-                              ) : (
-                                <div className="flex flex-col gap-1.5">
-                                  {/* Shape selector */}
-                                  <Select
-                                    value={meshShape}
-                                    onValueChange={(v) =>
+                                      materialId: v,
+                                      lengthMeters: 0,
+                                      meshShape: "rectangle",
+                                      meshL: undefined,
+                                      meshW: undefined,
+                                      meshH: undefined,
+                                      meshD: undefined,
+                                    });
+                                    // suppress unused var warning
+                                    void newMat;
+                                  }}
+                                >
+                                  <SelectTrigger
+                                    className="h-8 text-xs"
+                                    data-ocid={`job.material.select.${idx + 1}`}
+                                  >
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {materialsLoading ? (
+                                      <SelectItem value="loading" disabled>
+                                        Loading…
+                                      </SelectItem>
+                                    ) : (
+                                      materials.map((m) => (
+                                        <SelectItem key={m.id} value={m.id}>
+                                          {m.grade} · {m.materialType} ·{" "}
+                                          {m.size}
+                                        </SelectItem>
+                                      ))
+                                    )}
+                                  </SelectContent>
+                                </Select>
+                              </TableCell>
+
+                              {/* Dimension cell — differs for Wire Mesh / Machined */}
+                              <TableCell className="py-2">
+                                {isMachined_ ? (
+                                  <Input
+                                    type="number"
+                                    min={0}
+                                    step={1}
+                                    placeholder="Qty"
+                                    value={row.lengthMeters || ""}
+                                    onChange={(e) =>
                                       updateMaterialRow(row.rowId, {
-                                        meshShape: v as
-                                          | "rectangle"
-                                          | "circle"
-                                          | "open_box",
-                                        meshL: undefined,
-                                        meshW: undefined,
-                                        meshH: undefined,
-                                        meshD: undefined,
+                                        lengthMeters:
+                                          Number.parseFloat(e.target.value) ||
+                                          0,
                                       })
                                     }
-                                  >
-                                    <SelectTrigger
-                                      className="h-7 text-xs"
-                                      data-ocid={`job.mesh.shape.select.${idx + 1}`}
-                                    >
-                                      <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      <SelectItem value="rectangle">
-                                        Square / Rectangle
-                                      </SelectItem>
-                                      <SelectItem value="circle">
-                                        Circle
-                                      </SelectItem>
-                                      <SelectItem value="open_box">
-                                        Open Box
-                                      </SelectItem>
-                                    </SelectContent>
-                                  </Select>
-
-                                  {/* Dimension inputs */}
-                                  {meshShape === "rectangle" && (
-                                    <div className="flex gap-1">
-                                      <Input
-                                        type="number"
-                                        min={0}
-                                        placeholder="L mm"
-                                        value={row.meshL || ""}
-                                        onChange={(e) =>
-                                          updateMaterialRow(row.rowId, {
-                                            meshL:
-                                              Number.parseFloat(
-                                                e.target.value,
-                                              ) || 0,
-                                          })
-                                        }
-                                        className="h-7 text-xs font-mono w-20"
-                                        data-ocid={`job.mesh.l.input.${idx + 1}`}
-                                      />
-                                      <Input
-                                        type="number"
-                                        min={0}
-                                        placeholder="W mm"
-                                        value={row.meshW || ""}
-                                        onChange={(e) =>
-                                          updateMaterialRow(row.rowId, {
-                                            meshW:
-                                              Number.parseFloat(
-                                                e.target.value,
-                                              ) || 0,
-                                          })
-                                        }
-                                        className="h-7 text-xs font-mono w-20"
-                                        data-ocid={`job.mesh.w.input.${idx + 1}`}
-                                      />
-                                    </div>
-                                  )}
-
-                                  {meshShape === "circle" && (
-                                    <Input
-                                      type="number"
-                                      min={0}
-                                      placeholder="Dia mm"
-                                      value={row.meshD || ""}
-                                      onChange={(e) =>
+                                    className="h-8 text-xs font-mono"
+                                    data-ocid={`job.material.qty.input.${idx + 1}`}
+                                  />
+                                ) : !isMesh ? (
+                                  <Input
+                                    type="number"
+                                    min={0}
+                                    step={0.01}
+                                    placeholder="0.00"
+                                    value={row.lengthMeters || ""}
+                                    onChange={(e) =>
+                                      updateMaterialRow(row.rowId, {
+                                        lengthMeters:
+                                          Number.parseFloat(e.target.value) ||
+                                          0,
+                                      })
+                                    }
+                                    className="h-8 text-xs font-mono"
+                                    data-ocid={`job.material.length.input.${idx + 1}`}
+                                  />
+                                ) : (
+                                  <div className="flex flex-col gap-1.5">
+                                    {/* Shape selector */}
+                                    <Select
+                                      value={meshShape}
+                                      onValueChange={(v) =>
                                         updateMaterialRow(row.rowId, {
-                                          meshD:
-                                            Number.parseFloat(e.target.value) ||
-                                            0,
+                                          meshShape: v as
+                                            | "rectangle"
+                                            | "circle"
+                                            | "open_box",
+                                          meshL: undefined,
+                                          meshW: undefined,
+                                          meshH: undefined,
+                                          meshD: undefined,
                                         })
                                       }
-                                      className="h-7 text-xs font-mono w-24"
-                                      data-ocid={`job.mesh.d.input.${idx + 1}`}
-                                    />
-                                  )}
+                                    >
+                                      <SelectTrigger
+                                        className="h-7 text-xs"
+                                        data-ocid={`job.mesh.shape.select.${idx + 1}`}
+                                      >
+                                        <SelectValue />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value="rectangle">
+                                          Square / Rectangle
+                                        </SelectItem>
+                                        <SelectItem value="circle">
+                                          Circle
+                                        </SelectItem>
+                                        <SelectItem value="open_box">
+                                          Open Box
+                                        </SelectItem>
+                                      </SelectContent>
+                                    </Select>
 
-                                  {meshShape === "open_box" && (
-                                    <div className="flex flex-col gap-1">
+                                    {/* Dimension inputs */}
+                                    {meshShape === "rectangle" && (
                                       <div className="flex gap-1">
                                         <Input
                                           type="number"
@@ -889,8 +874,8 @@ export function JobCalculator({
                                                 ) || 0,
                                             })
                                           }
-                                          className="h-7 text-xs font-mono w-16"
-                                          data-ocid={`job.mesh.box.l.input.${idx + 1}`}
+                                          className="h-7 text-xs font-mono w-20"
+                                          data-ocid={`job.mesh.l.input.${idx + 1}`}
                                         />
                                         <Input
                                           type="number"
@@ -905,65 +890,131 @@ export function JobCalculator({
                                                 ) || 0,
                                             })
                                           }
-                                          className="h-7 text-xs font-mono w-16"
-                                          data-ocid={`job.mesh.box.w.input.${idx + 1}`}
-                                        />
-                                        <Input
-                                          type="number"
-                                          min={0}
-                                          placeholder="H mm"
-                                          value={row.meshH || ""}
-                                          onChange={(e) =>
-                                            updateMaterialRow(row.rowId, {
-                                              meshH:
-                                                Number.parseFloat(
-                                                  e.target.value,
-                                                ) || 0,
-                                            })
-                                          }
-                                          className="h-7 text-xs font-mono w-16"
-                                          data-ocid={`job.mesh.box.h.input.${idx + 1}`}
+                                          className="h-7 text-xs font-mono w-20"
+                                          data-ocid={`job.mesh.w.input.${idx + 1}`}
                                         />
                                       </div>
-                                      <p className="text-xs text-muted-foreground leading-tight">
-                                        Raw: (L+2H)×(W+2H)
-                                      </p>
-                                    </div>
-                                  )}
+                                    )}
 
-                                  {/* Computed area */}
-                                  {areaSqft !== null && (
-                                    <span className="text-xs font-mono text-primary font-medium">
-                                      {areaSqft.toFixed(4)} sqft
-                                    </span>
-                                  )}
-                                </div>
-                              )}
-                            </TableCell>
+                                    {meshShape === "circle" && (
+                                      <Input
+                                        type="number"
+                                        min={0}
+                                        placeholder="Dia mm"
+                                        value={row.meshD || ""}
+                                        onChange={(e) =>
+                                          updateMaterialRow(row.rowId, {
+                                            meshD:
+                                              Number.parseFloat(
+                                                e.target.value,
+                                              ) || 0,
+                                          })
+                                        }
+                                        className="h-7 text-xs font-mono w-24"
+                                        data-ocid={`job.mesh.d.input.${idx + 1}`}
+                                      />
+                                    )}
 
-                            <TableCell className="text-xs font-mono py-2 text-muted-foreground">
-                              {calc ? fmt(calc.rawWeight) : "—"}
-                            </TableCell>
-                            <TableCell className="text-xs font-mono py-2 text-muted-foreground">
-                              {calc ? fmt(calc.totalWeight) : "—"}
-                            </TableCell>
-                            <TableCell className="text-xs font-mono py-2 text-right font-semibold">
-                              {calc ? `₹${fmt(calc.materialCost)}` : "—"}
-                            </TableCell>
-                            <TableCell className="py-2">
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-7 w-7 text-destructive hover:bg-destructive/10"
-                                onClick={() => removeMaterialRow(row.rowId)}
-                                data-ocid={`job.material.delete_button.${idx + 1}`}
-                              >
-                                <Trash2 size={13} />
-                              </Button>
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
+                                    {meshShape === "open_box" && (
+                                      <div className="flex flex-col gap-1">
+                                        <div className="flex gap-1">
+                                          <Input
+                                            type="number"
+                                            min={0}
+                                            placeholder="L mm"
+                                            value={row.meshL || ""}
+                                            onChange={(e) =>
+                                              updateMaterialRow(row.rowId, {
+                                                meshL:
+                                                  Number.parseFloat(
+                                                    e.target.value,
+                                                  ) || 0,
+                                              })
+                                            }
+                                            className="h-7 text-xs font-mono w-16"
+                                            data-ocid={`job.mesh.box.l.input.${idx + 1}`}
+                                          />
+                                          <Input
+                                            type="number"
+                                            min={0}
+                                            placeholder="W mm"
+                                            value={row.meshW || ""}
+                                            onChange={(e) =>
+                                              updateMaterialRow(row.rowId, {
+                                                meshW:
+                                                  Number.parseFloat(
+                                                    e.target.value,
+                                                  ) || 0,
+                                              })
+                                            }
+                                            className="h-7 text-xs font-mono w-16"
+                                            data-ocid={`job.mesh.box.w.input.${idx + 1}`}
+                                          />
+                                          <Input
+                                            type="number"
+                                            min={0}
+                                            placeholder="H mm"
+                                            value={row.meshH || ""}
+                                            onChange={(e) =>
+                                              updateMaterialRow(row.rowId, {
+                                                meshH:
+                                                  Number.parseFloat(
+                                                    e.target.value,
+                                                  ) || 0,
+                                              })
+                                            }
+                                            className="h-7 text-xs font-mono w-16"
+                                            data-ocid={`job.mesh.box.h.input.${idx + 1}`}
+                                          />
+                                        </div>
+                                        <p className="text-xs text-muted-foreground leading-tight">
+                                          Raw: (L+2H)×(W+2H)
+                                        </p>
+                                      </div>
+                                    )}
+
+                                    {/* Computed area */}
+                                    {areaSqft !== null && (
+                                      <span className="text-xs font-mono text-primary font-medium">
+                                        {areaSqft.toFixed(4)} sqft
+                                      </span>
+                                    )}
+                                  </div>
+                                )}
+                              </TableCell>
+
+                              <TableCell className="text-xs font-mono py-2 text-muted-foreground">
+                                {isMachined_
+                                  ? "—"
+                                  : calc
+                                    ? fmt(calc.rawWeight)
+                                    : "—"}
+                              </TableCell>
+                              <TableCell className="text-xs font-mono py-2 text-muted-foreground">
+                                {isMachined_
+                                  ? "—"
+                                  : calc
+                                    ? fmt(calc.totalWeight)
+                                    : "—"}
+                              </TableCell>
+                              <TableCell className="text-xs font-mono py-2 text-right font-semibold">
+                                {calc ? `₹${fmt(calc.materialCost)}` : "—"}
+                              </TableCell>
+                              <TableCell className="py-2">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7 text-destructive hover:bg-destructive/10"
+                                  onClick={() => removeMaterialRow(row.rowId)}
+                                  data-ocid={`job.material.delete_button.${idx + 1}`}
+                                >
+                                  <Trash2 size={13} />
+                                </Button>
+                              </TableCell>
+                            </motion.tr>
+                          );
+                        })}
+                      </AnimatePresence>
                     </TableBody>
                   </Table>
                 </div>
@@ -1015,8 +1066,8 @@ export function JobCalculator({
                   </p>
                 </div>
               ) : (
-                <div className="overflow-x-auto w-full max-w-full">
-                  <Table className="min-w-[600px]">
+                <div className="overflow-x-auto">
+                  <Table>
                     <TableHeader>
                       <TableRow className="bg-muted/50 hover:bg-muted/50">
                         <TableHead className="text-xs font-semibold uppercase tracking-wide w-40">
@@ -1035,76 +1086,82 @@ export function JobCalculator({
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {weldingRows.map((row, idx) => {
-                        const calc = weldCalcs[idx];
-                        return (
-                          <TableRow
-                            key={row.rowId}
-                            className="border-b border-border/60"
-                            data-ocid={`job.welding.item.${idx + 1}`}
-                          >
-                            <TableCell className="py-2">
-                              <Select
-                                value={row.grade}
-                                onValueChange={(v) =>
-                                  updateWeldingRow(row.rowId, {
-                                    grade: v as "SS304" | "SS310",
-                                  })
-                                }
-                              >
-                                <SelectTrigger
-                                  className="h-8 text-xs"
-                                  data-ocid={`job.welding.grade.select.${idx + 1}`}
+                      <AnimatePresence mode="popLayout">
+                        {weldingRows.map((row, idx) => {
+                          const calc = weldCalcs[idx];
+                          return (
+                            <motion.tr
+                              key={row.rowId}
+                              initial={{ opacity: 0, y: 4 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              exit={{ opacity: 0 }}
+                              transition={{ duration: 0.15 }}
+                              className="border-b border-border/60"
+                              data-ocid={`job.welding.item.${idx + 1}`}
+                            >
+                              <TableCell className="py-2">
+                                <Select
+                                  value={row.grade}
+                                  onValueChange={(v) =>
+                                    updateWeldingRow(row.rowId, {
+                                      grade: v as "SS304" | "SS310",
+                                    })
+                                  }
                                 >
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="SS304">
-                                    SS304 — ₹650/kg
-                                  </SelectItem>
-                                  <SelectItem value="SS310">
-                                    SS310 — ₹1,250/kg
-                                  </SelectItem>
-                                </SelectContent>
-                              </Select>
-                            </TableCell>
-                            <TableCell className="py-2">
-                              <Input
-                                type="number"
-                                min={0}
-                                step={0.01}
-                                placeholder="0.00"
-                                value={row.weightKg || ""}
-                                onChange={(e) =>
-                                  updateWeldingRow(row.rowId, {
-                                    weightKg:
-                                      Number.parseFloat(e.target.value) || 0,
-                                  })
-                                }
-                                className="h-8 text-xs font-mono"
-                                data-ocid={`job.welding.weight.input.${idx + 1}`}
-                              />
-                            </TableCell>
-                            <TableCell className="text-xs font-mono py-2 text-muted-foreground">
-                              ₹{fmt(WELDING_RATES[row.grade])}
-                            </TableCell>
-                            <TableCell className="text-xs font-mono py-2 text-right font-semibold">
-                              {calc ? `₹${fmt(calc.weldingCost)}` : "—"}
-                            </TableCell>
-                            <TableCell className="py-2">
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-7 w-7 text-destructive hover:bg-destructive/10"
-                                onClick={() => removeWeldingRow(row.rowId)}
-                                data-ocid={`job.welding.delete_button.${idx + 1}`}
-                              >
-                                <Trash2 size={13} />
-                              </Button>
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
+                                  <SelectTrigger
+                                    className="h-8 text-xs"
+                                    data-ocid={`job.welding.grade.select.${idx + 1}`}
+                                  >
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="SS304">
+                                      SS304 — ₹650/kg
+                                    </SelectItem>
+                                    <SelectItem value="SS310">
+                                      SS310 — ₹1,250/kg
+                                    </SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </TableCell>
+                              <TableCell className="py-2">
+                                <Input
+                                  type="number"
+                                  min={0}
+                                  step={0.01}
+                                  placeholder="0.00"
+                                  value={row.weightKg || ""}
+                                  onChange={(e) =>
+                                    updateWeldingRow(row.rowId, {
+                                      weightKg:
+                                        Number.parseFloat(e.target.value) || 0,
+                                    })
+                                  }
+                                  className="h-8 text-xs font-mono"
+                                  data-ocid={`job.welding.weight.input.${idx + 1}`}
+                                />
+                              </TableCell>
+                              <TableCell className="text-xs font-mono py-2 text-muted-foreground">
+                                ₹{fmt(WELDING_RATES[row.grade])}
+                              </TableCell>
+                              <TableCell className="text-xs font-mono py-2 text-right font-semibold">
+                                {calc ? `₹${fmt(calc.weldingCost)}` : "—"}
+                              </TableCell>
+                              <TableCell className="py-2">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7 text-destructive hover:bg-destructive/10"
+                                  onClick={() => removeWeldingRow(row.rowId)}
+                                  data-ocid={`job.welding.delete_button.${idx + 1}`}
+                                >
+                                  <Trash2 size={13} />
+                                </Button>
+                              </TableCell>
+                            </motion.tr>
+                          );
+                        })}
+                      </AnimatePresence>
                     </TableBody>
                   </Table>
                 </div>
