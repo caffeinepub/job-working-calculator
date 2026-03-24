@@ -131,7 +131,7 @@ function calcMaterialRow(
   wastageMultiplier = 1.12,
 ) {
   if (isMachined(mat.materialType)) {
-    const materialCost = lengthOrArea * mat.currentRate;
+    const materialCost = lengthOrArea * mat.currentRate * 2;
     return { rawWeight: 0, totalWeight: 0, materialCost };
   }
   if (isWireMesh(mat.materialType)) {
@@ -288,7 +288,8 @@ export function JobCalculator({
       (totalMaterialCost + laborCost + weldingCost) * overheadRate;
     const profit =
       (totalMaterialCost + laborCost + weldingCost + overhead) * profitRate;
-    const transportTotal = transportIncluded ? transportCost : 0;
+    const qty = Math.max(1, Math.round(Number.parseFloat(dispatchQty) || 1));
+    const transportTotal = transportIncluded ? transportCost / qty : 0;
     const totalFinalPrice =
       totalMaterialCost +
       laborCost +
@@ -318,6 +319,7 @@ export function JobCalculator({
     transportCost,
     overheadRate,
     profitRate,
+    dispatchQty,
   ]);
 
   // ── Row mutations ────────────────────────────────────────────────────────
@@ -1310,7 +1312,7 @@ export function JobCalculator({
                           <div className="flex justify-between text-xs">
                             <span className="text-muted-foreground flex items-center gap-1">
                               <Truck size={11} />
-                              Transport (qty: {dispatchQty})
+                              Transport (₹{transportCost} ÷ {dispatchQty} items)
                             </span>
                             <span className="font-mono">
                               ₹{fmt(summary.transportTotal)}

@@ -1,40 +1,24 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import type { backendInterface } from "../backend";
 import { createActorWithConfig } from "../config";
 
-const ACTOR_QUERY_KEY = "actor";
+/**
+ * Creates and caches a single anonymous actor for the lifetime of the app.
+ * Authentication is currently disabled, so we always use an anonymous actor.
+ * The query key never changes, so the actor is created once and reused forever.
+ */
 export function useActor() {
-  const queryClient = useQueryClient();
   const actorQuery = useQuery<backendInterface>({
-    queryKey: [ACTOR_QUERY_KEY],
-    queryFn: async () => {
-      // Always use anonymous actor while login is disabled.
-      // This avoids _initializeAccessControlWithSecret traps that
-      // cause "No actor" save failures after every backend redeploy.
-      return await createActorWithConfig();
-    },
+    queryKey: ["actor-v1"],
+    queryFn: () => createActorWithConfig(),
     staleTime: Number.POSITIVE_INFINITY,
-    enabled: true,
+    gcTime: Number.POSITIVE_INFINITY,
+    retry: 5,
+    retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 10000),
   });
 
-  useEffect(() => {
-    if (actorQuery.data) {
-      queryClient.invalidateQueries({
-        predicate: (query) => {
-          return !query.queryKey.includes(ACTOR_QUERY_KEY);
-        },
-      });
-      queryClient.refetchQueries({
-        predicate: (query) => {
-          return !query.queryKey.includes(ACTOR_QUERY_KEY);
-        },
-      });
-    }
-  }, [actorQuery.data, queryClient]);
-
   return {
-    actor: actorQuery.data || null,
+    actor: actorQuery.data ?? null,
     isFetching: actorQuery.isFetching,
   };
 }
