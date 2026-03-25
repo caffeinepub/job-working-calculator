@@ -1,8 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { getActor } from "../actorSingleton";
-import type { JobLineItem, WeldingLineItem } from "../backend";
-
-// ── Materials ────────────────────────────────────────────────────────────────
 
 export function useMaterials() {
   return useQuery({
@@ -76,15 +73,16 @@ export function useDeleteMaterial() {
 export function useDeleteRateHistoryEntry() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (data: { materialId: string; index: number }) => {
+    mutationFn: async (data: {
+      materialId: string;
+      index: bigint | number;
+    }) => {
       const actor = await getActor();
       return actor.deleteRateHistoryEntry(data.materialId, BigInt(data.index));
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["materials"] }),
   });
 }
-
-// ── Jobs ─────────────────────────────────────────────────────────────────────
 
 export function useJobs() {
   return useQuery({
@@ -96,24 +94,44 @@ export function useJobs() {
   });
 }
 
-type SaveJobPayload = {
-  name: string;
-  laborRate: number;
-  transportIncluded: boolean;
-  transportCost: number;
-  dispatchQty: number;
-  customerId: string | null;
-  jobLineItems: JobLineItem[];
-  weldingLineItems: WeldingLineItem[];
-  totalFinalPrice: number;
-  totalProductWeight: number;
-  ratePerKg: number;
-};
+export function useJob(id: string) {
+  return useQuery({
+    queryKey: ["job", id],
+    queryFn: async () => {
+      const actor = await getActor();
+      return actor.getJob(id);
+    },
+    enabled: !!id,
+  });
+}
 
 export function useSaveJob() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (data: SaveJobPayload) => {
+    mutationFn: async (data: {
+      name: string;
+      laborRate: number;
+      transportIncluded: boolean;
+      customerId: string | null;
+      transportCost: number;
+      dispatchQty: number;
+      jobLineItems: Array<{
+        finalPrice: number;
+        lengthMeters: number;
+        rawWeight: number;
+        materialId: string;
+        totalWeight: number;
+      }>;
+      weldingLineItems: Array<{
+        finalPrice: number;
+        ratePerKg: number;
+        weightKg: number;
+        grade: string;
+      }>;
+      totalFinalPrice: number;
+      totalProductWeight: number;
+      ratePerKg: number;
+    }) => {
       const actor = await getActor();
       return actor.saveJob(
         data.name,
@@ -136,7 +154,31 @@ export function useSaveJob() {
 export function useUpdateJob() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (data: SaveJobPayload & { id: string }) => {
+    mutationFn: async (data: {
+      id: string;
+      name: string;
+      laborRate: number;
+      transportIncluded: boolean;
+      customerId: string | null;
+      transportCost: number;
+      dispatchQty: number;
+      jobLineItems: Array<{
+        finalPrice: number;
+        lengthMeters: number;
+        rawWeight: number;
+        materialId: string;
+        totalWeight: number;
+      }>;
+      weldingLineItems: Array<{
+        finalPrice: number;
+        ratePerKg: number;
+        weightKg: number;
+        grade: string;
+      }>;
+      totalFinalPrice: number;
+      totalProductWeight: number;
+      ratePerKg: number;
+    }) => {
       const actor = await getActor();
       return actor.updateJob(
         data.id,
@@ -167,8 +209,6 @@ export function useDeleteJob() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["jobs"] }),
   });
 }
-
-// ── Customers ────────────────────────────────────────────────────────────────
 
 export function useCustomers() {
   return useQuery({
@@ -230,8 +270,6 @@ export function useDeleteCustomer() {
   });
 }
 
-// ── Labour ───────────────────────────────────────────────────────────────────
-
 export function useLabourJobs() {
   return useQuery({
     queryKey: ["labourJobs"],
@@ -278,8 +316,6 @@ export function useDeleteLabourJob() {
   });
 }
 
-// ── Flexibles ─────────────────────────────────────────────────────────────────
-
 export function useFlexibleJobs() {
   return useQuery({
     queryKey: ["flexibleJobs"],
@@ -297,25 +333,60 @@ export function useSaveFlexibleJob() {
       description: string;
       customerId: string | null;
       materialTab: string;
+      centerLength: number;
       sheetBunchWidth: number;
-      thickness: number;
-      numBars: bigint;
+      sheetThickness: number;
+      sheetCount: bigint;
+      barsSupplied: boolean;
+      barLength: number;
+      barWidth: number;
+      barThickness: number;
+      numberOfDrills: bigint;
+      numberOfFolds: bigint;
+      sheetStackWeight: number;
+      stripWeight: number;
+      bar1Weight: number;
+      bar2Weight: number;
+      totalMaterialWeight: number;
+      materialCost: number;
+      cuttingCost: number;
+      foldingCost: number;
+      drillingCost: number;
       weldingCost: number;
       chamferingCost: number;
+      totalWeldLength: number;
       overheadCost: number;
       profitCost: number;
       totalCost: number;
     }) => {
       const actor = await getActor();
-      return actor.saveFlexibleJob(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      return (actor as any).saveFlexibleJob(
         data.description,
         data.customerId,
         data.materialTab,
+        data.centerLength,
         data.sheetBunchWidth,
-        data.thickness,
-        data.numBars,
+        data.sheetThickness,
+        data.sheetCount,
+        data.barsSupplied,
+        data.barLength,
+        data.barWidth,
+        data.barThickness,
+        data.numberOfDrills,
+        data.numberOfFolds,
+        data.sheetStackWeight,
+        data.stripWeight,
+        data.bar1Weight,
+        data.bar2Weight,
+        data.totalMaterialWeight,
+        data.materialCost,
+        data.cuttingCost,
+        data.foldingCost,
+        data.drillingCost,
         data.weldingCost,
         data.chamferingCost,
+        data.totalWeldLength,
         data.overheadCost,
         data.profitCost,
         data.totalCost,

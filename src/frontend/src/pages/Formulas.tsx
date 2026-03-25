@@ -926,8 +926,14 @@ export function Formulas() {
               joints. Overhead % and Profit % are shared with Job Costing
               settings.
             </p>
+            <FormulaDisplay formula="Sheet Stack Wt = (CenterLen+25) × Width × Thk × Count × density / 1,000,000" />
+            <FormulaDisplay formula="Strip Wt = Width × 20 × 2 × 4 × density / 1,000,000" />
+            <FormulaDisplay formula="Bar Wt = Length × Width × Thk × density / 1,000,000 (each, if supplied)" />
+            <FormulaDisplay formula="Material Cost = TotalWeight × 1.2 × MaterialRate" />
+            <FormulaDisplay formula="Cutting Cost = (SheetCount + 4) × 2.5" />
             <FormulaDisplay formula="Welding Cost = (Sheet Bunch Width ÷ 25) × Labour Rate" />
-            <FormulaDisplay formula="Chamfering = Number of Bars × Rate per Bar" />
+            <FormulaDisplay formula="Total Weld Length = (Width + BunchThickness) × 4" />
+            <FormulaDisplay formula="Chamfering = Rs 80 (both bars always)" />
           </div>
 
           <div className="bg-card border border-border rounded-xl p-5">
@@ -1019,13 +1025,81 @@ export function Formulas() {
               Chamfering Rate
             </h3>
             <FormulaRow
-              label="Chamfering rate per bar"
-              description="Rs per bar — 1 bar = rate × 1, 2 bars = rate × 2"
+              label="Chamfering cost (both bars)"
+              description="Rs total for chamfering both bars — always applied"
               value={settings.flexChamferingRate}
               onChange={(v) =>
                 updateSetting("flexChamferingRate" as FormulaKey, v)
               }
-              unit="Rs/bar"
+              unit="Rs total"
+              step={1}
+              min={0}
+            />
+          </div>
+
+          <div className="bg-card border border-border rounded-xl p-5">
+            <h3 className="text-sm font-semibold text-foreground mb-3">
+              Flexibles — Material
+            </h3>
+            <FormulaRow
+              label="AL Density (g/cm³)"
+              description="Aluminium density used for weight calculations"
+              value={settings.flexAlDensity}
+              onChange={(v) => updateSetting("flexAlDensity" as FormulaKey, v)}
+              unit="g/cm³"
+              step={0.01}
+              min={0}
+            />
+            <FormulaRow
+              label="CU Density (g/cm³)"
+              description="Copper density used for weight calculations"
+              value={settings.flexCuDensity}
+              onChange={(v) => updateSetting("flexCuDensity" as FormulaKey, v)}
+              unit="g/cm³"
+              step={0.01}
+              min={0}
+            />
+            <FormulaRow
+              label="AL Material Rate (Rs/kg)"
+              description="Current Aluminium market rate per kg"
+              value={settings.flexAlMaterialRate}
+              onChange={(v) =>
+                updateSetting("flexAlMaterialRate" as FormulaKey, v)
+              }
+              unit="Rs/kg"
+              step={1}
+              min={0}
+            />
+            <FormulaRow
+              label="CU Material Rate (Rs/kg)"
+              description="Current Copper market rate per kg"
+              value={settings.flexCuMaterialRate}
+              onChange={(v) =>
+                updateSetting("flexCuMaterialRate" as FormulaKey, v)
+              }
+              unit="Rs/kg"
+              step={1}
+              min={0}
+            />
+            <FormulaRow
+              label="Folding Cost per Fold (Rs)"
+              description="Rs charged per fold operation"
+              value={settings.flexFoldingCostPerFold}
+              onChange={(v) =>
+                updateSetting("flexFoldingCostPerFold" as FormulaKey, v)
+              }
+              unit="Rs/fold"
+              step={1}
+              min={0}
+            />
+            <FormulaRow
+              label="Drilling Cost per Hole (Rs)"
+              description="Rs charged per drill hole"
+              value={settings.flexDrillingCostPerHole}
+              onChange={(v) =>
+                updateSetting("flexDrillingCostPerHole" as FormulaKey, v)
+              }
+              unit="Rs/hole"
               step={1}
               min={0}
             />

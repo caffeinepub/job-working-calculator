@@ -51,11 +51,28 @@ export interface FlexibleJob {
     id: string;
     description: string;
     materialTab: string;
+    centerLength: number;
     sheetBunchWidth: number;
-    thickness: number;
-    numBars: bigint;
+    sheetThickness: number;
+    sheetCount: bigint;
+    barsSupplied: boolean;
+    barLength: number;
+    barWidth: number;
+    barThickness: number;
+    numberOfDrills: bigint;
+    numberOfFolds: bigint;
+    sheetStackWeight: number;
+    stripWeight: number;
+    bar1Weight: number;
+    bar2Weight: number;
+    totalMaterialWeight: number;
+    materialCost: number;
+    cuttingCost: number;
+    foldingCost: number;
+    drillingCost: number;
     weldingCost: number;
     chamferingCost: number;
+    totalWeldLength: number;
     overheadCost: number;
     profitCost: number;
     totalCost: number;
@@ -99,7 +116,6 @@ export enum UserRole {
 export interface backendInterface {
     addCustomer(name: string, phone: string, email: string, address: string): Promise<Customer>;
     addMaterial(grade: string, materialType: string, size: string, weightPerMeter: number, currentRate: number): Promise<RawMaterial>;
-    assignCallerUserRole(user: Principal, role: UserRole): Promise<void>;
     deleteCustomer(id: string): Promise<boolean>;
     deleteFlexibleJob(id: string): Promise<boolean>;
     deleteJob(id: string): Promise<boolean>;
@@ -119,7 +135,36 @@ export interface backendInterface {
     getUserProfile(user: Principal): Promise<UserProfile | null>;
     isCallerAdmin(): Promise<boolean>;
     saveCallerUserProfile(profile: UserProfile): Promise<void>;
-    saveFlexibleJob(description: string, customerId: string | null, materialTab: string, sheetBunchWidth: number, thickness: number, numBars: bigint, weldingCost: number, chamferingCost: number, overheadCost: number, profitCost: number, totalCost: number): Promise<FlexibleJob>;
+    saveFlexibleJob(
+        description: string,
+        customerId: string | null,
+        materialTab: string,
+        centerLength: number,
+        sheetBunchWidth: number,
+        sheetThickness: number,
+        sheetCount: bigint,
+        barsSupplied: boolean,
+        barLength: number,
+        barWidth: number,
+        barThickness: number,
+        numberOfDrills: bigint,
+        numberOfFolds: bigint,
+        sheetStackWeight: number,
+        stripWeight: number,
+        bar1Weight: number,
+        bar2Weight: number,
+        totalMaterialWeight: number,
+        materialCost: number,
+        cuttingCost: number,
+        foldingCost: number,
+        drillingCost: number,
+        weldingCost: number,
+        chamferingCost: number,
+        totalWeldLength: number,
+        overheadCost: number,
+        profitCost: number,
+        totalCost: number,
+    ): Promise<FlexibleJob>;
     saveJob(name: string, laborRate: number, transportIncluded: boolean, customerId: string | null, transportCost: number, dispatchQty: number, jobLineItems: Array<JobLineItem>, weldingLineItems: Array<WeldingLineItem>, totalFinalPrice: number, totalProductWeight: number, ratePerKg: number): Promise<SavedJob>;
     saveLabourJob(description: string, customerId: string | null, materialType: string, weldLength: number, laborRate: number, totalCost: number): Promise<LabourJob>;
     updateCustomer(id: string, name: string, phone: string, email: string, address: string): Promise<Customer>;

@@ -388,8 +388,9 @@ actor {
   };
 
   // ===== Flexible Jobs =====
+  // V1 type kept for stable variable migration compatibility
 
-  type FlexibleJob = {
+  type FlexibleJobV1 = {
     id : Text;
     description : Text;
     materialTab : Text;
@@ -406,23 +407,121 @@ actor {
     createdAt : Int;
   };
 
+  // This stable variable retains the old type so the upgrade is compatible.
+  let flexibleJobs = Map.empty<Text, FlexibleJobV1>();
+
+  // V2 type with full costing fields
+  type FlexibleJob = {
+    id : Text;
+    description : Text;
+    materialTab : Text;
+    centerLength : Float;
+    sheetBunchWidth : Float;
+    sheetThickness : Float;
+    sheetCount : Nat;
+    barsSupplied : Bool;
+    barLength : Float;
+    barWidth : Float;
+    barThickness : Float;
+    numberOfDrills : Nat;
+    numberOfFolds : Nat;
+    sheetStackWeight : Float;
+    stripWeight : Float;
+    bar1Weight : Float;
+    bar2Weight : Float;
+    totalMaterialWeight : Float;
+    materialCost : Float;
+    cuttingCost : Float;
+    foldingCost : Float;
+    drillingCost : Float;
+    weldingCost : Float;
+    chamferingCost : Float;
+    totalWeldLength : Float;
+    overheadCost : Float;
+    profitCost : Float;
+    totalCost : Float;
+    customerId : ?Text;
+    customerName : ?Text;
+    createdAt : Int;
+  };
+
   module FlexibleJob {
     public func compare(a : FlexibleJob, b : FlexibleJob) : Order.Order {
       Text.compare(a.id, b.id);
     };
   };
 
-  let flexibleJobs = Map.empty<Text, FlexibleJob>();
+  // New stable map for V2 jobs
+  let flexibleJobsV2 = Map.empty<Text, FlexibleJob>();
+
+  // On upgrade: migrate any V1 jobs into V2 map
+  system func postupgrade() {
+    for (v1 in flexibleJobs.values()) {
+      let v2 : FlexibleJob = {
+        id = v1.id;
+        description = v1.description;
+        materialTab = v1.materialTab;
+        centerLength = 0.0;
+        sheetBunchWidth = v1.sheetBunchWidth;
+        sheetThickness = v1.thickness;
+        sheetCount = 0;
+        barsSupplied = false;
+        barLength = 0.0;
+        barWidth = 0.0;
+        barThickness = 0.0;
+        numberOfDrills = 0;
+        numberOfFolds = 1;
+        sheetStackWeight = 0.0;
+        stripWeight = 0.0;
+        bar1Weight = 0.0;
+        bar2Weight = 0.0;
+        totalMaterialWeight = 0.0;
+        materialCost = 0.0;
+        cuttingCost = 0.0;
+        foldingCost = 0.0;
+        drillingCost = 0.0;
+        weldingCost = v1.weldingCost;
+        chamferingCost = v1.chamferingCost;
+        totalWeldLength = 0.0;
+        overheadCost = v1.overheadCost;
+        profitCost = v1.profitCost;
+        totalCost = v1.totalCost;
+        customerId = v1.customerId;
+        customerName = v1.customerName;
+        createdAt = v1.createdAt;
+      };
+      if (flexibleJobsV2.get(v1.id) == null) {
+        flexibleJobsV2.add(v1.id, v2);
+      };
+    };
+  };
 
   public shared func saveFlexibleJob(
     description : Text,
     customerId : ?Text,
     materialTab : Text,
+    centerLength : Float,
     sheetBunchWidth : Float,
-    thickness : Float,
-    numBars : Nat,
+    sheetThickness : Float,
+    sheetCount : Nat,
+    barsSupplied : Bool,
+    barLength : Float,
+    barWidth : Float,
+    barThickness : Float,
+    numberOfDrills : Nat,
+    numberOfFolds : Nat,
+    sheetStackWeight : Float,
+    stripWeight : Float,
+    bar1Weight : Float,
+    bar2Weight : Float,
+    totalMaterialWeight : Float,
+    materialCost : Float,
+    cuttingCost : Float,
+    foldingCost : Float,
+    drillingCost : Float,
     weldingCost : Float,
     chamferingCost : Float,
+    totalWeldLength : Float,
     overheadCost : Float,
     profitCost : Float,
     totalCost : Float,
@@ -441,11 +540,28 @@ actor {
       id;
       description;
       materialTab;
+      centerLength;
       sheetBunchWidth;
-      thickness;
-      numBars;
+      sheetThickness;
+      sheetCount;
+      barsSupplied;
+      barLength;
+      barWidth;
+      barThickness;
+      numberOfDrills;
+      numberOfFolds;
+      sheetStackWeight;
+      stripWeight;
+      bar1Weight;
+      bar2Weight;
+      totalMaterialWeight;
+      materialCost;
+      cuttingCost;
+      foldingCost;
+      drillingCost;
       weldingCost;
       chamferingCost;
+      totalWeldLength;
       overheadCost;
       profitCost;
       totalCost;
@@ -453,19 +569,30 @@ actor {
       customerName;
       createdAt = Time.now();
     };
-    flexibleJobs.add(id, fj);
+    flexibleJobsV2.add(id, fj);
     fj;
   };
 
   public query func getFlexibleJobs() : async [FlexibleJob] {
-    flexibleJobs.values().toArray().sort();
+    flexibleJobsV2.values().toArray().sort();
   };
 
   public shared func deleteFlexibleJob(id : Text) : async Bool {
-    switch (flexibleJobs.get(id)) {
+    switch (flexibleJobsV2.get(id)) {
       case (null) { false };
-      case (_) { flexibleJobs.remove(id); true };
+      case (_) { flexibleJobsV2.remove(id); true };
     };
   };
+
+  // ===== User / Auth stubs (kept for interface compatibility) =====
+
+  type UserProfile = { name : Text };
+  type UserRole = { #admin; #user };
+
+  public shared func saveCallerUserProfile(_profile : UserProfile) : async () {};
+  public query func getCallerUserProfile() : async ?UserProfile { null };
+  public query func getUserProfile(_user : Principal) : async ?UserProfile { null };
+  public query func getCallerUserRole() : async UserRole { #admin };
+  public query func isCallerAdmin() : async Bool { true };
 
 };

@@ -67,9 +67,16 @@ function TabCalculator({ materialTab }: TabCalculatorProps) {
   const deleteJob = useDeleteFlexibleJob();
 
   const [description, setDescription] = useState("");
+  const [centerLength, setCenterLength] = useState<number | "">("");
   const [sheetBunchWidth, setSheetBunchWidth] = useState<number | "">("");
-  const [thickness, setThickness] = useState<number | "">("");
-  const [numBars, setNumBars] = useState<1 | 2>(1);
+  const [sheetThickness, setSheetThickness] = useState<number | "">("");
+  const [sheetCount, setSheetCount] = useState<number | "">("");
+  const [barsSupplied, setBarsSupplied] = useState(false);
+  const [barLength, setBarLength] = useState<number | "">("");
+  const [barWidth, setBarWidth] = useState<number | "">("");
+  const [barThickness, setBarThickness] = useState<number | "">("");
+  const [numberOfDrills, setNumberOfDrills] = useState<number>(0);
+  const [numberOfFolds, setNumberOfFolds] = useState<number>(1);
   const [customerId, setCustomerId] = useState<string>("none");
 
   const alRateMap: Record<number, number> = {
@@ -87,21 +94,78 @@ function TabCalculator({ materialTab }: TabCalculatorProps) {
   };
 
   const rateMap = materialTab === "AL" ? alRateMap : cuRateMap;
+  const density =
+    materialTab === "AL" ? settings.flexAlDensity : settings.flexCuDensity;
+  const materialRate =
+    materialTab === "AL"
+      ? settings.flexAlMaterialRate
+      : settings.flexCuMaterialRate;
 
+  const centerLengthNum = typeof centerLength === "number" ? centerLength : 0;
   const widthNum = typeof sheetBunchWidth === "number" ? sheetBunchWidth : 0;
-  const thicknessNum = typeof thickness === "number" ? thickness : 0;
+  const thicknessNum = typeof sheetThickness === "number" ? sheetThickness : 0;
+  const sheetCountNum = typeof sheetCount === "number" ? sheetCount : 0;
+  const barLengthNum = typeof barLength === "number" ? barLength : 0;
+  const barWidthNum = typeof barWidth === "number" ? barWidth : 0;
+  const barThicknessNum = typeof barThickness === "number" ? barThickness : 0;
+
+  // Derived calculations
+  const sheetBunchThk = thicknessNum * sheetCountNum;
+
+  const sheetStackWeight =
+    widthNum > 0 && thicknessNum > 0 && sheetCountNum > 0
+      ? ((centerLengthNum + 25) *
+          widthNum *
+          thicknessNum *
+          sheetCountNum *
+          density) /
+        1_000_000
+      : 0;
+
+  const stripWeight =
+    widthNum > 0 ? (widthNum * 20 * 2 * 4 * density) / 1_000_000 : 0;
+
+  const barWeight =
+    barsSupplied && barLengthNum > 0 && barWidthNum > 0 && barThicknessNum > 0
+      ? (barLengthNum * barWidthNum * barThicknessNum * density) / 1_000_000
+      : 0;
+
+  const totalMaterialWeight =
+    (barsSupplied ? barWeight : 0) +
+    stripWeight +
+    sheetStackWeight +
+    (barsSupplied ? barWeight : 0);
+
+  const materialCost = totalMaterialWeight * 1.2 * materialRate;
+
+  const cuttingCost = sheetCountNum > 0 ? (sheetCountNum + 4) * 2.5 : 0;
+
+  const foldingCost = numberOfFolds * settings.flexFoldingCostPerFold;
+
+  const chamferingCost = settings.flexChamferingRate;
+
+  const drillingCost = numberOfDrills * settings.flexDrillingCostPerHole;
+
+  const totalWeldLength =
+    widthNum > 0 && sheetBunchThk > 0 ? (widthNum + sheetBunchThk) * 4 : 0;
 
   const labourRate =
     thicknessNum > 0 ? interpolateRate(thicknessNum, rateMap) : 0;
   const weldingCost =
     widthNum > 0 && thicknessNum > 0 ? (widthNum / 25) * labourRate : 0;
-  const chamferingCost = numBars * settings.flexChamferingRate;
-  const subtotal = weldingCost + chamferingCost;
+
+  const subtotal =
+    materialCost +
+    cuttingCost +
+    foldingCost +
+    chamferingCost +
+    drillingCost +
+    weldingCost;
   const overheadCost = subtotal * (settings.overheadPct / 100);
   const profitCost = (subtotal + overheadCost) * (settings.profitPct / 100);
   const totalCost = subtotal + overheadCost + profitCost;
 
-  const canCalculate = widthNum > 0 && thicknessNum > 0;
+  const canCalculate = widthNum > 0 && thicknessNum > 0 && sheetCountNum > 0;
 
   const handleSave = async () => {
     if (!canCalculate) return;
@@ -110,11 +174,28 @@ function TabCalculator({ materialTab }: TabCalculatorProps) {
         description: description.trim(),
         customerId: customerId === "none" ? null : customerId,
         materialTab,
+        centerLength: centerLengthNum,
         sheetBunchWidth: widthNum,
-        thickness: thicknessNum,
-        numBars: BigInt(numBars),
+        sheetThickness: thicknessNum,
+        sheetCount: BigInt(sheetCountNum),
+        barsSupplied,
+        barLength: barLengthNum,
+        barWidth: barWidthNum,
+        barThickness: barThicknessNum,
+        numberOfDrills: BigInt(numberOfDrills),
+        numberOfFolds: BigInt(numberOfFolds),
+        sheetStackWeight,
+        stripWeight,
+        bar1Weight: barWeight,
+        bar2Weight: barWeight,
+        totalMaterialWeight,
+        materialCost,
+        cuttingCost,
+        foldingCost,
+        drillingCost,
         weldingCost,
         chamferingCost,
+        totalWeldLength,
         overheadCost,
         profitCost,
         totalCost,
@@ -168,6 +249,26 @@ function TabCalculator({ materialTab }: TabCalculatorProps) {
               />
             </div>
 
+            {/* Center Length */}
+            <div className="space-y-1.5">
+              <Label htmlFor={`flex-center-${materialTab}`}>
+                Center Length (mm)
+              </Label>
+              <Input
+                id={`flex-center-${materialTab}`}
+                type="number"
+                min={0}
+                placeholder="Center length in mm"
+                value={centerLength}
+                onChange={(e) =>
+                  setCenterLength(
+                    e.target.value === "" ? "" : Number(e.target.value),
+                  )
+                }
+                data-ocid="flexibles.input"
+              />
+            </div>
+
             {/* Sheet Bunch Width */}
             <div className="space-y-1.5">
               <Label htmlFor={`flex-width-${materialTab}`}>
@@ -188,10 +289,10 @@ function TabCalculator({ materialTab }: TabCalculatorProps) {
               />
             </div>
 
-            {/* Thickness */}
+            {/* Sheet Thickness */}
             <div className="space-y-1.5">
               <Label htmlFor={`flex-thick-${materialTab}`}>
-                Thickness (mm)
+                Sheet Thickness (mm)
               </Label>
               <Input
                 id={`flex-thick-${materialTab}`}
@@ -199,9 +300,9 @@ function TabCalculator({ materialTab }: TabCalculatorProps) {
                 min={0}
                 step={0.1}
                 placeholder="e.g. 6, 10, 12, 12.7"
-                value={thickness}
+                value={sheetThickness}
                 onChange={(e) =>
-                  setThickness(
+                  setSheetThickness(
                     e.target.value === "" ? "" : Number(e.target.value),
                   )
                 }
@@ -217,25 +318,162 @@ function TabCalculator({ materialTab }: TabCalculatorProps) {
               )}
             </div>
 
-            {/* Number of Bars */}
+            {/* Sheet Count */}
             <div className="space-y-1.5">
-              <Label>Number of Bars</Label>
-              <Select
-                value={String(numBars)}
-                onValueChange={(v) => setNumBars(Number(v) as 1 | 2)}
+              <Label htmlFor={`flex-count-${materialTab}`}>Sheet Count</Label>
+              <Input
+                id={`flex-count-${materialTab}`}
+                type="number"
+                min={1}
+                step={1}
+                placeholder="Number of sheets"
+                value={sheetCount}
+                onChange={(e) =>
+                  setSheetCount(
+                    e.target.value === ""
+                      ? ""
+                      : Math.round(Number(e.target.value)),
+                  )
+                }
+                data-ocid="flexibles.input"
+              />
+              {sheetCountNum > 0 && thicknessNum > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  Sheet Bunch Thickness:{" "}
+                  <span className="font-medium text-foreground">
+                    {sheetBunchThk.toFixed(1)} mm
+                  </span>
+                </p>
+              )}
+            </div>
+
+            {/* Bars Supplied toggle */}
+            <div className="flex items-center justify-between py-2 border border-border rounded-lg px-3">
+              <div>
+                <p className="text-sm font-medium">Bars Supplied?</p>
+                <p className="text-xs text-muted-foreground">
+                  Toggle if you are supplying solid end bars
+                </p>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={barsSupplied}
+                onClick={() => setBarsSupplied((v) => !v)}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 ${
+                  barsSupplied ? "bg-primary" : "bg-muted-foreground/30"
+                }`}
+                data-ocid="flexibles.switch"
               >
-                <SelectTrigger data-ocid="flexibles.select">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="1">
-                    1 Bar (Rs {settings.flexChamferingRate} chamfering)
-                  </SelectItem>
-                  <SelectItem value="2">
-                    2 Bars (Rs {settings.flexChamferingRate * 2} chamfering)
-                  </SelectItem>
-                </SelectContent>
-              </Select>
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                    barsSupplied ? "translate-x-6" : "translate-x-1"
+                  }`}
+                />
+              </button>
+            </div>
+
+            {/* Bar inputs — shown only when barsSupplied */}
+            {barsSupplied && (
+              <div className="space-y-3 pl-3 border-l-2 border-primary/30">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                  Bar Dimensions (same for both bars)
+                </p>
+                <div className="space-y-1.5">
+                  <Label htmlFor={`flex-barlen-${materialTab}`}>
+                    Bar Length (mm)
+                  </Label>
+                  <Input
+                    id={`flex-barlen-${materialTab}`}
+                    type="number"
+                    min={0}
+                    placeholder="Bar length in mm"
+                    value={barLength}
+                    onChange={(e) =>
+                      setBarLength(
+                        e.target.value === "" ? "" : Number(e.target.value),
+                      )
+                    }
+                    data-ocid="flexibles.input"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor={`flex-barw-${materialTab}`}>
+                    Bar Width (mm)
+                  </Label>
+                  <Input
+                    id={`flex-barw-${materialTab}`}
+                    type="number"
+                    min={0}
+                    placeholder="Bar width in mm"
+                    value={barWidth}
+                    onChange={(e) =>
+                      setBarWidth(
+                        e.target.value === "" ? "" : Number(e.target.value),
+                      )
+                    }
+                    data-ocid="flexibles.input"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor={`flex-barth-${materialTab}`}>
+                    Bar Thickness (mm)
+                  </Label>
+                  <Input
+                    id={`flex-barth-${materialTab}`}
+                    type="number"
+                    min={0}
+                    placeholder="Bar thickness in mm"
+                    value={barThickness}
+                    onChange={(e) =>
+                      setBarThickness(
+                        e.target.value === "" ? "" : Number(e.target.value),
+                      )
+                    }
+                    data-ocid="flexibles.input"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Number of Drills */}
+            <div className="space-y-1.5">
+              <Label htmlFor={`flex-drills-${materialTab}`}>
+                Number of Drills (0 = no drilling cost)
+              </Label>
+              <Input
+                id={`flex-drills-${materialTab}`}
+                type="number"
+                min={0}
+                step={1}
+                value={numberOfDrills}
+                onChange={(e) =>
+                  setNumberOfDrills(
+                    Math.max(0, Math.round(Number(e.target.value))),
+                  )
+                }
+                data-ocid="flexibles.input"
+              />
+            </div>
+
+            {/* Number of Folds */}
+            <div className="space-y-1.5">
+              <Label htmlFor={`flex-folds-${materialTab}`}>
+                Number of Folds
+              </Label>
+              <Input
+                id={`flex-folds-${materialTab}`}
+                type="number"
+                min={0}
+                step={1}
+                value={numberOfFolds}
+                onChange={(e) =>
+                  setNumberOfFolds(
+                    Math.max(0, Math.round(Number(e.target.value))),
+                  )
+                }
+                data-ocid="flexibles.input"
+              />
             </div>
 
             {/* Customer */}
@@ -279,43 +517,110 @@ function TabCalculator({ materialTab }: TabCalculatorProps) {
             <CardTitle className="text-base">Cost Breakdown</CardTitle>
           </CardHeader>
           <CardContent>
+            {/* Formula reference box */}
             <div className="bg-muted/50 rounded-lg px-4 py-3 font-mono text-xs text-foreground border border-border mb-4 space-y-1">
-              <div>Welding Cost = (Sheet Bunch Width ÷ 25) × Labour Rate</div>
               <div>
-                Chamfering = No. of Bars × Rs {settings.flexChamferingRate}
+                Sheet Stack Wt = (CenterLen+25) × Width × Thk × Count × ρ / 1M
               </div>
+              <div>Strip Wt = Width × 20 × 2 × 4 × ρ / 1M</div>
+              <div>Bar Wt = L × W × T × ρ / 1M (each, if supplied)</div>
+              <div>Material Cost = TotalWt × 1.2 × Rate</div>
+              <div>Cutting = (Sheets + 4) × 2.5</div>
+              <div>Welding = (Width ÷ 25) × Labour Rate</div>
+              <div>Total Weld Len = (Width + BunchThk) × 4</div>
               <div>
-                Overhead = {settings.overheadPct}% of (Welding + Chamfering)
+                Overhead = {settings.overheadPct}% · Profit ={" "}
+                {settings.profitPct}% of (subtotal+overhead)
               </div>
-              <div>Profit = {settings.profitPct}% of (Subtotal + Overhead)</div>
             </div>
 
-            <div className="space-y-2">
-              <div className="flex justify-between items-center py-2 border-b border-border">
+            <div className="space-y-1">
+              {/* Material weights */}
+              <div className="flex justify-between items-center py-1.5 border-b border-border">
                 <span className="text-sm text-muted-foreground">
-                  Sheet Bunch Width
+                  Sheet Stack Weight
                 </span>
                 <span className="text-sm font-medium">
-                  {widthNum > 0 ? `${widthNum} mm` : "—"}
-                </span>
-              </div>
-              <div className="flex justify-between items-center py-2 border-b border-border">
-                <span className="text-sm text-muted-foreground">Thickness</span>
-                <span className="text-sm font-medium">
-                  {thicknessNum > 0 ? `${thicknessNum} mm` : "—"}
-                </span>
-              </div>
-              <div className="flex justify-between items-center py-2 border-b border-border">
-                <span className="text-sm text-muted-foreground">
-                  Labour Rate
-                </span>
-                <span className="text-sm font-medium">
-                  {thicknessNum > 0
-                    ? `Rs ${labourRate.toFixed(2)} / 25mm`
+                  {sheetStackWeight > 0
+                    ? `${sheetStackWeight.toFixed(3)} kg`
                     : "—"}
                 </span>
               </div>
-              <div className="flex justify-between items-center py-2 border-b border-border">
+              <div className="flex justify-between items-center py-1.5 border-b border-border">
+                <span className="text-sm text-muted-foreground">
+                  Strip Weight
+                </span>
+                <span className="text-sm font-medium">
+                  {stripWeight > 0 ? `${stripWeight.toFixed(3)} kg` : "—"}
+                </span>
+              </div>
+              {barsSupplied && (
+                <div className="flex justify-between items-center py-1.5 border-b border-border">
+                  <span className="text-sm text-muted-foreground">
+                    Bar Weight (×2)
+                  </span>
+                  <span className="text-sm font-medium">
+                    {barWeight > 0 ? `${barWeight.toFixed(3)} kg each` : "—"}
+                  </span>
+                </div>
+              )}
+              <div className="flex justify-between items-center py-1.5 border-b border-border">
+                <span className="text-sm text-muted-foreground font-medium">
+                  Total Material Weight
+                </span>
+                <span className="text-sm font-semibold">
+                  {totalMaterialWeight > 0
+                    ? `${totalMaterialWeight.toFixed(3)} kg`
+                    : "—"}
+                </span>
+              </div>
+
+              {/* Costs */}
+              <div className="flex justify-between items-center py-1.5 border-b border-border">
+                <span className="text-sm text-muted-foreground">
+                  Material Cost (×1.2 markup)
+                </span>
+                <span className="text-sm font-medium">
+                  {materialCost > 0 ? `Rs ${materialCost.toFixed(2)}` : "—"}
+                </span>
+              </div>
+              <div className="flex justify-between items-center py-1.5 border-b border-border">
+                <span className="text-sm text-muted-foreground">
+                  Sheet Cutting Cost
+                </span>
+                <span className="text-sm font-medium">
+                  {cuttingCost > 0 ? `Rs ${cuttingCost.toFixed(2)}` : "—"}
+                </span>
+              </div>
+              <div className="flex justify-between items-center py-1.5 border-b border-border">
+                <span className="text-sm text-muted-foreground">
+                  Folding Cost ({numberOfFolds} fold
+                  {numberOfFolds !== 1 ? "s" : ""})
+                </span>
+                <span className="text-sm font-medium">
+                  Rs {foldingCost.toFixed(2)}
+                </span>
+              </div>
+              <div className="flex justify-between items-center py-1.5 border-b border-border">
+                <span className="text-sm text-muted-foreground">
+                  Chamfering (both bars)
+                </span>
+                <span className="text-sm font-medium">
+                  Rs {chamferingCost.toFixed(2)}
+                </span>
+              </div>
+              {numberOfDrills > 0 && (
+                <div className="flex justify-between items-center py-1.5 border-b border-border">
+                  <span className="text-sm text-muted-foreground">
+                    Drilling ({numberOfDrills} hole
+                    {numberOfDrills !== 1 ? "s" : ""})
+                  </span>
+                  <span className="text-sm font-medium">
+                    Rs {drillingCost.toFixed(2)}
+                  </span>
+                </div>
+              )}
+              <div className="flex justify-between items-center py-1.5 border-b border-border">
                 <span className="text-sm text-muted-foreground">
                   Welding Cost
                 </span>
@@ -323,15 +628,17 @@ function TabCalculator({ materialTab }: TabCalculatorProps) {
                   {canCalculate ? `Rs ${weldingCost.toFixed(2)}` : "—"}
                 </span>
               </div>
-              <div className="flex justify-between items-center py-2 border-b border-border">
+              <div className="flex justify-between items-center py-1.5 border-b border-border">
                 <span className="text-sm text-muted-foreground">
-                  Chamfering ({numBars} bar{numBars > 1 ? "s" : ""})
+                  Total Weld Length
                 </span>
                 <span className="text-sm font-medium">
-                  Rs {chamferingCost.toFixed(2)}
+                  {totalWeldLength > 0
+                    ? `${totalWeldLength.toFixed(1)} mm`
+                    : "—"}
                 </span>
               </div>
-              <div className="flex justify-between items-center py-2 border-b border-border">
+              <div className="flex justify-between items-center py-1.5 border-b border-border">
                 <span className="text-sm text-muted-foreground">
                   Overhead ({settings.overheadPct}%)
                 </span>
@@ -339,7 +646,7 @@ function TabCalculator({ materialTab }: TabCalculatorProps) {
                   {canCalculate ? `Rs ${overheadCost.toFixed(2)}` : "—"}
                 </span>
               </div>
-              <div className="flex justify-between items-center py-2 border-b border-border">
+              <div className="flex justify-between items-center py-1.5 border-b border-border">
                 <span className="text-sm text-muted-foreground">
                   Profit ({settings.profitPct}%)
                 </span>
@@ -398,9 +705,8 @@ function TabCalculator({ materialTab }: TabCalculatorProps) {
                     <TableHead>Date</TableHead>
                     <TableHead>Description</TableHead>
                     <TableHead className="text-right">Width (mm)</TableHead>
-                    <TableHead className="text-right">Thick (mm)</TableHead>
-                    <TableHead className="text-right">Bars</TableHead>
-                    <TableHead className="text-right">Welding</TableHead>
+                    <TableHead className="text-right">Sheets</TableHead>
+                    <TableHead className="text-right">Material Cost</TableHead>
                     <TableHead className="text-right">Total</TableHead>
                     <TableHead className="w-10" />
                   </TableRow>
@@ -425,15 +731,12 @@ function TabCalculator({ materialTab }: TabCalculatorProps) {
                         {job.sheetBunchWidth}
                       </TableCell>
                       <TableCell className="text-right text-sm">
-                        {job.thickness}
-                      </TableCell>
-                      <TableCell className="text-right text-sm">
                         <Badge variant="outline" className="text-xs">
-                          {String(job.numBars)}
+                          {String((job as any).sheetCount)}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right text-sm">
-                        Rs {job.weldingCost.toFixed(2)}
+                        Rs {(job as any).materialCost.toFixed(2)}
                       </TableCell>
                       <TableCell className="text-right text-sm font-semibold">
                         Rs {job.totalCost.toFixed(2)}

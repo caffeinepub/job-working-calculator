@@ -35,7 +35,15 @@ export interface FormulaSettings {
   flexCuRate10: number; // default 220
   flexCuRate12: number; // default 230
   flexCuRate127: number; // default 235
-  flexChamferingRate: number; // default 40
+  flexChamferingRate: number; // default 80 (total for both bars)
+
+  // Flexibles material
+  flexAlDensity: number; // default 2.7 (g/cm³)
+  flexCuDensity: number; // default 8.96 (g/cm³)
+  flexAlMaterialRate: number; // default 300 (Rs/kg)
+  flexCuMaterialRate: number; // default 800 (Rs/kg)
+  flexFoldingCostPerFold: number; // default 15 (Rs per fold)
+  flexDrillingCostPerHole: number; // default 15 (Rs per drill)
 }
 
 const DEFAULTS: FormulaSettings = {
@@ -60,7 +68,13 @@ const DEFAULTS: FormulaSettings = {
   flexCuRate10: 220,
   flexCuRate12: 230,
   flexCuRate127: 235,
-  flexChamferingRate: 40,
+  flexChamferingRate: 80,
+  flexAlDensity: 2.7,
+  flexCuDensity: 8.96,
+  flexAlMaterialRate: 300,
+  flexCuMaterialRate: 800,
+  flexFoldingCostPerFold: 15,
+  flexDrillingCostPerHole: 15,
 };
 
 const STORAGE_KEY = "jobcalc_formula_settings";

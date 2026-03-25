@@ -1,51 +1,39 @@
 # Job Working Calculator
 
 ## Current State
-- SS Fabrication, Labour, and all supporting modules are live and finalized.
-- Backend has: raw materials, customers, SS fabrication jobs, labour jobs.
-- useFormulaSettings stores labour rates (SS304, AL) in localStorage.
-- Formulas page has tabs: Weight, Job Costing, Welding, Options, Labour.
-- Sidebar has: Dashboard, Raw Materials, Job Calculator, Job History, Customers, Formulas, Export, Labour.
-- No Flexibles page or backend support exists yet.
+Flexibles module has a basic calculator with only Sheet Bunch Width, Thickness (for labor rate lookup), and Number of Bars as inputs. Material weight/cost, cutting cost, folding cost, and drilling are not implemented.
 
 ## Requested Changes (Diff)
 
 ### Add
-- `FlexibleJob` type in Motoko backend with fields: id, description, materialTab (AL|CU), sheetBunchWidth, thickness, numBars, weldingCost, chamferingCost, overheadCost, profitCost, totalCost, customerId, customerName, createdAt
-- `saveFlexibleJob` backend function
-- `getFlexibleJobs` backend query
-- `deleteFlexibleJob` backend function
-- `Flexibles.tsx` page with two tabs: Aluminium and CU
-- Flexible labour rates in useFormulaSettings: AL rates for 6mm/10mm/12mm/12.7mm, CU rates for same thicknesses
-- Chamfering rate (default 40), Overhead % (default 5), Profit % (default 10) for Flexibles in settings (can share existing overheadPct/profitPct)
-- New "Flexibles" tab in Formulas & Settings page showing the formula and all editable rates
-- New "Flexibles" nav item in Sidebar and App.tsx routing
+- New inputs: Center Length, Sheet Count, Sheet Thickness (per sheet), Bars Supplied toggle (default OFF), Bar Length/Width/Thickness (only if bars supplied), Number of Drills (0 = no drilling), Number of Folds
+- Material weight calculations: Sheet Stack Weight, Bar Weights, Strip Weight, Total Material Weight
+- Material Cost = Total Material Used × 1.2 × Material Rate
+- Sheet Cutting Cost = (No. of Sheets + 4) × 2.5
+- Folding cost = numberOfFolds × ₹15 (configurable rate)
+- Chamfering cost = ₹80 always (fixed, both bars always chamfered)
+- Drilling charge = ₹15 per drill (only if drills > 0)
+- Total Weld Length = (SHEET BUNCH WIDTH + SHEET BUNCH THK) × 4
+- Welding cost = (SHEET BUNCH WIDTH / 25) × labour charge (existing)
+- Overhead 5%, Profit 10% on all costs
+- New settings: AL density (2.7), CU density (8.96), AL material rate (Rs/kg), CU material rate (Rs/kg), folding cost per fold (15), drilling cost per hole (15)
+- Material rate per kg with date history (in settings)
 
 ### Modify
-- `useFormulaSettings` hook: add flexible-specific rate fields (flexAlRate6, flexAlRate10, flexAlRate12, flexAlRate127, flexCuRate6, flexCuRate10, flexCuRate12, flexCuRate127, flexChamferingRate)
-- `Formulas.tsx`: add Flexibles tab
-- `Sidebar.tsx`: add Flexibles nav item
-- `App.tsx`: add Flexibles page routing
+- FlexibleJob backend type: add centerLength, sheetCount, barsSupplied, barLength, barWidth, barThickness, numberOfDrills, numberOfFolds, sheetStackWeight, stripWeight, bar1Weight, bar2Weight, totalMaterialWeight, materialCost, cuttingCost, foldingCost, drillingCost, totalWeldLength
+- saveFlexibleJob backend function: accept new parameters
+- useFormulaSettings: add flexAlDensity, flexCuDensity, flexAlMaterialRate, flexCuMaterialRate, flexFoldingCostPerFold, flexDrillingCostPerHole
+- Chamfering: always ₹80 (fixed), remove numBars selector
+- Flexibles.tsx: full rewrite with new inputs and full cost breakdown
+- Formulas.tsx: add new Flexibles material settings section
 
 ### Remove
-- Nothing
+- Number of Bars selector (chamfering is always ₹80 for both bars)
 
 ## Implementation Plan
-
-1. Generate Motoko backend with FlexibleJob type and CRUD functions (saveFlexibleJob, getFlexibleJobs, deleteFlexibleJob)
-2. Update useFormulaSettings with flexible rate fields and defaults
-3. Add useFlexibleJobs, useSaveFlexibleJob, useDeleteFlexibleJob to useQueries hook
-4. Create Flexibles.tsx page:
-   - Two tabs: Aluminium and Copper
-   - Inputs: description, sheet bunch width (mm), thickness (mm), number of bars (1 or 2), customer
-   - Labour rate looked up from settings by thickness with linear interpolation
-   - Welding cost = (sheetBunchWidth / 25) × labourRate
-   - Chamfering cost = numBars × chamferingRate
-   - Overhead = (weldingCost + chamferingCost) × overheadPct%
-   - Profit = (weldingCost + chamferingCost + overhead) × profitPct%
-   - Total = welding + chamfering + overhead + profit
-   - Live cost breakdown shown
-   - Save to backend optional
-   - Saved jobs table with delete
-5. Add Flexibles tab to Formulas page with all rate fields editable
-6. Wire Sidebar and App.tsx to show the new page
+1. Update backend main.mo - new FlexibleJob type and saveFlexibleJob signature
+2. Update backend.d.ts - sync TypeScript types
+3. Update useFormulaSettings - add new settings
+4. Update useQueries.ts - update useSaveFlexibleJob mutation
+5. Rewrite Flexibles.tsx - new inputs, formulas, breakdown display
+6. Update Formulas.tsx - add AL/CU density and material rate settings
