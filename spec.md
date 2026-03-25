@@ -1,37 +1,51 @@
 # Job Working Calculator
 
 ## Current State
-- RawMaterial backend type has: id, grade, materialType, size, weightPerMeter, currentRate, createdAt
-- updateMaterial overwrites rate with no history tracking
-- Jobs are saved and editable but carry no snapshot of the rates used
-- JobHistory page shows saved jobs; clicking a job opens it in the calculator for editing
+- SS Fabrication, Labour, and all supporting modules are live and finalized.
+- Backend has: raw materials, customers, SS fabrication jobs, labour jobs.
+- useFormulaSettings stores labour rates (SS304, AL) in localStorage.
+- Formulas page has tabs: Weight, Job Costing, Welding, Options, Labour.
+- Sidebar has: Dashboard, Raw Materials, Job Calculator, Job History, Customers, Formulas, Export, Labour.
+- No Flexibles page or backend support exists yet.
 
 ## Requested Changes (Diff)
 
 ### Add
-- `RateHistoryEntry` type in backend: `{ rate: Float; changedAt: Int }`
-- `rateHistory` field (array of RateHistoryEntry) on RawMaterial
-- Backend function `deleteRateHistoryEntry(materialId, index)` to remove a single entry
-- In `updateMaterial`: when rate changes, push old rate + timestamp to rateHistory before overwriting
-- "History" expandable row section in RawMaterials page showing past rates with date and delete button
-- "Check & Update Rates" button inside job edit/view dialog on JobHistory page
-  - When clicked: shows a table of each raw material used in the job with current rate vs. job-saved rate
-  - Each row has an editable rate field (pre-filled with current material rate)
-  - User can change the rate for any material in that table
-  - "Apply Updates" button: updates each changed material's rate in the backend (which auto-creates rate history), then recalculates the job costs with the new rates
+- `FlexibleJob` type in Motoko backend with fields: id, description, materialTab (AL|CU), sheetBunchWidth, thickness, numBars, weldingCost, chamferingCost, overheadCost, profitCost, totalCost, customerId, customerName, createdAt
+- `saveFlexibleJob` backend function
+- `getFlexibleJobs` backend query
+- `deleteFlexibleJob` backend function
+- `Flexibles.tsx` page with two tabs: Aluminium and CU
+- Flexible labour rates in useFormulaSettings: AL rates for 6mm/10mm/12mm/12.7mm, CU rates for same thicknesses
+- Chamfering rate (default 40), Overhead % (default 5), Profit % (default 10) for Flexibles in settings (can share existing overheadPct/profitPct)
+- New "Flexibles" tab in Formulas & Settings page showing the formula and all editable rates
+- New "Flexibles" nav item in Sidebar and App.tsx routing
 
 ### Modify
-- `getMaterials` / `getMaterial` return type now includes `rateHistory`
-- `updateMaterial`: auto-records old rate to history when rate changes
-- RawMaterials page: each row gets a "History" toggle button; expanding shows rate history inline
-- JobHistory/job edit dialog: adds rate checker panel
+- `useFormulaSettings` hook: add flexible-specific rate fields (flexAlRate6, flexAlRate10, flexAlRate12, flexAlRate127, flexCuRate6, flexCuRate10, flexCuRate12, flexCuRate127, flexChamferingRate)
+- `Formulas.tsx`: add Flexibles tab
+- `Sidebar.tsx`: add Flexibles nav item
+- `App.tsx`: add Flexibles page routing
 
 ### Remove
-- Nothing removed
+- Nothing
 
 ## Implementation Plan
-1. Update Motoko backend: add RateHistoryEntry type, add rateHistory to RawMaterial, update updateMaterial to push old rate when changed, add deleteRateHistoryEntry function
-2. Regenerate backend bindings (backend.d.ts)
-3. Update useQueries.ts: add useDeleteRateHistoryEntry hook, update useUpdateMaterial to pass through
-4. Update RawMaterials.tsx: add History expand toggle per row showing rate history list with delete buttons
-5. Update JobHistory.tsx (or job detail dialog): add "Check & Update Rates" button that opens a rate comparison panel with editable rate fields and apply button
+
+1. Generate Motoko backend with FlexibleJob type and CRUD functions (saveFlexibleJob, getFlexibleJobs, deleteFlexibleJob)
+2. Update useFormulaSettings with flexible rate fields and defaults
+3. Add useFlexibleJobs, useSaveFlexibleJob, useDeleteFlexibleJob to useQueries hook
+4. Create Flexibles.tsx page:
+   - Two tabs: Aluminium and Copper
+   - Inputs: description, sheet bunch width (mm), thickness (mm), number of bars (1 or 2), customer
+   - Labour rate looked up from settings by thickness with linear interpolation
+   - Welding cost = (sheetBunchWidth / 25) × labourRate
+   - Chamfering cost = numBars × chamferingRate
+   - Overhead = (weldingCost + chamferingCost) × overheadPct%
+   - Profit = (weldingCost + chamferingCost + overhead) × profitPct%
+   - Total = welding + chamfering + overhead + profit
+   - Live cost breakdown shown
+   - Save to backend optional
+   - Saved jobs table with delete
+5. Add Flexibles tab to Formulas page with all rate fields editable
+6. Wire Sidebar and App.tsx to show the new page

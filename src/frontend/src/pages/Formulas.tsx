@@ -378,6 +378,12 @@ export function Formulas() {
           <TabsTrigger value="options" className="flex-1 text-xs sm:text-sm">
             Options
           </TabsTrigger>
+          <TabsTrigger value="labour" className="flex-1 text-xs sm:text-sm">
+            Labour
+          </TabsTrigger>
+          <TabsTrigger value="flexibles" className="flex-1 text-xs sm:text-sm">
+            Flexibles
+          </TabsTrigger>
         </TabsList>
 
         {/* ── MATERIAL WEIGHT ──────────────────────────────────── */}
@@ -871,6 +877,159 @@ export function Formulas() {
         {/* ── MATERIAL OPTIONS ──────────────────────────────────── */}
         <TabsContent value="options">
           <MaterialOptionsTab />
+        </TabsContent>
+
+        {/* ── LABOUR RATES ──────────────────────────────────────── */}
+        <TabsContent value="labour" className="space-y-6 mt-4">
+          <div className="bg-card border border-border rounded-xl p-5">
+            <h3 className="text-sm font-semibold text-foreground mb-1">
+              Labour Costing Formula
+            </h3>
+            <p className="text-xs text-muted-foreground mb-4">
+              Used in the Labour Jobs module. Rate is charged per meter of weld
+              length.
+            </p>
+            <FormulaDisplay formula="Labour Cost = Weld Length (meters) × Rate per meter" />
+            <div className="mt-4">
+              <FormulaRow
+                label="SS304 labour rate"
+                description="Rs per meter of weld for SS304 material"
+                value={settings.labourRateSS304}
+                onChange={(v) =>
+                  updateSetting("labourRateSS304" as FormulaKey, v)
+                }
+                unit="Rs/m"
+                step={1}
+                min={0}
+              />
+              <FormulaRow
+                label="Aluminium labour rate"
+                description="Rs per meter of weld for Aluminium material"
+                value={settings.labourRateAL}
+                onChange={(v) => updateSetting("labourRateAL" as FormulaKey, v)}
+                unit="Rs/m"
+                step={1}
+                min={0}
+              />
+            </div>
+          </div>
+        </TabsContent>
+
+        {/* ── FLEXIBLES RATES ─────────────────────────────────────── */}
+        <TabsContent value="flexibles" className="space-y-6 mt-4">
+          <div className="bg-card border border-border rounded-xl p-5">
+            <h3 className="text-sm font-semibold text-foreground mb-1">
+              Flexibles Costing Formulas
+            </h3>
+            <p className="text-xs text-muted-foreground mb-4">
+              Used in the Flexibles module for Aluminium and Copper expansion
+              joints. Overhead % and Profit % are shared with Job Costing
+              settings.
+            </p>
+            <FormulaDisplay formula="Welding Cost = (Sheet Bunch Width ÷ 25) × Labour Rate" />
+            <FormulaDisplay formula="Chamfering = Number of Bars × Rate per Bar" />
+          </div>
+
+          <div className="bg-card border border-border rounded-xl p-5">
+            <h3 className="text-sm font-semibold text-foreground mb-3">
+              Aluminium Labour Rates
+            </h3>
+            <FormulaRow
+              label="AL rate at 6mm"
+              description="Rs per 25mm weld unit for 6mm Aluminium"
+              value={settings.flexAlRate6}
+              onChange={(v) => updateSetting("flexAlRate6" as FormulaKey, v)}
+              unit="Rs/unit"
+              step={1}
+              min={0}
+            />
+            <FormulaRow
+              label="AL rate at 10mm"
+              description="Rs per 25mm weld unit for 10mm Aluminium"
+              value={settings.flexAlRate10}
+              onChange={(v) => updateSetting("flexAlRate10" as FormulaKey, v)}
+              unit="Rs/unit"
+              step={1}
+              min={0}
+            />
+            <FormulaRow
+              label="AL rate at 12mm"
+              description="Rs per 25mm weld unit for 12mm Aluminium"
+              value={settings.flexAlRate12}
+              onChange={(v) => updateSetting("flexAlRate12" as FormulaKey, v)}
+              unit="Rs/unit"
+              step={1}
+              min={0}
+            />
+            <FormulaRow
+              label="AL rate at 12.7mm"
+              description="Rs per 25mm weld unit for 12.7mm Aluminium"
+              value={settings.flexAlRate127}
+              onChange={(v) => updateSetting("flexAlRate127" as FormulaKey, v)}
+              unit="Rs/unit"
+              step={1}
+              min={0}
+            />
+          </div>
+
+          <div className="bg-card border border-border rounded-xl p-5">
+            <h3 className="text-sm font-semibold text-foreground mb-3">
+              Copper Labour Rates
+            </h3>
+            <FormulaRow
+              label="CU rate at 6mm"
+              description="Rs per 25mm weld unit for 6mm Copper"
+              value={settings.flexCuRate6}
+              onChange={(v) => updateSetting("flexCuRate6" as FormulaKey, v)}
+              unit="Rs/unit"
+              step={1}
+              min={0}
+            />
+            <FormulaRow
+              label="CU rate at 10mm"
+              description="Rs per 25mm weld unit for 10mm Copper"
+              value={settings.flexCuRate10}
+              onChange={(v) => updateSetting("flexCuRate10" as FormulaKey, v)}
+              unit="Rs/unit"
+              step={1}
+              min={0}
+            />
+            <FormulaRow
+              label="CU rate at 12mm"
+              description="Rs per 25mm weld unit for 12mm Copper"
+              value={settings.flexCuRate12}
+              onChange={(v) => updateSetting("flexCuRate12" as FormulaKey, v)}
+              unit="Rs/unit"
+              step={1}
+              min={0}
+            />
+            <FormulaRow
+              label="CU rate at 12.7mm"
+              description="Rs per 25mm weld unit for 12.7mm Copper"
+              value={settings.flexCuRate127}
+              onChange={(v) => updateSetting("flexCuRate127" as FormulaKey, v)}
+              unit="Rs/unit"
+              step={1}
+              min={0}
+            />
+          </div>
+
+          <div className="bg-card border border-border rounded-xl p-5">
+            <h3 className="text-sm font-semibold text-foreground mb-3">
+              Chamfering Rate
+            </h3>
+            <FormulaRow
+              label="Chamfering rate per bar"
+              description="Rs per bar — 1 bar = rate × 1, 2 bars = rate × 2"
+              value={settings.flexChamferingRate}
+              onChange={(v) =>
+                updateSetting("flexChamferingRate" as FormulaKey, v)
+              }
+              unit="Rs/bar"
+              step={1}
+              min={0}
+            />
+          </div>
         </TabsContent>
       </Tabs>
 

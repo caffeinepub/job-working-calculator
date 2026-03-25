@@ -18,12 +18,24 @@ export interface FormulaSettings {
   weldingRateSS310: number; // default 1250
 
   // Raw material weight formulas (density factor per type)
-  // Weight/m = (OD - WT) × WT × pipeFactor  for pipes
-  // Weight/m = D² × roundBarFactor           for round bars
-  // Weight/m = W × T × flatBarFactor         for flat/square bars
   pipeFactor: number; // default 0.02466
   roundBarFactor: number; // default 0.006162
   flatBarFactor: number; // default 0.00793
+
+  // Labour module rates (Rs per meter)
+  labourRateSS304: number; // default 550
+  labourRateAL: number; // default 900
+
+  // Flexibles labour rates (Rs per unit per 25mm weld)
+  flexAlRate6: number; // default 120
+  flexAlRate10: number; // default 125
+  flexAlRate12: number; // default 130
+  flexAlRate127: number; // default 135
+  flexCuRate6: number; // default 210
+  flexCuRate10: number; // default 220
+  flexCuRate12: number; // default 230
+  flexCuRate127: number; // default 235
+  flexChamferingRate: number; // default 40
 }
 
 const DEFAULTS: FormulaSettings = {
@@ -38,6 +50,17 @@ const DEFAULTS: FormulaSettings = {
   pipeFactor: 0.02466,
   roundBarFactor: 0.006162,
   flatBarFactor: 0.00793,
+  labourRateSS304: 550,
+  labourRateAL: 900,
+  flexAlRate6: 120,
+  flexAlRate10: 125,
+  flexAlRate12: 130,
+  flexAlRate127: 135,
+  flexCuRate6: 210,
+  flexCuRate10: 220,
+  flexCuRate12: 230,
+  flexCuRate127: 235,
+  flexChamferingRate: 40,
 };
 
 const STORAGE_KEY = "jobcalc_formula_settings";
@@ -76,7 +99,6 @@ export function useFormulaSettings() {
     setDirty(false);
   }, []);
 
-  // Load on mount (in case another tab changed settings)
   useEffect(() => {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
@@ -91,7 +113,6 @@ export function useFormulaSettings() {
   return { settings, updateSetting, save, reset, dirty };
 }
 
-// Singleton for use in other modules without React context
 export function loadFormulaSettings(): FormulaSettings {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);

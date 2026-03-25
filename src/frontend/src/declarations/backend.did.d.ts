@@ -35,6 +35,17 @@ export interface JobLineItem {
   'materialId' : string,
   'totalWeight' : number,
 }
+export interface LabourJob {
+  'id' : string,
+  'customerName' : [] | [string],
+  'createdAt' : bigint,
+  'totalCost' : number,
+  'description' : string,
+  'customerId' : [] | [string],
+  'weldLength' : number,
+  'laborRate' : number,
+  'materialType' : string,
+}
 export interface RateHistoryEntry { 'changedAt' : bigint, 'rate' : number }
 export interface RawMaterial {
   'id' : string,
@@ -75,6 +86,7 @@ export interface _SERVICE {
   'assignCallerUserRole' : ActorMethod<[Principal, UserRole], undefined>,
   'deleteCustomer' : ActorMethod<[string], boolean>,
   'deleteJob' : ActorMethod<[string], boolean>,
+  'deleteLabourJob' : ActorMethod<[string], boolean>,
   'deleteMaterial' : ActorMethod<[string], boolean>,
   'deleteRateHistoryEntry' : ActorMethod<[string, bigint], RawMaterial>,
   'getCallerUserProfile' : ActorMethod<[], [] | [UserProfile]>,
@@ -83,6 +95,7 @@ export interface _SERVICE {
   'getCustomers' : ActorMethod<[], Array<Customer>>,
   'getJob' : ActorMethod<[string], SavedJob>,
   'getJobs' : ActorMethod<[], Array<SavedJob>>,
+  'getLabourJobs' : ActorMethod<[], Array<LabourJob>>,
   'getMaterial' : ActorMethod<[string], RawMaterial>,
   'getMaterials' : ActorMethod<[], Array<RawMaterial>>,
   'getUserProfile' : ActorMethod<[Principal], [] | [UserProfile]>,
@@ -103,6 +116,10 @@ export interface _SERVICE {
       number,
     ],
     SavedJob
+  >,
+  'saveLabourJob' : ActorMethod<
+    [string, [] | [string], string, number, number, number],
+    LabourJob
   >,
   'updateCustomer' : ActorMethod<
     [string, string, string, string, string],

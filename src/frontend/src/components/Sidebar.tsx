@@ -5,9 +5,11 @@ import {
   Download,
   FlaskConical,
   History,
+  LayersIcon,
   LayoutDashboard,
   Package,
   Users,
+  Wrench,
 } from "lucide-react";
 
 export type AppPage =
@@ -17,7 +19,9 @@ export type AppPage =
   | "jobHistory"
   | "customers"
   | "formulas"
-  | "export";
+  | "export"
+  | "labour"
+  | "flexibles";
 
 type NavItem = {
   label: string;
@@ -37,6 +41,8 @@ const navItems: NavItem[] = [
     icon: <Briefcase size={18} />,
     page: "jobCalculator",
   },
+  { label: "Labour", icon: <Wrench size={18} />, page: "labour" },
+  { label: "Flexibles", icon: <LayersIcon size={18} />, page: "flexibles" },
   { label: "Raw Materials", icon: <Package size={18} />, page: "rawMaterials" },
   { label: "Customers", icon: <Users size={18} />, page: "customers" },
   {
@@ -100,13 +106,13 @@ export function Sidebar({ currentPage, onNavigate, onClose }: SidebarProps) {
 
       {/* Footer */}
       <div className="px-5 py-4 border-t border-sidebar-border shrink-0">
-        <p className="text-sidebar-foreground/40 text-xs">
-          &copy; {new Date().getFullYear()}{" "}
+        <p className="text-xs text-sidebar-foreground/50">
+          &copy; {new Date().getFullYear()}.{" "}
           <a
             href={`https://caffeine.ai?utm_source=caffeine-footer&utm_medium=referral&utm_content=${encodeURIComponent(window.location.hostname)}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="hover:text-sidebar-foreground/70 transition-colors"
+            className="hover:text-sidebar-foreground transition-colors"
           >
             caffeine.ai
           </a>

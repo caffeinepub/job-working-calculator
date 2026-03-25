@@ -68,6 +68,17 @@ export const SavedJob = IDL.Record({
   'totalProductWeight' : IDL.Float64,
   'totalFinalPrice' : IDL.Float64,
 });
+export const LabourJob = IDL.Record({
+  'id' : IDL.Text,
+  'customerName' : IDL.Opt(IDL.Text),
+  'createdAt' : IDL.Int,
+  'totalCost' : IDL.Float64,
+  'description' : IDL.Text,
+  'customerId' : IDL.Opt(IDL.Text),
+  'weldLength' : IDL.Float64,
+  'laborRate' : IDL.Float64,
+  'materialType' : IDL.Text,
+});
 
 export const idlService = IDL.Service({
   '_initializeAccessControlWithSecret' : IDL.Func([IDL.Text], [], []),
@@ -84,6 +95,7 @@ export const idlService = IDL.Service({
   'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
   'deleteCustomer' : IDL.Func([IDL.Text], [IDL.Bool], []),
   'deleteJob' : IDL.Func([IDL.Text], [IDL.Bool], []),
+  'deleteLabourJob' : IDL.Func([IDL.Text], [IDL.Bool], []),
   'deleteMaterial' : IDL.Func([IDL.Text], [IDL.Bool], []),
   'deleteRateHistoryEntry' : IDL.Func([IDL.Text, IDL.Nat], [RawMaterial], []),
   'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
@@ -92,6 +104,7 @@ export const idlService = IDL.Service({
   'getCustomers' : IDL.Func([], [IDL.Vec(Customer)], ['query']),
   'getJob' : IDL.Func([IDL.Text], [SavedJob], ['query']),
   'getJobs' : IDL.Func([], [IDL.Vec(SavedJob)], ['query']),
+  'getLabourJobs' : IDL.Func([], [IDL.Vec(LabourJob)], ['query']),
   'getMaterial' : IDL.Func([IDL.Text], [RawMaterial], ['query']),
   'getMaterials' : IDL.Func([], [IDL.Vec(RawMaterial)], ['query']),
   'getUserProfile' : IDL.Func(
@@ -116,6 +129,18 @@ export const idlService = IDL.Service({
         IDL.Float64,
       ],
       [SavedJob],
+      [],
+    ),
+  'saveLabourJob' : IDL.Func(
+      [
+        IDL.Text,
+        IDL.Opt(IDL.Text),
+        IDL.Text,
+        IDL.Float64,
+        IDL.Float64,
+        IDL.Float64,
+      ],
+      [LabourJob],
       [],
     ),
   'updateCustomer' : IDL.Func(
@@ -211,6 +236,17 @@ export const idlFactory = ({ IDL }) => {
     'totalProductWeight' : IDL.Float64,
     'totalFinalPrice' : IDL.Float64,
   });
+  const LabourJob = IDL.Record({
+    'id' : IDL.Text,
+    'customerName' : IDL.Opt(IDL.Text),
+    'createdAt' : IDL.Int,
+    'totalCost' : IDL.Float64,
+    'description' : IDL.Text,
+    'customerId' : IDL.Opt(IDL.Text),
+    'weldLength' : IDL.Float64,
+    'laborRate' : IDL.Float64,
+    'materialType' : IDL.Text,
+  });
   
   return IDL.Service({
     '_initializeAccessControlWithSecret' : IDL.Func([IDL.Text], [], []),
@@ -227,6 +263,7 @@ export const idlFactory = ({ IDL }) => {
     'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
     'deleteCustomer' : IDL.Func([IDL.Text], [IDL.Bool], []),
     'deleteJob' : IDL.Func([IDL.Text], [IDL.Bool], []),
+    'deleteLabourJob' : IDL.Func([IDL.Text], [IDL.Bool], []),
     'deleteMaterial' : IDL.Func([IDL.Text], [IDL.Bool], []),
     'deleteRateHistoryEntry' : IDL.Func([IDL.Text, IDL.Nat], [RawMaterial], []),
     'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
@@ -235,6 +272,7 @@ export const idlFactory = ({ IDL }) => {
     'getCustomers' : IDL.Func([], [IDL.Vec(Customer)], ['query']),
     'getJob' : IDL.Func([IDL.Text], [SavedJob], ['query']),
     'getJobs' : IDL.Func([], [IDL.Vec(SavedJob)], ['query']),
+    'getLabourJobs' : IDL.Func([], [IDL.Vec(LabourJob)], ['query']),
     'getMaterial' : IDL.Func([IDL.Text], [RawMaterial], ['query']),
     'getMaterials' : IDL.Func([], [IDL.Vec(RawMaterial)], ['query']),
     'getUserProfile' : IDL.Func(
@@ -259,6 +297,18 @@ export const idlFactory = ({ IDL }) => {
           IDL.Float64,
         ],
         [SavedJob],
+        [],
+      ),
+    'saveLabourJob' : IDL.Func(
+        [
+          IDL.Text,
+          IDL.Opt(IDL.Text),
+          IDL.Text,
+          IDL.Float64,
+          IDL.Float64,
+          IDL.Float64,
+        ],
+        [LabourJob],
         [],
       ),
     'updateCustomer' : IDL.Func(
