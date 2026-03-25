@@ -18,9 +18,16 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Layers, Loader2, Save, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
+import {
+  ChevronDown,
+  ChevronUp,
+  Layers,
+  Loader2,
+  Save,
+  Trash2,
+} from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useFormulaSettings } from "../hooks/useFormulaSettings";
 import {
@@ -66,18 +73,47 @@ function TabCalculator({ materialTab }: TabCalculatorProps) {
   const saveJob = useSaveFlexibleJob();
   const deleteJob = useDeleteFlexibleJob();
 
+  // Number of folds is always 1
+  const numberOfFolds = 1;
+
   const [description, setDescription] = useState("");
   const [centerLength, setCenterLength] = useState<number | "">("");
   const [sheetBunchWidth, setSheetBunchWidth] = useState<number | "">("");
-  const [sheetThickness, setSheetThickness] = useState<number | "">("");
-  const [sheetCount, setSheetCount] = useState<number | "">("");
+  const [sheetThicknessMm, setSheetThicknessMm] = useState<0.28 | 0.3 | "">("");
+  const [sheetBunchThickness, setSheetBunchThickness] = useState<number | "">(
+    "",
+  );
   const [barsSupplied, setBarsSupplied] = useState(false);
   const [barLength, setBarLength] = useState<number | "">("");
   const [barWidth, setBarWidth] = useState<number | "">("");
   const [barThickness, setBarThickness] = useState<number | "">("");
-  const [numberOfDrills, setNumberOfDrills] = useState<number>(0);
-  const [numberOfFolds, setNumberOfFolds] = useState<number>(1);
+  const [drillingEnabled, setDrillingEnabled] = useState(false);
+  const [numberOfDrills, setNumberOfDrills] = useState<number>(1);
   const [customerId, setCustomerId] = useState<string>("none");
+  const [showFormulas, setShowFormulas] = useState(false);
+
+  // Auto-fill description logic.
+  // lastAutoDesc tracks what we last wrote automatically.
+  // descRef lets the effect read current description without being a dependency.
+  const lastAutoDesc = useRef("");
+  const descRef = useRef(description);
+  descRef.current = description;
+
+  useEffect(() => {
+    const w = typeof sheetBunchWidth === "number" ? sheetBunchWidth : 0;
+    const t = typeof sheetBunchThickness === "number" ? sheetBunchThickness : 0;
+    const l = typeof centerLength === "number" ? centerLength : 0;
+
+    if (w > 0 && t > 0 && l > 0) {
+      const auto = `${w}x${t}-${l}mm ${materialTab} Flexible`;
+      const cur = descRef.current;
+      // Only overwrite if field is empty or still shows a previous auto value
+      if (cur === "" || cur === lastAutoDesc.current) {
+        lastAutoDesc.current = auto;
+        setDescription(auto);
+      }
+    }
+  }, [sheetBunchWidth, sheetBunchThickness, centerLength, materialTab]);
 
   const alRateMap: Record<number, number> = {
     6: settings.flexAlRate6,
@@ -103,20 +139,28 @@ function TabCalculator({ materialTab }: TabCalculatorProps) {
 
   const centerLengthNum = typeof centerLength === "number" ? centerLength : 0;
   const widthNum = typeof sheetBunchWidth === "number" ? sheetBunchWidth : 0;
-  const thicknessNum = typeof sheetThickness === "number" ? sheetThickness : 0;
-  const sheetCountNum = typeof sheetCount === "number" ? sheetCount : 0;
+  const sheetThkNum =
+    typeof sheetThicknessMm === "number" ? sheetThicknessMm : 0;
+  const sheetBunchThkNum =
+    typeof sheetBunchThickness === "number" ? sheetBunchThickness : 0;
   const barLengthNum = typeof barLength === "number" ? barLength : 0;
   const barWidthNum = typeof barWidth === "number" ? barWidth : 0;
   const barThicknessNum = typeof barThickness === "number" ? barThickness : 0;
 
-  // Derived calculations
-  const sheetBunchThk = thicknessNum * sheetCountNum;
+  // Auto-calculated sheet count
+  const sheetCountNum =
+    sheetBunchThkNum > 0 && sheetThkNum > 0
+      ? Math.round(sheetBunchThkNum / sheetThkNum)
+      : 0;
+
+  // sheetBunchThk for weld length is the entered bunch thickness directly
+  const sheetBunchThk = sheetBunchThkNum;
 
   const sheetStackWeight =
-    widthNum > 0 && thicknessNum > 0 && sheetCountNum > 0
+    widthNum > 0 && sheetThkNum > 0 && sheetCountNum > 0
       ? ((centerLengthNum + 25) *
           widthNum *
-          thicknessNum *
+          sheetThkNum *
           sheetCountNum *
           density) /
         1_000_000
@@ -144,15 +188,16 @@ function TabCalculator({ materialTab }: TabCalculatorProps) {
 
   const chamferingCost = settings.flexChamferingRate;
 
-  const drillingCost = numberOfDrills * settings.flexDrillingCostPerHole;
+  const effectiveDrills = drillingEnabled ? numberOfDrills : 0;
+  const drillingCost = effectiveDrills * settings.flexDrillingCostPerHole;
 
   const totalWeldLength =
     widthNum > 0 && sheetBunchThk > 0 ? (widthNum + sheetBunchThk) * 4 : 0;
 
   const labourRate =
-    thicknessNum > 0 ? interpolateRate(thicknessNum, rateMap) : 0;
+    sheetBunchThkNum > 0 ? interpolateRate(sheetBunchThkNum, rateMap) : 0;
   const weldingCost =
-    widthNum > 0 && thicknessNum > 0 ? (widthNum / 25) * labourRate : 0;
+    widthNum > 0 && sheetBunchThkNum > 0 ? (widthNum / 25) * labourRate : 0;
 
   const subtotal =
     materialCost +
@@ -165,7 +210,16 @@ function TabCalculator({ materialTab }: TabCalculatorProps) {
   const profitCost = (subtotal + overheadCost) * (settings.profitPct / 100);
   const totalCost = subtotal + overheadCost + profitCost;
 
-  const canCalculate = widthNum > 0 && thicknessNum > 0 && sheetCountNum > 0;
+  const canCalculate =
+    widthNum > 0 &&
+    sheetBunchThkNum > 0 &&
+    sheetThkNum > 0 &&
+    sheetCountNum > 0;
+
+  const ratePerMeter =
+    canCalculate && centerLengthNum > 0
+      ? totalCost / (centerLengthNum / 1000)
+      : null;
 
   const handleSave = async () => {
     if (!canCalculate) return;
@@ -176,13 +230,13 @@ function TabCalculator({ materialTab }: TabCalculatorProps) {
         materialTab,
         centerLength: centerLengthNum,
         sheetBunchWidth: widthNum,
-        sheetThickness: thicknessNum,
+        sheetThickness: sheetThkNum,
         sheetCount: BigInt(sheetCountNum),
         barsSupplied,
         barLength: barLengthNum,
         barWidth: barWidthNum,
         barThickness: barThicknessNum,
-        numberOfDrills: BigInt(numberOfDrills),
+        numberOfDrills: BigInt(effectiveDrills),
         numberOfFolds: BigInt(numberOfFolds),
         sheetStackWeight,
         stripWeight,
@@ -242,29 +296,13 @@ function TabCalculator({ materialTab }: TabCalculatorProps) {
               </Label>
               <Input
                 id={`flex-desc-${materialTab}`}
-                placeholder="Optional description…"
+                placeholder="Auto-fills from dimensions…"
                 value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                data-ocid="flexibles.input"
-              />
-            </div>
-
-            {/* Center Length */}
-            <div className="space-y-1.5">
-              <Label htmlFor={`flex-center-${materialTab}`}>
-                Center Length (mm)
-              </Label>
-              <Input
-                id={`flex-center-${materialTab}`}
-                type="number"
-                min={0}
-                placeholder="Center length in mm"
-                value={centerLength}
-                onChange={(e) =>
-                  setCenterLength(
-                    e.target.value === "" ? "" : Number(e.target.value),
-                  )
-                }
+                onChange={(e) => {
+                  // If user clears the field, allow auto-fill to resume
+                  if (e.target.value === "") lastAutoDesc.current = "";
+                  setDescription(e.target.value);
+                }}
                 data-ocid="flexibles.input"
               />
             </div>
@@ -289,62 +327,72 @@ function TabCalculator({ materialTab }: TabCalculatorProps) {
               />
             </div>
 
-            {/* Sheet Thickness */}
+            {/* Sheet Bunch Thickness */}
             <div className="space-y-1.5">
-              <Label htmlFor={`flex-thick-${materialTab}`}>
-                Sheet Thickness (mm)
+              <Label htmlFor={`flex-bunch-thk-${materialTab}`}>
+                Sheet Bunch Thickness (mm)
               </Label>
               <Input
-                id={`flex-thick-${materialTab}`}
+                id={`flex-bunch-thk-${materialTab}`}
                 type="number"
                 min={0}
                 step={0.1}
-                placeholder="e.g. 6, 10, 12, 12.7"
-                value={sheetThickness}
+                placeholder="Total bunch thickness in mm"
+                value={sheetBunchThickness}
                 onChange={(e) =>
-                  setSheetThickness(
+                  setSheetBunchThickness(
                     e.target.value === "" ? "" : Number(e.target.value),
                   )
                 }
                 data-ocid="flexibles.input"
               />
-              {thicknessNum > 0 && (
+              {sheetCountNum > 0 && sheetThkNum > 0 && (
                 <p className="text-xs text-muted-foreground">
-                  Labour rate at {thicknessNum}mm:{" "}
+                  Sheet Count:{" "}
                   <span className="font-medium text-foreground">
-                    Rs {labourRate.toFixed(2)} / 25mm
+                    {sheetCountNum} sheets
                   </span>
                 </p>
               )}
             </div>
 
-            {/* Sheet Count */}
+            {/* Center Length */}
             <div className="space-y-1.5">
-              <Label htmlFor={`flex-count-${materialTab}`}>Sheet Count</Label>
+              <Label htmlFor={`flex-center-${materialTab}`}>
+                Center Length (mm)
+              </Label>
               <Input
-                id={`flex-count-${materialTab}`}
+                id={`flex-center-${materialTab}`}
                 type="number"
-                min={1}
-                step={1}
-                placeholder="Number of sheets"
-                value={sheetCount}
+                min={0}
+                placeholder="Center length in mm"
+                value={centerLength}
                 onChange={(e) =>
-                  setSheetCount(
-                    e.target.value === ""
-                      ? ""
-                      : Math.round(Number(e.target.value)),
+                  setCenterLength(
+                    e.target.value === "" ? "" : Number(e.target.value),
                   )
                 }
                 data-ocid="flexibles.input"
               />
-              {sheetCountNum > 0 && thicknessNum > 0 && (
-                <p className="text-xs text-muted-foreground">
-                  Sheet Bunch Thickness:{" "}
-                  <span className="font-medium text-foreground">
-                    {sheetBunchThk.toFixed(1)} mm
-                  </span>
-                </p>
-              )}
+            </div>
+
+            {/* Sheet Thickness dropdown */}
+            <div className="space-y-1.5">
+              <Label>Sheet Thickness (mm)</Label>
+              <Select
+                value={sheetThicknessMm === "" ? "" : String(sheetThicknessMm)}
+                onValueChange={(v) =>
+                  setSheetThicknessMm(v === "0.28" ? 0.28 : 0.3)
+                }
+              >
+                <SelectTrigger data-ocid="flexibles.select">
+                  <SelectValue placeholder="Select sheet thickness" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="0.28">0.28 mm</SelectItem>
+                  <SelectItem value="0.3">0.30 mm</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             {/* Bars Supplied toggle */}
@@ -436,45 +484,53 @@ function TabCalculator({ materialTab }: TabCalculatorProps) {
               </div>
             )}
 
-            {/* Number of Drills */}
-            <div className="space-y-1.5">
-              <Label htmlFor={`flex-drills-${materialTab}`}>
-                Number of Drills (0 = no drilling cost)
-              </Label>
-              <Input
-                id={`flex-drills-${materialTab}`}
-                type="number"
-                min={0}
-                step={1}
-                value={numberOfDrills}
-                onChange={(e) =>
-                  setNumberOfDrills(
-                    Math.max(0, Math.round(Number(e.target.value))),
-                  )
-                }
-                data-ocid="flexibles.input"
-              />
+            {/* Drilling toggle */}
+            <div className="flex items-center justify-between py-2 border border-border rounded-lg px-3">
+              <div>
+                <p className="text-sm font-medium">Drilling Required?</p>
+                <p className="text-xs text-muted-foreground">
+                  Toggle if drilling is needed for this job
+                </p>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={drillingEnabled}
+                onClick={() => setDrillingEnabled((v) => !v)}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 ${
+                  drillingEnabled ? "bg-primary" : "bg-muted-foreground/30"
+                }`}
+                data-ocid="flexibles.switch"
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                    drillingEnabled ? "translate-x-6" : "translate-x-1"
+                  }`}
+                />
+              </button>
             </div>
 
-            {/* Number of Folds */}
-            <div className="space-y-1.5">
-              <Label htmlFor={`flex-folds-${materialTab}`}>
-                Number of Folds
-              </Label>
-              <Input
-                id={`flex-folds-${materialTab}`}
-                type="number"
-                min={0}
-                step={1}
-                value={numberOfFolds}
-                onChange={(e) =>
-                  setNumberOfFolds(
-                    Math.max(0, Math.round(Number(e.target.value))),
-                  )
-                }
-                data-ocid="flexibles.input"
-              />
-            </div>
+            {/* Number of Drills — shown only when drilling enabled */}
+            {drillingEnabled && (
+              <div className="space-y-1.5 pl-3 border-l-2 border-primary/30">
+                <Label htmlFor={`flex-drills-${materialTab}`}>
+                  Number of Drills
+                </Label>
+                <Input
+                  id={`flex-drills-${materialTab}`}
+                  type="number"
+                  min={1}
+                  step={1}
+                  value={numberOfDrills}
+                  onChange={(e) =>
+                    setNumberOfDrills(
+                      Math.max(1, Math.round(Number(e.target.value))),
+                    )
+                  }
+                  data-ocid="flexibles.input"
+                />
+              </div>
+            )}
 
             {/* Customer */}
             <div className="space-y-1.5">
@@ -514,25 +570,41 @@ function TabCalculator({ materialTab }: TabCalculatorProps) {
         {/* Live Breakdown */}
         <Card className="border border-border rounded-xl shadow-sm">
           <CardHeader className="pb-3">
-            <CardTitle className="text-base">Cost Breakdown</CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base">Cost Breakdown</CardTitle>
+              <button
+                type="button"
+                onClick={() => setShowFormulas((v) => !v)}
+                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+              >
+                {showFormulas ? (
+                  <ChevronUp size={13} />
+                ) : (
+                  <ChevronDown size={13} />
+                )}
+                {showFormulas ? "Hide Formulas" : "Show Formulas"}
+              </button>
+            </div>
           </CardHeader>
           <CardContent>
-            {/* Formula reference box */}
-            <div className="bg-muted/50 rounded-lg px-4 py-3 font-mono text-xs text-foreground border border-border mb-4 space-y-1">
-              <div>
-                Sheet Stack Wt = (CenterLen+25) × Width × Thk × Count × ρ / 1M
+            {/* Formula reference box — toggleable */}
+            {showFormulas && (
+              <div className="bg-muted/50 rounded-lg px-4 py-3 font-mono text-xs text-foreground border border-border mb-4 space-y-1">
+                <div>
+                  Sheet Stack Wt = (CenterLen+25) × Width × Thk × Count × ρ / 1M
+                </div>
+                <div>Strip Wt = Width × 20 × 2 × 4 × ρ / 1M</div>
+                <div>Bar Wt = L × W × T × ρ / 1M (each, if supplied)</div>
+                <div>Material Cost = TotalWt × 1.2 × Rate</div>
+                <div>Cutting = (Sheets + 4) × 2.5</div>
+                <div>Welding = (Width ÷ 25) × Labour Rate</div>
+                <div>Total Weld Len = (Width + BunchThk) × 4</div>
+                <div>
+                  Overhead = {settings.overheadPct}% · Profit ={" "}
+                  {settings.profitPct}% of (subtotal+overhead)
+                </div>
               </div>
-              <div>Strip Wt = Width × 20 × 2 × 4 × ρ / 1M</div>
-              <div>Bar Wt = L × W × T × ρ / 1M (each, if supplied)</div>
-              <div>Material Cost = TotalWt × 1.2 × Rate</div>
-              <div>Cutting = (Sheets + 4) × 2.5</div>
-              <div>Welding = (Width ÷ 25) × Labour Rate</div>
-              <div>Total Weld Len = (Width + BunchThk) × 4</div>
-              <div>
-                Overhead = {settings.overheadPct}% · Profit ={" "}
-                {settings.profitPct}% of (subtotal+overhead)
-              </div>
-            </div>
+            )}
 
             <div className="space-y-1">
               {/* Material weights */}
@@ -575,10 +647,10 @@ function TabCalculator({ materialTab }: TabCalculatorProps) {
                 </span>
               </div>
 
-              {/* Costs */}
+              {/* Costs — label only, no formula hints */}
               <div className="flex justify-between items-center py-1.5 border-b border-border">
                 <span className="text-sm text-muted-foreground">
-                  Material Cost (×1.2 markup)
+                  Material Cost
                 </span>
                 <span className="text-sm font-medium">
                   {materialCost > 0 ? `Rs ${materialCost.toFixed(2)}` : "—"}
@@ -594,8 +666,7 @@ function TabCalculator({ materialTab }: TabCalculatorProps) {
               </div>
               <div className="flex justify-between items-center py-1.5 border-b border-border">
                 <span className="text-sm text-muted-foreground">
-                  Folding Cost ({numberOfFolds} fold
-                  {numberOfFolds !== 1 ? "s" : ""})
+                  Folding Cost
                 </span>
                 <span className="text-sm font-medium">
                   Rs {foldingCost.toFixed(2)}
@@ -603,17 +674,16 @@ function TabCalculator({ materialTab }: TabCalculatorProps) {
               </div>
               <div className="flex justify-between items-center py-1.5 border-b border-border">
                 <span className="text-sm text-muted-foreground">
-                  Chamfering (both bars)
+                  Chamfering
                 </span>
                 <span className="text-sm font-medium">
                   Rs {chamferingCost.toFixed(2)}
                 </span>
               </div>
-              {numberOfDrills > 0 && (
+              {drillingEnabled && effectiveDrills > 0 && (
                 <div className="flex justify-between items-center py-1.5 border-b border-border">
                   <span className="text-sm text-muted-foreground">
-                    Drilling ({numberOfDrills} hole
-                    {numberOfDrills !== 1 ? "s" : ""})
+                    Drilling
                   </span>
                   <span className="text-sm font-medium">
                     Rs {drillingCost.toFixed(2)}
@@ -639,22 +709,18 @@ function TabCalculator({ materialTab }: TabCalculatorProps) {
                 </span>
               </div>
               <div className="flex justify-between items-center py-1.5 border-b border-border">
-                <span className="text-sm text-muted-foreground">
-                  Overhead ({settings.overheadPct}%)
-                </span>
+                <span className="text-sm text-muted-foreground">Overhead</span>
                 <span className="text-sm font-medium">
                   {canCalculate ? `Rs ${overheadCost.toFixed(2)}` : "—"}
                 </span>
               </div>
               <div className="flex justify-between items-center py-1.5 border-b border-border">
-                <span className="text-sm text-muted-foreground">
-                  Profit ({settings.profitPct}%)
-                </span>
+                <span className="text-sm text-muted-foreground">Profit</span>
                 <span className="text-sm font-medium">
                   {canCalculate ? `Rs ${profitCost.toFixed(2)}` : "—"}
                 </span>
               </div>
-              <div className="flex justify-between items-center py-3">
+              <div className="flex justify-between items-center py-3 border-b border-border">
                 <span className="text-sm font-semibold text-foreground">
                   Total Cost
                 </span>
@@ -665,6 +731,17 @@ function TabCalculator({ materialTab }: TabCalculatorProps) {
                   {canCalculate ? `Rs ${totalCost.toFixed(2)}` : "—"}
                 </span>
               </div>
+              {/* Rate per Meter */}
+              {canCalculate && ratePerMeter !== null && (
+                <div className="flex justify-between items-center py-3">
+                  <span className="text-sm font-semibold text-foreground">
+                    Rate per Meter
+                  </span>
+                  <span className="text-lg font-bold text-primary">
+                    Rs {ratePerMeter.toFixed(2)} / m
+                  </span>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -766,6 +843,8 @@ function TabCalculator({ materialTab }: TabCalculatorProps) {
 }
 
 export function Flexibles() {
+  const [activeTab, setActiveTab] = useState<MaterialTab>("AL");
+
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
       {/* Page header */}
@@ -781,24 +860,51 @@ export function Flexibles() {
         </div>
       </div>
 
-      {/* Material tabs */}
-      <Tabs defaultValue="AL" data-ocid="flexibles.tab">
-        <TabsList className="w-full sm:w-auto">
-          <TabsTrigger
-            value="AL"
-            className="flex-1 sm:flex-none"
+      {/* Material tabs — custom styled for clear AL/CU distinction */}
+      <Tabs
+        value={activeTab}
+        onValueChange={(v) => setActiveTab(v as MaterialTab)}
+        data-ocid="flexibles.tab"
+      >
+        <div className="flex gap-3 p-1 bg-muted/40 rounded-xl w-full sm:w-auto sm:inline-flex border border-border">
+          {/* Aluminium tab */}
+          <button
+            type="button"
+            onClick={() => setActiveTab("AL")}
+            className={`flex items-center gap-2 px-6 py-3 text-base font-semibold rounded-lg transition-all duration-150 flex-1 sm:flex-none justify-center ${
+              activeTab === "AL"
+                ? "bg-blue-600 text-white shadow-md"
+                : "bg-blue-100 text-blue-700 hover:bg-blue-200"
+            }`}
             data-ocid="flexibles.tab"
           >
+            <span
+              className={`w-2.5 h-2.5 rounded-full shrink-0 ${
+                activeTab === "AL" ? "bg-white" : "bg-blue-500"
+              }`}
+            />
             Aluminium
-          </TabsTrigger>
-          <TabsTrigger
-            value="CU"
-            className="flex-1 sm:flex-none"
+          </button>
+
+          {/* Copper tab */}
+          <button
+            type="button"
+            onClick={() => setActiveTab("CU")}
+            className={`flex items-center gap-2 px-6 py-3 text-base font-semibold rounded-lg transition-all duration-150 flex-1 sm:flex-none justify-center ${
+              activeTab === "CU"
+                ? "bg-amber-600 text-white shadow-md"
+                : "bg-amber-100 text-amber-700 hover:bg-amber-200"
+            }`}
             data-ocid="flexibles.tab"
           >
+            <span
+              className={`w-2.5 h-2.5 rounded-full shrink-0 ${
+                activeTab === "CU" ? "bg-white" : "bg-amber-500"
+              }`}
+            />
             Copper
-          </TabsTrigger>
-        </TabsList>
+          </button>
+        </div>
 
         <TabsContent value="AL" className="mt-6">
           <TabCalculator materialTab="AL" />
