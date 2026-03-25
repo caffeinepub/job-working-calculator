@@ -360,8 +360,7 @@ export function useSaveFlexibleJob() {
       totalCost: number;
     }) => {
       const actor = await getActor();
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return (actor as any).saveFlexibleJob(
+      return actor.saveFlexibleJob(
         data.description,
         data.customerId,
         data.materialTab,
