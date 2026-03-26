@@ -1580,7 +1580,7 @@ function TabCalculator({
               <div className="border-b border-border">
                 <div className="flex justify-between items-center py-3">
                   <span className="text-sm font-semibold text-foreground">
-                    Total Cost
+                    {hasDiscount ? "Total (Before Discount)" : "Total Cost"}
                   </span>
                   <span
                     className="text-lg font-bold text-primary"
@@ -1590,6 +1590,32 @@ function TabCalculator({
                   </span>
                 </div>
               </div>
+
+              {/* Discount rows */}
+              {canCalculate && hasDiscount && (
+                <>
+                  <div className="border-b border-border">
+                    <div className="flex justify-between items-center py-2">
+                      <span className="text-sm text-muted-foreground">
+                        Discount ({discountNum}%)
+                      </span>
+                      <span className="text-sm font-medium text-destructive">
+                        - Rs {(quotedPrice - totalCost).toFixed(2)}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="border-b border-border bg-muted/30">
+                    <div className="flex justify-between items-center py-3">
+                      <span className="text-sm font-semibold text-foreground">
+                        Final Price (Customer Pays)
+                      </span>
+                      <span className="text-lg font-bold text-green-600 dark:text-green-400">
+                        Rs {totalCost.toFixed(2)}
+                      </span>
+                    </div>
+                  </div>
+                </>
+              )}
 
               {/* Rate per Meter */}
               {canCalculate && ratePerMeter !== null && (
