@@ -22,10 +22,13 @@ import { Tabs, TabsContent } from "@/components/ui/tabs";
 import {
   ChevronDown,
   ChevronUp,
+  History,
   Layers,
   Loader2,
+  Pencil,
   Save,
   Trash2,
+  X,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -38,6 +41,27 @@ import {
 } from "../hooks/useQueries";
 
 type MaterialTab = "AL" | "CU";
+
+interface RateHistoryEntry {
+  rate: number;
+  date: string;
+}
+
+function getRateHistoryKey(tab: MaterialTab) {
+  return `jobcalc_flex_rate_history_${tab}`;
+}
+
+function loadRateHistory(tab: MaterialTab): RateHistoryEntry[] {
+  try {
+    const stored = localStorage.getItem(getRateHistoryKey(tab));
+    if (stored) return JSON.parse(stored);
+  } catch {}
+  return [];
+}
+
+function saveRateHistory(tab: MaterialTab, history: RateHistoryEntry[]) {
+  localStorage.setItem(getRateHistoryKey(tab), JSON.stringify(history));
+}
 
 function interpolateRate(
   thickness: number,
@@ -129,7 +153,7 @@ function FormulaRow({
 }
 
 function TabCalculator({ materialTab }: TabCalculatorProps) {
-  const { settings } = useFormulaSettings();
+  const { settings, updateSetting, save: saveSettings } = useFormulaSettings();
   const { data: customers = [] } = useCustomers();
   const { data: savedJobs = [], isLoading: jobsLoading } = useFlexibleJobs();
   const saveJob = useSaveFlexibleJob();
@@ -159,6 +183,30 @@ function TabCalculator({ materialTab }: TabCalculatorProps) {
   const [numberOfDrills, setNumberOfDrills] = useState<number>(1);
   const [customerId, setCustomerId] = useState<string>("none");
 
+  // Discount
+  const [discountPct, setDiscountPct] = useState<number | "">("");
+
+  // Material rate inline edit
+  const settingsRate =
+    materialTab === "AL"
+      ? settings.flexAlMaterialRate
+      : settings.flexCuMaterialRate;
+  const [localRate, setLocalRate] = useState<number>(settingsRate);
+  const [editingRate, setEditingRate] = useState(false);
+  const [rateInputVal, setRateInputVal] = useState<string>(
+    String(settingsRate),
+  );
+  const [rateHistory, setRateHistory] = useState<RateHistoryEntry[]>(() =>
+    loadRateHistory(materialTab),
+  );
+  const [showRateHistory, setShowRateHistory] = useState(false);
+
+  // Keep localRate in sync when settings change externally
+  useEffect(() => {
+    setLocalRate(settingsRate);
+    setRateInputVal(String(settingsRate));
+  }, [settingsRate]);
+
   // Per-row formula open state
   const [openFormulas, setOpenFormulas] = useState<Set<string>>(new Set());
   const toggleFormula = (key: string) => {
@@ -168,6 +216,46 @@ function TabCalculator({ materialTab }: TabCalculatorProps) {
       else next.add(key);
       return next;
     });
+  };
+
+  const handleRateEditConfirm = () => {
+    const newRate = Number(rateInputVal);
+    if (Number.isNaN(newRate) || newRate <= 0) {
+      toast.error("Enter a valid rate");
+      return;
+    }
+    if (newRate === localRate) {
+      setEditingRate(false);
+      return;
+    }
+    const newHistory: RateHistoryEntry[] = [
+      {
+        rate: localRate,
+        date: new Date().toLocaleDateString("en-IN", {
+          day: "2-digit",
+          month: "short",
+          year: "numeric",
+        }),
+      },
+      ...rateHistory,
+    ];
+    setRateHistory(newHistory);
+    saveRateHistory(materialTab, newHistory);
+    if (materialTab === "AL") {
+      updateSetting("flexAlMaterialRate", newRate);
+    } else {
+      updateSetting("flexCuMaterialRate", newRate);
+    }
+    saveSettings();
+    setLocalRate(newRate);
+    setEditingRate(false);
+    toast.success(`${materialTab} material rate updated to ₹${newRate}/kg`);
+  };
+
+  const handleDeleteRateHistory = (idx: number) => {
+    const updated = rateHistory.filter((_, i) => i !== idx);
+    setRateHistory(updated);
+    saveRateHistory(materialTab, updated);
   };
 
   // Auto-fill description
@@ -230,10 +318,7 @@ function TabCalculator({ materialTab }: TabCalculatorProps) {
   const rateMap = materialTab === "AL" ? alRateMap : cuRateMap;
   const density =
     materialTab === "AL" ? settings.flexAlDensity : settings.flexCuDensity;
-  const materialRate =
-    materialTab === "AL"
-      ? settings.flexAlMaterialRate
-      : settings.flexCuMaterialRate;
+  const materialRate = localRate;
 
   const widthNum = typeof sheetBunchWidth === "number" ? sheetBunchWidth : 0;
   const sheetThkNum =
@@ -325,6 +410,14 @@ function TabCalculator({ materialTab }: TabCalculatorProps) {
   const overheadCost = subtotal * (settings.overheadPct / 100);
   const profitCost = (subtotal + overheadCost) * (settings.profitPct / 100);
   const totalCost = subtotal + overheadCost + profitCost;
+
+  // Discount calculations
+  const discountNum = typeof discountPct === "number" ? discountPct : 0;
+  const hasDiscount = discountNum > 0 && discountNum < 100;
+  const quotedPrice = hasDiscount
+    ? totalCost / (1 - discountNum / 100)
+    : totalCost;
+  const discountAmount = hasDiscount ? quotedPrice - totalCost : 0;
 
   const canCalculate =
     widthNum > 0 &&
@@ -491,6 +584,40 @@ function TabCalculator({ materialTab }: TabCalculatorProps) {
               />
             </div>
 
+            {/* Discount % */}
+            <div className="space-y-1.5">
+              <Label htmlFor={`flex-discount-${materialTab}`}>
+                Customer Discount (%)
+              </Label>
+              <Input
+                id={`flex-discount-${materialTab}`}
+                type="number"
+                min={0}
+                max={99}
+                step={0.5}
+                placeholder="e.g. 10 for 10% discount"
+                value={discountPct}
+                onChange={(e) =>
+                  setDiscountPct(
+                    e.target.value === "" ? "" : Number(e.target.value),
+                  )
+                }
+                data-ocid="flexibles.input"
+              />
+              {hasDiscount && canCalculate && (
+                <p className="text-xs text-muted-foreground">
+                  Quote{" "}
+                  <span className="font-semibold text-foreground">
+                    Rs {quotedPrice.toFixed(2)}
+                  </span>{" "}
+                  → after {discountNum}% discount customer pays{" "}
+                  <span className="font-semibold text-foreground">
+                    Rs {totalCost.toFixed(2)}
+                  </span>
+                </p>
+              )}
+            </div>
+
             {/* Sheet Thickness dropdown */}
             <div className="space-y-1.5">
               <Label>Sheet Thickness (mm)</Label>
@@ -508,6 +635,113 @@ function TabCalculator({ materialTab }: TabCalculatorProps) {
                   <SelectItem value="0.3">0.30 mm</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+
+            {/* Material Rate inline edit */}
+            <div className="space-y-1.5 border border-border rounded-lg px-3 py-2.5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium">
+                    {materialTab === "AL" ? "Aluminium" : "Copper"} Material
+                    Rate
+                  </p>
+                  <p className="text-xs text-muted-foreground">Rs/kg</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  {editingRate ? (
+                    <>
+                      <Input
+                        type="number"
+                        min={1}
+                        className="h-7 w-24 text-sm"
+                        value={rateInputVal}
+                        onChange={(e) => setRateInputVal(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") handleRateEditConfirm();
+                          if (e.key === "Escape") {
+                            setEditingRate(false);
+                            setRateInputVal(String(localRate));
+                          }
+                        }}
+                        autoFocus
+                        data-ocid="flexibles.input"
+                      />
+                      <Button
+                        size="sm"
+                        className="h-7 px-2 text-xs"
+                        onClick={handleRateEditConfirm}
+                      >
+                        Save
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        onClick={() => {
+                          setEditingRate(false);
+                          setRateInputVal(String(localRate));
+                        }}
+                      >
+                        <X size={13} />
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <span className="text-sm font-semibold text-foreground">
+                        ₹{localRate}/kg
+                      </span>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        onClick={() => {
+                          setRateInputVal(String(localRate));
+                          setEditingRate(true);
+                        }}
+                        title="Edit rate"
+                      >
+                        <Pencil size={13} />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        onClick={() => setShowRateHistory((v) => !v)}
+                        title="Rate history"
+                      >
+                        <History size={13} />
+                      </Button>
+                    </>
+                  )}
+                </div>
+              </div>
+              {showRateHistory && !editingRate && (
+                <div className="mt-2 space-y-1">
+                  {rateHistory.length === 0 ? (
+                    <p className="text-xs text-muted-foreground">
+                      No rate history yet.
+                    </p>
+                  ) : (
+                    rateHistory.map((entry, idx) => (
+                      <div
+                        key={`${entry.rate}-${entry.date}-${idx}`}
+                        className="flex items-center justify-between text-xs text-muted-foreground bg-muted/40 rounded px-2 py-1"
+                      >
+                        <span>
+                          ₹{entry.rate}/kg — {entry.date}
+                        </span>
+                        <button
+                          type="button"
+                          className="text-destructive hover:text-destructive/80 ml-2"
+                          onClick={() => handleDeleteRateHistory(idx)}
+                        >
+                          <Trash2 size={11} />
+                        </button>
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Bars Supplied toggle */}
@@ -839,7 +1073,7 @@ function TabCalculator({ materialTab }: TabCalculatorProps) {
                 rowKey="matCost"
                 label="Material Cost"
                 value={materialCost > 0 ? `Rs ${materialCost.toFixed(2)}` : "—"}
-                formula="TotalWt × 1.2 × Rate/kg"
+                formula={`TotalWt × 1.2 × ₹${localRate}/kg`}
                 openFormulas={openFormulas}
                 toggleFormula={toggleFormula}
               />
@@ -911,20 +1145,60 @@ function TabCalculator({ materialTab }: TabCalculatorProps) {
                 openFormulas={openFormulas}
                 toggleFormula={toggleFormula}
               />
-              {/* Total Cost — no formula toggle needed */}
+              {/* Base cost */}
               <div className="border-b border-border">
                 <div className="flex justify-between items-center py-3">
                   <span className="text-sm font-semibold text-foreground">
-                    Total Cost
+                    {hasDiscount ? "Your Cost" : "Total Cost"}
                   </span>
                   <span
-                    className="text-lg font-bold text-primary"
+                    className={`font-bold ${hasDiscount ? "text-sm text-muted-foreground" : "text-lg text-primary"}`}
                     data-ocid="flexibles.card"
                   >
                     {canCalculate ? `Rs ${totalCost.toFixed(2)}` : "—"}
                   </span>
                 </div>
               </div>
+
+              {/* Discount section */}
+              {hasDiscount && canCalculate && (
+                <>
+                  <div className="border-b border-border">
+                    <div className="flex justify-between items-center py-1.5">
+                      <span className="text-sm text-muted-foreground">
+                        Quoted Price (before discount)
+                      </span>
+                      <span className="text-sm font-semibold">
+                        Rs {quotedPrice.toFixed(2)}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="border-b border-border">
+                    <div className="flex justify-between items-center py-1.5">
+                      <span className="text-sm text-muted-foreground">
+                        Discount ({discountNum}%)
+                      </span>
+                      <span className="text-sm font-medium text-red-500">
+                        − Rs {discountAmount.toFixed(2)}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="border-b border-border">
+                    <div className="flex justify-between items-center py-3">
+                      <span className="text-sm font-semibold text-foreground">
+                        Final Price (Customer Pays)
+                      </span>
+                      <span
+                        className="text-lg font-bold text-primary"
+                        data-ocid="flexibles.card"
+                      >
+                        Rs {totalCost.toFixed(2)}
+                      </span>
+                    </div>
+                  </div>
+                </>
+              )}
+
               {/* Rate per Meter */}
               {canCalculate && ratePerMeter !== null && (
                 <FormulaRow
