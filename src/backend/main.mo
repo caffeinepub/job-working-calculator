@@ -407,11 +407,10 @@ actor {
     createdAt : Int;
   };
 
-  // This stable variable retains the old type so the upgrade is compatible.
   let flexibleJobs = Map.empty<Text, FlexibleJobV1>();
 
-  // V2 type with full costing fields
-  type FlexibleJob = {
+  // V2 type
+  type FlexibleJobV2 = {
     id : Text;
     description : Text;
     materialTab : Text;
@@ -445,19 +444,57 @@ actor {
     createdAt : Int;
   };
 
+  let flexibleJobsV2 = Map.empty<Text, FlexibleJobV2>();
+
+  // V3 type with discount fields
+  type FlexibleJob = {
+    id : Text;
+    description : Text;
+    materialTab : Text;
+    centerLength : Float;
+    sheetBunchWidth : Float;
+    sheetThickness : Float;
+    sheetCount : Nat;
+    barsSupplied : Bool;
+    barLength : Float;
+    barWidth : Float;
+    barThickness : Float;
+    numberOfDrills : Nat;
+    numberOfFolds : Nat;
+    sheetStackWeight : Float;
+    stripWeight : Float;
+    bar1Weight : Float;
+    bar2Weight : Float;
+    totalMaterialWeight : Float;
+    materialCost : Float;
+    cuttingCost : Float;
+    foldingCost : Float;
+    drillingCost : Float;
+    weldingCost : Float;
+    chamferingCost : Float;
+    totalWeldLength : Float;
+    overheadCost : Float;
+    profitCost : Float;
+    totalCost : Float;
+    discountPct : Float;
+    quotedPrice : Float;
+    customerId : ?Text;
+    customerName : ?Text;
+    createdAt : Int;
+  };
+
   module FlexibleJob {
     public func compare(a : FlexibleJob, b : FlexibleJob) : Order.Order {
       Text.compare(a.id, b.id);
     };
   };
 
-  // New stable map for V2 jobs
-  let flexibleJobsV2 = Map.empty<Text, FlexibleJob>();
+  let flexibleJobsV3 = Map.empty<Text, FlexibleJob>();
 
-  // On upgrade: migrate any V1 jobs into V2 map
   system func postupgrade() {
+    // Migrate V1 -> V3
     for (v1 in flexibleJobs.values()) {
-      let v2 : FlexibleJob = {
+      let v3 : FlexibleJob = {
         id = v1.id;
         description = v1.description;
         materialTab = v1.materialTab;
@@ -486,12 +523,55 @@ actor {
         overheadCost = v1.overheadCost;
         profitCost = v1.profitCost;
         totalCost = v1.totalCost;
+        discountPct = 0.0;
+        quotedPrice = v1.totalCost;
         customerId = v1.customerId;
         customerName = v1.customerName;
         createdAt = v1.createdAt;
       };
-      if (flexibleJobsV2.get(v1.id) == null) {
-        flexibleJobsV2.add(v1.id, v2);
+      if (flexibleJobsV3.get(v1.id) == null) {
+        flexibleJobsV3.add(v1.id, v3);
+      };
+    };
+    // Migrate V2 -> V3
+    for (v2 in flexibleJobsV2.values()) {
+      let v3 : FlexibleJob = {
+        id = v2.id;
+        description = v2.description;
+        materialTab = v2.materialTab;
+        centerLength = v2.centerLength;
+        sheetBunchWidth = v2.sheetBunchWidth;
+        sheetThickness = v2.sheetThickness;
+        sheetCount = v2.sheetCount;
+        barsSupplied = v2.barsSupplied;
+        barLength = v2.barLength;
+        barWidth = v2.barWidth;
+        barThickness = v2.barThickness;
+        numberOfDrills = v2.numberOfDrills;
+        numberOfFolds = v2.numberOfFolds;
+        sheetStackWeight = v2.sheetStackWeight;
+        stripWeight = v2.stripWeight;
+        bar1Weight = v2.bar1Weight;
+        bar2Weight = v2.bar2Weight;
+        totalMaterialWeight = v2.totalMaterialWeight;
+        materialCost = v2.materialCost;
+        cuttingCost = v2.cuttingCost;
+        foldingCost = v2.foldingCost;
+        drillingCost = v2.drillingCost;
+        weldingCost = v2.weldingCost;
+        chamferingCost = v2.chamferingCost;
+        totalWeldLength = v2.totalWeldLength;
+        overheadCost = v2.overheadCost;
+        profitCost = v2.profitCost;
+        totalCost = v2.totalCost;
+        discountPct = 0.0;
+        quotedPrice = v2.totalCost;
+        customerId = v2.customerId;
+        customerName = v2.customerName;
+        createdAt = v2.createdAt;
+      };
+      if (flexibleJobsV3.get(v2.id) == null) {
+        flexibleJobsV3.add(v2.id, v3);
       };
     };
   };
@@ -525,6 +605,8 @@ actor {
     overheadCost : Float,
     profitCost : Float,
     totalCost : Float,
+    discountPct : Float,
+    quotedPrice : Float,
   ) : async FlexibleJob {
     let id = generateId();
     let customerName = switch (customerId) {
@@ -565,22 +647,99 @@ actor {
       overheadCost;
       profitCost;
       totalCost;
+      discountPct;
+      quotedPrice;
       customerId;
       customerName;
       createdAt = Time.now();
     };
-    flexibleJobsV2.add(id, fj);
+    flexibleJobsV3.add(id, fj);
+    fj;
+  };
+
+  public shared func updateFlexibleJob(
+    id : Text,
+    description : Text,
+    materialTab : Text,
+    centerLength : Float,
+    sheetBunchWidth : Float,
+    sheetThickness : Float,
+    sheetCount : Nat,
+    barsSupplied : Bool,
+    barLength : Float,
+    barWidth : Float,
+    barThickness : Float,
+    numberOfDrills : Nat,
+    numberOfFolds : Nat,
+    sheetStackWeight : Float,
+    stripWeight : Float,
+    bar1Weight : Float,
+    bar2Weight : Float,
+    totalMaterialWeight : Float,
+    materialCost : Float,
+    cuttingCost : Float,
+    foldingCost : Float,
+    drillingCost : Float,
+    weldingCost : Float,
+    chamferingCost : Float,
+    totalWeldLength : Float,
+    overheadCost : Float,
+    profitCost : Float,
+    totalCost : Float,
+    discountPct : Float,
+    quotedPrice : Float,
+  ) : async FlexibleJob {
+    let existing = switch (flexibleJobsV3.get(id)) {
+      case (null) { Runtime.trap("Flexible job with id " # id # " does not exist") };
+      case (?j) { j };
+    };
+    let fj : FlexibleJob = {
+      id;
+      description;
+      materialTab;
+      centerLength;
+      sheetBunchWidth;
+      sheetThickness;
+      sheetCount;
+      barsSupplied;
+      barLength;
+      barWidth;
+      barThickness;
+      numberOfDrills;
+      numberOfFolds;
+      sheetStackWeight;
+      stripWeight;
+      bar1Weight;
+      bar2Weight;
+      totalMaterialWeight;
+      materialCost;
+      cuttingCost;
+      foldingCost;
+      drillingCost;
+      weldingCost;
+      chamferingCost;
+      totalWeldLength;
+      overheadCost;
+      profitCost;
+      totalCost;
+      discountPct;
+      quotedPrice;
+      customerId = existing.customerId;
+      customerName = existing.customerName;
+      createdAt = existing.createdAt;
+    };
+    flexibleJobsV3.add(id, fj);
     fj;
   };
 
   public query func getFlexibleJobs() : async [FlexibleJob] {
-    flexibleJobsV2.values().toArray().sort();
+    flexibleJobsV3.values().toArray().sort();
   };
 
   public shared func deleteFlexibleJob(id : Text) : async Bool {
-    switch (flexibleJobsV2.get(id)) {
+    switch (flexibleJobsV3.get(id)) {
       case (null) { false };
-      case (_) { flexibleJobsV2.remove(id); true };
+      case (_) { flexibleJobsV3.remove(id); true };
     };
   };
 

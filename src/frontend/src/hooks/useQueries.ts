@@ -405,3 +405,74 @@ export function useDeleteFlexibleJob() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["flexibleJobs"] }),
   });
 }
+
+// Update flexible job by deleting old and saving new
+export function useUpdateFlexibleJob() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: {
+      oldId: string;
+      description: string;
+      materialTab: string;
+      centerLength: number;
+      sheetBunchWidth: number;
+      sheetThickness: number;
+      sheetCount: bigint;
+      barsSupplied: boolean;
+      barLength: number;
+      barWidth: number;
+      barThickness: number;
+      numberOfDrills: bigint;
+      numberOfFolds: bigint;
+      sheetStackWeight: number;
+      stripWeight: number;
+      bar1Weight: number;
+      bar2Weight: number;
+      totalMaterialWeight: number;
+      materialCost: number;
+      cuttingCost: number;
+      foldingCost: number;
+      drillingCost: number;
+      weldingCost: number;
+      chamferingCost: number;
+      totalWeldLength: number;
+      overheadCost: number;
+      profitCost: number;
+      totalCost: number;
+    }) => {
+      const actor = await getActor();
+      await actor.deleteFlexibleJob(data.oldId);
+      return actor.saveFlexibleJob(
+        data.description,
+        null,
+        data.materialTab,
+        data.centerLength,
+        data.sheetBunchWidth,
+        data.sheetThickness,
+        data.sheetCount,
+        data.barsSupplied,
+        data.barLength,
+        data.barWidth,
+        data.barThickness,
+        data.numberOfDrills,
+        data.numberOfFolds,
+        data.sheetStackWeight,
+        data.stripWeight,
+        data.bar1Weight,
+        data.bar2Weight,
+        data.totalMaterialWeight,
+        data.materialCost,
+        data.cuttingCost,
+        data.foldingCost,
+        data.drillingCost,
+        data.weldingCost,
+        data.chamferingCost,
+        data.totalWeldLength,
+        data.overheadCost,
+        data.profitCost,
+        data.totalCost,
+      );
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["flexibleJobs"] }),
+  });
+}

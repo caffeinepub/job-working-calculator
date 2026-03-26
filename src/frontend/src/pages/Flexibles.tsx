@@ -32,16 +32,88 @@ import {
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import type { FlexibleJob } from "../backend";
 import { useFormulaSettings } from "../hooks/useFormulaSettings";
 import {
-  useCustomers,
   useDeleteFlexibleJob,
   useFlexibleJobs,
   useSaveFlexibleJob,
+  useUpdateFlexibleJob,
 } from "../hooks/useQueries";
 
 type MaterialTab = "AL" | "CU";
+type TopTab = "AL" | "CU" | "SAVED";
 
+// ---- LocalStorage helpers for discount per job ----
+const FLEX_DISCOUNTS_KEY = "flex_job_discount_map";
+
+function getDiscountMap(): Record<string, number> {
+  try {
+    const s = localStorage.getItem(FLEX_DISCOUNTS_KEY);
+    if (s) return JSON.parse(s);
+  } catch {}
+  return {};
+}
+
+function setJobDiscount(jobId: string, discountPct: number) {
+  const map = getDiscountMap();
+  map[jobId] = discountPct;
+  localStorage.setItem(FLEX_DISCOUNTS_KEY, JSON.stringify(map));
+}
+
+function removeJobDiscount(jobId: string) {
+  const map = getDiscountMap();
+  delete map[jobId];
+  localStorage.setItem(FLEX_DISCOUNTS_KEY, JSON.stringify(map));
+}
+
+function migrateJobDiscount(oldId: string, newId: string) {
+  const map = getDiscountMap();
+  if (map[oldId] !== undefined) {
+    map[newId] = map[oldId];
+    delete map[oldId];
+    localStorage.setItem(FLEX_DISCOUNTS_KEY, JSON.stringify(map));
+  }
+}
+
+// ---- LocalStorage helpers for cost snapshot history ----
+function getCostHistoryKey(jobId: string) {
+  return `flex_cost_history_${jobId}`;
+}
+
+function saveCostSnapshot(
+  jobId: string,
+  totalCost: number,
+  discountPct: number,
+) {
+  try {
+    const key = getCostHistoryKey(jobId);
+    const quotedPrice =
+      discountPct > 0 ? totalCost / (1 - discountPct / 100) : totalCost;
+    const existing = JSON.parse(localStorage.getItem(key) || "[]");
+    existing.unshift({
+      totalCost,
+      quotedPrice,
+      discountPct,
+      changedAt: Date.now(),
+    });
+    localStorage.setItem(key, JSON.stringify(existing));
+  } catch {}
+}
+
+function migrateCostHistory(oldId: string, newId: string) {
+  try {
+    const oldKey = getCostHistoryKey(oldId);
+    const newKey = getCostHistoryKey(newId);
+    const data = localStorage.getItem(oldKey);
+    if (data) {
+      localStorage.setItem(newKey, data);
+      localStorage.removeItem(oldKey);
+    }
+  } catch {}
+}
+
+// ---- Rate history ----
 interface RateHistoryEntry {
   rate: number;
   date: string;
@@ -86,11 +158,7 @@ function interpolateRate(
   return points[points.length - 1][1];
 }
 
-interface TabCalculatorProps {
-  materialTab: MaterialTab;
-}
-
-// Per-row formula toggle
+// ---- FormulaRow ----
 function FormulaRow({
   rowKey,
   label,
@@ -152,12 +220,215 @@ function FormulaRow({
   );
 }
 
-function TabCalculator({ materialTab }: TabCalculatorProps) {
-  const { settings, updateSetting, save: saveSettings } = useFormulaSettings();
-  const { data: customers = [] } = useCustomers();
-  const { data: savedJobs = [], isLoading: jobsLoading } = useFlexibleJobs();
-  const saveJob = useSaveFlexibleJob();
+// ---- Saved Jobs Tab ----
+function SavedJobsTab({
+  onEditJob,
+}: {
+  onEditJob: (job: FlexibleJob) => void;
+}) {
+  const [subTab, setSubTab] = useState<MaterialTab>("AL");
+  const { data: savedJobs = [], isLoading } = useFlexibleJobs();
   const deleteJob = useDeleteFlexibleJob();
+
+  const formatDate = (ts: bigint) =>
+    new Date(Number(ts) / 1_000_000).toLocaleDateString("en-IN", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+
+  const handleDelete = async (job: FlexibleJob) => {
+    if (!window.confirm(`Delete job "${job.description}"?`)) return;
+    try {
+      await deleteJob.mutateAsync(job.id);
+      removeJobDiscount(job.id);
+      toast.success("Job deleted");
+    } catch {
+      toast.error("Failed to delete job");
+    }
+  };
+
+  const tabJobs = savedJobs.filter((j) => j.materialTab === subTab);
+  const discountMap = getDiscountMap();
+
+  return (
+    <div className="space-y-4">
+      {/* Sub-tabs */}
+      <div className="flex gap-2 p-1 bg-muted/40 rounded-xl w-full sm:w-auto sm:inline-flex border border-border">
+        <button
+          type="button"
+          onClick={() => setSubTab("AL")}
+          className={`flex items-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-lg transition-all duration-150 flex-1 sm:flex-none justify-center ${
+            subTab === "AL"
+              ? "bg-blue-600 text-white shadow-md"
+              : "bg-blue-100 text-blue-700 hover:bg-blue-200"
+          }`}
+          data-ocid="flexibles.tab"
+        >
+          <span
+            className={`w-2 h-2 rounded-full shrink-0 ${
+              subTab === "AL" ? "bg-white" : "bg-blue-500"
+            }`}
+          />
+          Aluminium
+        </button>
+        <button
+          type="button"
+          onClick={() => setSubTab("CU")}
+          className={`flex items-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-lg transition-all duration-150 flex-1 sm:flex-none justify-center ${
+            subTab === "CU"
+              ? "bg-amber-600 text-white shadow-md"
+              : "bg-amber-100 text-amber-700 hover:bg-amber-200"
+          }`}
+          data-ocid="flexibles.tab"
+        >
+          <span
+            className={`w-2 h-2 rounded-full shrink-0 ${
+              subTab === "CU" ? "bg-white" : "bg-amber-500"
+            }`}
+          />
+          Copper
+        </button>
+      </div>
+
+      <Card className="border border-border rounded-xl shadow-sm">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">
+            Saved {subTab === "AL" ? "Aluminium" : "Copper"} Jobs
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          {isLoading ? (
+            <div
+              className="flex items-center justify-center py-12 text-muted-foreground gap-2"
+              data-ocid="flexibles.loading_state"
+            >
+              <Loader2 size={18} className="animate-spin" />
+              <span className="text-sm">Loading saved jobs…</span>
+            </div>
+          ) : tabJobs.length === 0 ? (
+            <div
+              className="text-center py-12 text-muted-foreground"
+              data-ocid="flexibles.empty_state"
+            >
+              <Layers size={32} className="mx-auto mb-3 opacity-30" />
+              <p className="text-sm">
+                No saved {subTab === "AL" ? "Aluminium" : "Copper"} jobs yet.
+              </p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table data-ocid="flexibles.table">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Description</TableHead>
+                    <TableHead className="text-right">
+                      Before Discount
+                    </TableHead>
+                    <TableHead className="text-right">Discount %</TableHead>
+                    <TableHead className="text-right">Final Price</TableHead>
+                    <TableHead className="w-20" />
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {tabJobs.map((job, idx) => {
+                    const disc = discountMap[job.id] ?? 0;
+                    const quotedPrice =
+                      disc > 0
+                        ? job.totalCost / (1 - disc / 100)
+                        : job.totalCost;
+                    return (
+                      <TableRow
+                        key={job.id}
+                        data-ocid={`flexibles.item.${idx + 1}`}
+                      >
+                        <TableCell className="text-sm whitespace-nowrap">
+                          {formatDate(job.createdAt)}
+                        </TableCell>
+                        <TableCell className="text-sm">
+                          {job.description || (
+                            <span className="text-muted-foreground italic">
+                              No description
+                            </span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right text-sm">
+                          {disc > 0 ? (
+                            <span className="text-muted-foreground">
+                              Rs {quotedPrice.toFixed(2)}
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right text-sm">
+                          {disc > 0 ? (
+                            <Badge variant="outline" className="text-xs">
+                              {disc}%
+                            </Badge>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right text-sm font-semibold">
+                          Rs {job.totalCost.toFixed(2)}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex gap-1 justify-end">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-primary hover:text-primary hover:bg-primary/10"
+                              onClick={() => onEditJob(job)}
+                              title="Edit job"
+                              data-ocid={`flexibles.edit_button.${idx + 1}`}
+                            >
+                              <Pencil size={13} />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
+                              onClick={() => handleDelete(job)}
+                              disabled={deleteJob.isPending}
+                              data-ocid={`flexibles.delete_button.${idx + 1}`}
+                            >
+                              <Trash2 size={13} />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+// ---- Tab Calculator ----
+interface TabCalculatorProps {
+  materialTab: MaterialTab;
+  editingJob: FlexibleJob | null;
+  editingDiscountPct: number;
+  onEditComplete: () => void;
+}
+
+function TabCalculator({
+  materialTab,
+  editingJob,
+  editingDiscountPct,
+  onEditComplete,
+}: TabCalculatorProps) {
+  const { settings, updateSetting, save: saveSettings } = useFormulaSettings();
+  const { data: savedJobs = [] } = useFlexibleJobs();
+  const saveJob = useSaveFlexibleJob();
+  const updateJob = useUpdateFlexibleJob();
 
   const numberOfFolds = 1;
 
@@ -170,7 +441,6 @@ function TabCalculator({ materialTab }: TabCalculatorProps) {
   );
   const [barsSupplied, setBarsSupplied] = useState(false);
 
-  // Separate bar dimensions
   const [sameBars, setSameBars] = useState(true);
   const [bar1Length, setBar1Length] = useState<number | "">("");
   const [bar1Width, setBar1Width] = useState<number | "">("");
@@ -181,9 +451,7 @@ function TabCalculator({ materialTab }: TabCalculatorProps) {
 
   const [drillingEnabled, setDrillingEnabled] = useState(false);
   const [numberOfDrills, setNumberOfDrills] = useState<number>(1);
-  const [customerId, setCustomerId] = useState<string>("none");
 
-  // Discount
   const [discountPct, setDiscountPct] = useState<number | "">("");
 
   // Material rate inline edit
@@ -201,11 +469,37 @@ function TabCalculator({ materialTab }: TabCalculatorProps) {
   );
   const [showRateHistory, setShowRateHistory] = useState(false);
 
-  // Keep localRate in sync when settings change externally
   useEffect(() => {
     setLocalRate(settingsRate);
     setRateInputVal(String(settingsRate));
   }, [settingsRate]);
+
+  // Load editing job into form
+  useEffect(() => {
+    if (!editingJob) return;
+    setDescription(editingJob.description);
+    setCenterLength(editingJob.centerLength);
+    setSheetBunchWidth(editingJob.sheetBunchWidth);
+    const sThk = editingJob.sheetThickness;
+    setSheetThicknessMm(sThk === 0.28 ? 0.28 : 0.3);
+    const bunchThk = sThk * Number(editingJob.sheetCount);
+    setSheetBunchThickness(bunchThk);
+    setBarsSupplied(editingJob.barsSupplied);
+    setBar1Length(editingJob.barLength);
+    setBar1Width(editingJob.barWidth);
+    setBar1Thickness(editingJob.barThickness);
+    // bar2 uses same dims stored (sameBars logic)
+    setBar2Length(editingJob.barLength);
+    setBar2Width(editingJob.barWidth);
+    setBar2Thickness(editingJob.barThickness);
+    setSameBars(true);
+    const drills = Number(editingJob.numberOfDrills);
+    setDrillingEnabled(drills > 0);
+    setNumberOfDrills(drills > 0 ? drills : 1);
+    setDiscountPct(editingDiscountPct > 0 ? editingDiscountPct : "");
+    // prevent auto-desc overwrite
+    lastAutoDesc.current = editingJob.description;
+  }, [editingJob, editingDiscountPct]);
 
   // Per-row formula open state
   const [openFormulas, setOpenFormulas] = useState<Set<string>>(new Set());
@@ -216,46 +510,6 @@ function TabCalculator({ materialTab }: TabCalculatorProps) {
       else next.add(key);
       return next;
     });
-  };
-
-  const handleRateEditConfirm = () => {
-    const newRate = Number(rateInputVal);
-    if (Number.isNaN(newRate) || newRate <= 0) {
-      toast.error("Enter a valid rate");
-      return;
-    }
-    if (newRate === localRate) {
-      setEditingRate(false);
-      return;
-    }
-    const newHistory: RateHistoryEntry[] = [
-      {
-        rate: localRate,
-        date: new Date().toLocaleDateString("en-IN", {
-          day: "2-digit",
-          month: "short",
-          year: "numeric",
-        }),
-      },
-      ...rateHistory,
-    ];
-    setRateHistory(newHistory);
-    saveRateHistory(materialTab, newHistory);
-    if (materialTab === "AL") {
-      updateSetting("flexAlMaterialRate", newRate);
-    } else {
-      updateSetting("flexCuMaterialRate", newRate);
-    }
-    saveSettings();
-    setLocalRate(newRate);
-    setEditingRate(false);
-    toast.success(`${materialTab} material rate updated to ₹${newRate}/kg`);
-  };
-
-  const handleDeleteRateHistory = (idx: number) => {
-    const updated = rateHistory.filter((_, i) => i !== idx);
-    setRateHistory(updated);
-    saveRateHistory(materialTab, updated);
   };
 
   // Auto-fill description
@@ -411,7 +665,6 @@ function TabCalculator({ materialTab }: TabCalculatorProps) {
   const profitCost = (subtotal + overheadCost) * (settings.profitPct / 100);
   const totalCost = subtotal + overheadCost + profitCost;
 
-  // Discount calculations
   const discountNum = typeof discountPct === "number" ? discountPct : 0;
   const hasDiscount = discountNum > 0 && discountNum < 100;
   const quotedPrice = hasDiscount
@@ -425,72 +678,269 @@ function TabCalculator({ materialTab }: TabCalculatorProps) {
     sheetThkNum > 0 &&
     sheetCountNum > 0;
 
-  // Fixed: Rate per Meter = totalCost / totalWeldLength (in meters)
   const ratePerMeter =
     canCalculate && totalWeldLength > 0
       ? totalCost / (totalWeldLength / 1000)
       : null;
 
+  // Helper to build job payload
+  const buildJobPayload = () => ({
+    description: description.trim(),
+    materialTab,
+    centerLength: centerLengthNum,
+    sheetBunchWidth: widthNum,
+    sheetThickness: sheetThkNum,
+    sheetCount: BigInt(sheetCountNum),
+    barsSupplied,
+    barLength: bar1LengthNum,
+    barWidth: bar1WidthNum,
+    barThickness: bar1ThicknessNum,
+    numberOfDrills: BigInt(effectiveDrills),
+    numberOfFolds: BigInt(numberOfFolds),
+    sheetStackWeight,
+    stripWeight,
+    bar1Weight,
+    bar2Weight,
+    totalMaterialWeight,
+    materialCost,
+    cuttingCost,
+    foldingCost,
+    drillingCost,
+    weldingCost,
+    chamferingCost,
+    totalWeldLength,
+    overheadCost,
+    profitCost,
+    totalCost,
+  });
+
   const handleSave = async () => {
     if (!canCalculate) return;
+    const descTrimmed = description.trim();
+
+    // Duplicate check
+    const tabJobs = savedJobs.filter((j) => j.materialTab === materialTab);
+    const duplicate = tabJobs.find(
+      (j) =>
+        j.description.toLowerCase() === descTrimmed.toLowerCase() &&
+        j.id !== editingJob?.id,
+    );
+    if (duplicate) {
+      const overwrite = window.confirm(
+        `A job with the description "${descTrimmed}" already exists. Overwrite it?`,
+      );
+      if (!overwrite) return;
+      // Overwrite existing
+      try {
+        saveCostSnapshot(
+          duplicate.id,
+          duplicate.totalCost,
+          getDiscountMap()[duplicate.id] ?? 0,
+        );
+        const newJob = await updateJob.mutateAsync({
+          oldId: duplicate.id,
+          ...buildJobPayload(),
+        });
+        migrateJobDiscount(duplicate.id, newJob.id);
+        migrateCostHistory(duplicate.id, newJob.id);
+        if (discountNum > 0) setJobDiscount(newJob.id, discountNum);
+        else removeJobDiscount(newJob.id);
+        toast.success("Job updated (overwrite)");
+      } catch {
+        toast.error("Failed to update job");
+      }
+      return;
+    }
+
+    if (editingJob) {
+      // Update mode
+      try {
+        saveCostSnapshot(
+          editingJob.id,
+          editingJob.totalCost,
+          getDiscountMap()[editingJob.id] ?? 0,
+        );
+        const newJob = await updateJob.mutateAsync({
+          oldId: editingJob.id,
+          ...buildJobPayload(),
+        });
+        migrateJobDiscount(editingJob.id, newJob.id);
+        migrateCostHistory(editingJob.id, newJob.id);
+        if (discountNum > 0) setJobDiscount(newJob.id, discountNum);
+        else removeJobDiscount(newJob.id);
+        toast.success("Job updated");
+        onEditComplete();
+      } catch {
+        toast.error("Failed to update job");
+      }
+      return;
+    }
+
+    // New save
     try {
-      await saveJob.mutateAsync({
-        description: description.trim(),
-        customerId: customerId === "none" ? null : customerId,
-        materialTab,
-        centerLength: centerLengthNum,
-        sheetBunchWidth: widthNum,
-        sheetThickness: sheetThkNum,
-        sheetCount: BigInt(sheetCountNum),
-        barsSupplied,
-        barLength: bar1LengthNum,
-        barWidth: bar1WidthNum,
-        barThickness: bar1ThicknessNum,
-        numberOfDrills: BigInt(effectiveDrills),
-        numberOfFolds: BigInt(numberOfFolds),
-        sheetStackWeight,
-        stripWeight,
-        bar1Weight,
-        bar2Weight,
-        totalMaterialWeight,
-        materialCost,
-        cuttingCost,
-        foldingCost,
-        drillingCost,
-        weldingCost,
-        chamferingCost,
-        totalWeldLength,
-        overheadCost,
-        profitCost,
-        totalCost,
+      const newJob = await saveJob.mutateAsync({
+        ...buildJobPayload(),
+        customerId: null,
       });
+      if (discountNum > 0) setJobDiscount(newJob.id, discountNum);
       toast.success("Flexible job saved");
     } catch {
       toast.error("Failed to save job");
     }
   };
 
-  const handleDelete = async (id: string) => {
-    try {
-      await deleteJob.mutateAsync(id);
-      toast.success("Job deleted");
-    } catch {
-      toast.error("Failed to delete job");
+  // Rate edit + auto-update saved jobs
+  const handleRateEditConfirm = async () => {
+    const newRate = Number(rateInputVal);
+    if (Number.isNaN(newRate) || newRate <= 0) {
+      toast.error("Enter a valid rate");
+      return;
+    }
+    if (newRate === localRate) {
+      setEditingRate(false);
+      return;
+    }
+
+    // Save rate history
+    const newHistory: RateHistoryEntry[] = [
+      {
+        rate: localRate,
+        date: new Date().toLocaleDateString("en-IN", {
+          day: "2-digit",
+          month: "short",
+          year: "numeric",
+        }),
+      },
+      ...rateHistory,
+    ];
+    setRateHistory(newHistory);
+    saveRateHistory(materialTab, newHistory);
+    if (materialTab === "AL") {
+      updateSetting("flexAlMaterialRate", newRate);
+    } else {
+      updateSetting("flexCuMaterialRate", newRate);
+    }
+    saveSettings();
+    setLocalRate(newRate);
+    setEditingRate(false);
+    toast.success(`${materialTab} material rate updated to ₹${newRate}/kg`);
+
+    // Auto-update saved jobs for this materialTab
+    const tabJobs = savedJobs.filter((j) => j.materialTab === materialTab);
+    if (tabJobs.length === 0) return;
+
+    let updatedCount = 0;
+    for (const job of tabJobs) {
+      try {
+        const disc = getDiscountMap()[job.id] ?? 0;
+        // Save snapshot of old cost
+        saveCostSnapshot(job.id, job.totalCost, disc);
+
+        // Recalculate with new rate
+        const sThk = job.sheetThickness;
+        const sCount = Number(job.sheetCount);
+        const jDensity =
+          materialTab === "AL"
+            ? settings.flexAlDensity
+            : settings.flexCuDensity;
+        const jWidth = job.sheetBunchWidth;
+        const jCenter = job.centerLength;
+        const newSheetStack =
+          ((jCenter + 25) * jWidth * sThk * sCount * jDensity) / 1_000_000;
+        const newStrip = (jWidth * 20 * 2 * 4 * jDensity) / 1_000_000;
+        const newBar1 = job.barsSupplied
+          ? (job.barLength * job.barWidth * job.barThickness * jDensity) /
+            1_000_000
+          : 0;
+        const newBar2 = job.barsSupplied ? newBar1 : 0;
+        const newTotalMat =
+          (job.barsSupplied ? newBar1 : 0) +
+          newStrip +
+          newSheetStack +
+          (job.barsSupplied ? newBar2 : 0);
+        const newMatCost = newTotalMat * 1.2 * newRate;
+        const newSubtotal =
+          newMatCost +
+          job.cuttingCost +
+          job.foldingCost +
+          job.chamferingCost +
+          job.drillingCost +
+          job.weldingCost;
+        const newOverhead = newSubtotal * (settings.overheadPct / 100);
+        const newProfit =
+          (newSubtotal + newOverhead) * (settings.profitPct / 100);
+        const newTotal = newSubtotal + newOverhead + newProfit;
+
+        const newJob = await updateJob.mutateAsync({
+          oldId: job.id,
+          description: job.description,
+          materialTab: job.materialTab,
+          centerLength: job.centerLength,
+          sheetBunchWidth: job.sheetBunchWidth,
+          sheetThickness: job.sheetThickness,
+          sheetCount: job.sheetCount,
+          barsSupplied: job.barsSupplied,
+          barLength: job.barLength,
+          barWidth: job.barWidth,
+          barThickness: job.barThickness,
+          numberOfDrills: job.numberOfDrills,
+          numberOfFolds: job.numberOfFolds,
+          sheetStackWeight: newSheetStack,
+          stripWeight: newStrip,
+          bar1Weight: newBar1,
+          bar2Weight: newBar2,
+          totalMaterialWeight: newTotalMat,
+          materialCost: newMatCost,
+          cuttingCost: job.cuttingCost,
+          foldingCost: job.foldingCost,
+          drillingCost: job.drillingCost,
+          weldingCost: job.weldingCost,
+          chamferingCost: job.chamferingCost,
+          totalWeldLength: job.totalWeldLength,
+          overheadCost: newOverhead,
+          profitCost: newProfit,
+          totalCost: newTotal,
+        });
+        migrateJobDiscount(job.id, newJob.id);
+        migrateCostHistory(job.id, newJob.id);
+        updatedCount++;
+      } catch {
+        // skip individual failures silently
+      }
+    }
+    if (updatedCount > 0) {
+      toast.success(
+        `${updatedCount} saved job${updatedCount > 1 ? "s" : ""} auto-updated with new rate`,
+      );
     }
   };
 
-  const formatDate = (ts: bigint) => {
-    return new Date(Number(ts) / 1_000_000).toLocaleDateString("en-IN", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    });
+  const handleDeleteRateHistory = (idx: number) => {
+    const updated = rateHistory.filter((_, i) => i !== idx);
+    setRateHistory(updated);
+    saveRateHistory(materialTab, updated);
   };
 
-  const tabJobs = savedJobs.filter((j) => j.materialTab === materialTab);
+  const isPending = saveJob.isPending || updateJob.isPending;
 
   return (
     <div className="space-y-6">
+      {editingJob && (
+        <div className="flex items-center justify-between px-3 py-2 bg-primary/10 border border-primary/30 rounded-lg text-sm">
+          <span className="text-primary font-medium">
+            ✏️ Editing: {editingJob.description}
+          </span>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 text-xs"
+            onClick={onEditComplete}
+          >
+            Cancel Edit
+          </Button>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Inputs */}
         <Card className="border border-border rounded-xl shadow-sm">
@@ -927,9 +1377,9 @@ function TabCalculator({ materialTab }: TabCalculatorProps) {
             {/* Drilling toggle */}
             <div className="flex items-center justify-between py-2 border border-border rounded-lg px-3">
               <div>
-                <p className="text-sm font-medium">Drilling Required?</p>
+                <p className="text-sm font-medium">Drilling?</p>
                 <p className="text-xs text-muted-foreground">
-                  Toggle if drilling is needed for this job
+                  Enable if drilling is done on this job
                 </p>
               </div>
               <button
@@ -971,36 +1421,22 @@ function TabCalculator({ materialTab }: TabCalculatorProps) {
               </div>
             )}
 
-            {/* Customer */}
-            <div className="space-y-1.5">
-              <Label>Customer (optional)</Label>
-              <Select value={customerId} onValueChange={setCustomerId}>
-                <SelectTrigger data-ocid="flexibles.select">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">No Customer</SelectItem>
-                  {customers.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      {c.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
             <Button
               className="w-full gap-2 mt-2"
-              disabled={!canCalculate || saveJob.isPending}
+              disabled={!canCalculate || isPending}
               onClick={handleSave}
               data-ocid="flexibles.primary_button"
             >
-              {saveJob.isPending ? (
+              {isPending ? (
                 <Loader2 size={15} className="animate-spin" />
               ) : (
                 <Save size={15} />
               )}
-              {saveJob.isPending ? "Saving…" : "Save This Job"}
+              {isPending
+                ? "Saving…"
+                : editingJob
+                  ? "Update Job"
+                  : "Save This Job"}
             </Button>
           </CardContent>
         </Card>
@@ -1106,7 +1542,9 @@ function TabCalculator({ materialTab }: TabCalculatorProps) {
                   rowKey="drilling"
                   label="Drilling"
                   value={`Rs ${drillingCost.toFixed(2)}`}
-                  formula={`${effectiveDrills} × ₹${settings.flexDrillingCostPerHole}/drill`}
+                  formula={`${effectiveDrills} × ₹${
+                    settings.flexDrillingCostPerHole
+                  }/drill`}
                   openFormulas={openFormulas}
                   toggleFormula={toggleFormula}
                 />
@@ -1145,6 +1583,7 @@ function TabCalculator({ materialTab }: TabCalculatorProps) {
                 openFormulas={openFormulas}
                 toggleFormula={toggleFormula}
               />
+
               {/* Base cost */}
               <div className="border-b border-border">
                 <div className="flex justify-between items-center py-3">
@@ -1152,7 +1591,11 @@ function TabCalculator({ materialTab }: TabCalculatorProps) {
                     {hasDiscount ? "Your Cost" : "Total Cost"}
                   </span>
                   <span
-                    className={`font-bold ${hasDiscount ? "text-sm text-muted-foreground" : "text-lg text-primary"}`}
+                    className={`font-bold ${
+                      hasDiscount
+                        ? "text-sm text-muted-foreground"
+                        : "text-lg text-primary"
+                    }`}
                     data-ocid="flexibles.card"
                   >
                     {canCalculate ? `Rs ${totalCost.toFixed(2)}` : "—"}
@@ -1216,104 +1659,27 @@ function TabCalculator({ materialTab }: TabCalculatorProps) {
           </CardContent>
         </Card>
       </div>
-
-      {/* Saved Jobs */}
-      <Card className="border border-border rounded-xl shadow-sm">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base">
-            Saved {materialTab === "AL" ? "Aluminium" : "Copper"} Jobs
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
-          {jobsLoading ? (
-            <div
-              className="flex items-center justify-center py-12 text-muted-foreground gap-2"
-              data-ocid="flexibles.loading_state"
-            >
-              <Loader2 size={18} className="animate-spin" />
-              <span className="text-sm">Loading saved jobs…</span>
-            </div>
-          ) : tabJobs.length === 0 ? (
-            <div
-              className="text-center py-12 text-muted-foreground"
-              data-ocid="flexibles.empty_state"
-            >
-              <Layers size={32} className="mx-auto mb-3 opacity-30" />
-              <p className="text-sm">
-                No saved {materialTab === "AL" ? "Aluminium" : "Copper"} jobs
-                yet. Calculate above and save when needed.
-              </p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <Table data-ocid="flexibles.table">
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Description</TableHead>
-                    <TableHead className="text-right">Width (mm)</TableHead>
-                    <TableHead className="text-right">Sheets</TableHead>
-                    <TableHead className="text-right">Material Cost</TableHead>
-                    <TableHead className="text-right">Total</TableHead>
-                    <TableHead className="w-10" />
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {tabJobs.map((job, idx) => (
-                    <TableRow
-                      key={job.id}
-                      data-ocid={`flexibles.item.${idx + 1}`}
-                    >
-                      <TableCell className="text-sm whitespace-nowrap">
-                        {formatDate(job.createdAt)}
-                      </TableCell>
-                      <TableCell className="text-sm">
-                        {job.description || (
-                          <span className="text-muted-foreground italic">
-                            No description
-                          </span>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-right text-sm">
-                        {job.sheetBunchWidth}
-                      </TableCell>
-                      <TableCell className="text-right text-sm">
-                        <Badge variant="outline" className="text-xs">
-                          {String((job as any).sheetCount)}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right text-sm">
-                        Rs {(job as any).materialCost.toFixed(2)}
-                      </TableCell>
-                      <TableCell className="text-right text-sm font-semibold">
-                        Rs {job.totalCost.toFixed(2)}
-                      </TableCell>
-                      <TableCell>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
-                          onClick={() => handleDelete(job.id)}
-                          disabled={deleteJob.isPending}
-                          data-ocid={`flexibles.delete_button.${idx + 1}`}
-                        >
-                          <Trash2 size={14} />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
     </div>
   );
 }
 
+// ---- Main Flexibles page ----
 export function Flexibles() {
-  const [activeTab, setActiveTab] = useState<MaterialTab>("AL");
+  const [activeTab, setActiveTab] = useState<TopTab>("AL");
+  const [editingJob, setEditingJob] = useState<FlexibleJob | null>(null);
+  const [editingDiscountPct, setEditingDiscountPct] = useState(0);
+
+  const handleEditJob = (job: FlexibleJob) => {
+    const disc = getDiscountMap()[job.id] ?? 0;
+    setEditingDiscountPct(disc);
+    setEditingJob(job);
+    setActiveTab(job.materialTab as TopTab);
+  };
+
+  const handleEditComplete = () => {
+    setEditingJob(null);
+    setEditingDiscountPct(0);
+  };
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
@@ -1331,10 +1697,11 @@ export function Flexibles() {
 
       <Tabs
         value={activeTab}
-        onValueChange={(v) => setActiveTab(v as MaterialTab)}
+        onValueChange={(v) => setActiveTab(v as TopTab)}
         data-ocid="flexibles.tab"
       >
-        <div className="flex gap-3 p-1 bg-muted/40 rounded-xl w-full sm:w-auto sm:inline-flex border border-border">
+        {/* Tab bar */}
+        <div className="flex gap-2 p-1 bg-muted/40 rounded-xl w-full sm:w-auto sm:inline-flex border border-border flex-wrap">
           <button
             type="button"
             onClick={() => setActiveTab("AL")}
@@ -1346,7 +1713,9 @@ export function Flexibles() {
             data-ocid="flexibles.tab"
           >
             <span
-              className={`w-2.5 h-2.5 rounded-full shrink-0 ${activeTab === "AL" ? "bg-white" : "bg-blue-500"}`}
+              className={`w-2.5 h-2.5 rounded-full shrink-0 ${
+                activeTab === "AL" ? "bg-white" : "bg-blue-500"
+              }`}
             />
             Aluminium
           </button>
@@ -1362,18 +1731,56 @@ export function Flexibles() {
             data-ocid="flexibles.tab"
           >
             <span
-              className={`w-2.5 h-2.5 rounded-full shrink-0 ${activeTab === "CU" ? "bg-white" : "bg-amber-500"}`}
+              className={`w-2.5 h-2.5 rounded-full shrink-0 ${
+                activeTab === "CU" ? "bg-white" : "bg-amber-500"
+              }`}
             />
             Copper
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab("SAVED")}
+            className={`flex items-center gap-2 px-6 py-3 text-base font-semibold rounded-lg transition-all duration-150 flex-1 sm:flex-none justify-center ${
+              activeTab === "SAVED"
+                ? "bg-slate-600 text-white shadow-md"
+                : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+            }`}
+            data-ocid="flexibles.tab"
+          >
+            <span
+              className={`w-2.5 h-2.5 rounded-full shrink-0 ${
+                activeTab === "SAVED" ? "bg-white" : "bg-slate-400"
+              }`}
+            />
+            Saved Jobs
           </button>
         </div>
 
         <TabsContent value="AL" className="mt-6">
-          <TabCalculator materialTab="AL" />
+          <TabCalculator
+            materialTab="AL"
+            editingJob={editingJob?.materialTab === "AL" ? editingJob : null}
+            editingDiscountPct={
+              editingJob?.materialTab === "AL" ? editingDiscountPct : 0
+            }
+            onEditComplete={handleEditComplete}
+          />
         </TabsContent>
 
         <TabsContent value="CU" className="mt-6">
-          <TabCalculator materialTab="CU" />
+          <TabCalculator
+            materialTab="CU"
+            editingJob={editingJob?.materialTab === "CU" ? editingJob : null}
+            editingDiscountPct={
+              editingJob?.materialTab === "CU" ? editingDiscountPct : 0
+            }
+            onEditComplete={handleEditComplete}
+          />
+        </TabsContent>
+
+        <TabsContent value="SAVED" className="mt-6">
+          <SavedJobsTab onEditJob={handleEditJob} />
         </TabsContent>
       </Tabs>
     </div>
