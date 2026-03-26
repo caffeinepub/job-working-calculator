@@ -4,24 +4,20 @@ import {
   Calculator,
   Download,
   FlaskConical,
-  History,
   LayersIcon,
   LayoutDashboard,
-  Package,
   Users,
   Wrench,
 } from "lucide-react";
 
 export type AppPage =
   | "dashboard"
-  | "rawMaterials"
-  | "jobCalculator"
-  | "jobHistory"
+  | "ssFabrication"
+  | "labour"
+  | "flexibles"
   | "customers"
   | "formulas"
-  | "export"
-  | "labour"
-  | "flexibles";
+  | "export";
 
 type NavItem = {
   label: string;
@@ -35,15 +31,13 @@ const navItems: NavItem[] = [
     icon: <LayoutDashboard size={18} />,
     page: "dashboard",
   },
-  { label: "Job History", icon: <History size={18} />, page: "jobHistory" },
   {
     label: "SS Fabrication",
     icon: <Briefcase size={18} />,
-    page: "jobCalculator",
+    page: "ssFabrication",
   },
   { label: "Labour", icon: <Wrench size={18} />, page: "labour" },
   { label: "Flexibles", icon: <LayersIcon size={18} />, page: "flexibles" },
-  { label: "Raw Materials", icon: <Package size={18} />, page: "rawMaterials" },
   { label: "Customers", icon: <Users size={18} />, page: "customers" },
   {
     label: "Formulas & Settings",

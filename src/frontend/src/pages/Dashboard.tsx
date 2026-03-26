@@ -1,3 +1,5 @@
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
@@ -7,10 +9,22 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Briefcase, Package } from "lucide-react";
+import {
+  Briefcase,
+  Calculator,
+  LayersIcon,
+  Package,
+  TrendingUp,
+  Wrench,
+} from "lucide-react";
 import { useMemo } from "react";
 import type { AppPage } from "../components/Sidebar";
-import { useJobs, useMaterials } from "../hooks/useQueries";
+import {
+  useFlexibleJobs,
+  useJobs,
+  useLabourJobs,
+  useMaterials,
+} from "../hooks/useQueries";
 
 function fmt(n: number) {
   return new Intl.NumberFormat("en-IN", {
@@ -27,19 +41,34 @@ interface DashboardProps {
   onNavigate: (page: AppPage) => void;
 }
 
+type ActivityModule = "SS Fab" | "Flexible" | "Labour";
+
+interface ActivityItem {
+  module: ActivityModule;
+  description: string;
+  date: Date;
+  cost: number;
+  id: string;
+}
+
 export function Dashboard({ onNavigate }: DashboardProps) {
   const { data: jobs = [], isLoading: jobsLoading } = useJobs();
+  const { data: flexibleJobs = [], isLoading: flexLoading } = useFlexibleJobs();
+  const { data: labourJobs = [], isLoading: labourLoading } = useLabourJobs();
   const { data: materials = [] } = useMaterials();
+
+  const isLoading = jobsLoading || flexLoading || labourLoading;
 
   const now = new Date();
   const thisMonth = now.getMonth();
   const thisYear = now.getFullYear();
 
   const stats = useMemo(() => {
-    const jobsThisMonth = jobs.filter((sj) => {
+    const ssJobsThisMonth = jobs.filter((sj) => {
       const d = bigIntToDate(sj.job.createdAt);
       return d.getMonth() === thisMonth && d.getFullYear() === thisYear;
     });
+
     const matUsage: Record<string, number> = {};
     for (const sj of jobs) {
       for (const item of sj.jobLineItems) {
@@ -48,7 +77,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
     }
     const topMaterials = Object.entries(matUsage)
       .sort((a, b) => b[1] - a[1])
-      .slice(0, 3)
+      .slice(0, 5)
       .map(([id, count]) => {
         const mat = materials.find((m) => m.id === id);
         return {
@@ -58,34 +87,87 @@ export function Dashboard({ onNavigate }: DashboardProps) {
         };
       });
 
-    const recentJobs = [...jobs]
-      .sort((a, b) => Number(b.job.createdAt) - Number(a.job.createdAt))
+    // Combine recent activity from all modules
+    const ssActivity: ActivityItem[] = jobs.map((sj) => ({
+      module: "SS Fab" as ActivityModule,
+      description: sj.job.name,
+      date: bigIntToDate(sj.job.createdAt),
+      cost: sj.totalFinalPrice,
+      id: sj.job.id,
+    }));
+
+    const flexActivity: ActivityItem[] = flexibleJobs.map((fj) => ({
+      module: "Flexible" as ActivityModule,
+      description: fj.description,
+      date: bigIntToDate(fj.createdAt),
+      cost: fj.totalCost,
+      id: fj.id,
+    }));
+
+    const labourActivity: ActivityItem[] = labourJobs.map((lj) => ({
+      module: "Labour" as ActivityModule,
+      description: lj.description,
+      date: bigIntToDate(lj.createdAt),
+      cost: lj.totalCost,
+      id: lj.id,
+    }));
+
+    const recentActivity = [...ssActivity, ...flexActivity, ...labourActivity]
+      .sort((a, b) => b.date.getTime() - a.date.getTime())
       .slice(0, 5);
 
     return {
-      jobsThisMonthCount: jobsThisMonth.length,
-      totalJobs: jobs.length,
+      ssJobsThisMonthCount: ssJobsThisMonth.length,
+      totalSSJobs: jobs.length,
+      totalFlexibles: flexibleJobs.length,
+      totalLabour: labourJobs.length,
       topMaterials,
-      recentJobs,
+      recentActivity,
     };
-  }, [jobs, materials, thisMonth, thisYear]);
+  }, [jobs, flexibleJobs, labourJobs, materials, thisMonth, thisYear]);
 
   const statCards = [
     {
-      key: "jobs-month",
-      title: "Jobs This Month",
-      value: stats.jobsThisMonthCount.toString(),
-      icon: <Briefcase size={20} className="text-primary" />,
-      sub: "completed jobs",
+      key: "ss-month",
+      title: "SS Jobs This Month",
+      value: stats.ssJobsThisMonthCount.toString(),
+      icon: <Briefcase size={20} className="text-blue-500" />,
+      iconBg: "bg-blue-50 dark:bg-blue-950",
+      sub: "fabrication jobs",
     },
     {
-      key: "jobs-total",
-      title: "Total Jobs",
-      value: stats.totalJobs.toString(),
-      icon: <Package size={20} className="text-violet-600" />,
+      key: "ss-total",
+      title: "Total SS Jobs",
+      value: stats.totalSSJobs.toString(),
+      icon: <TrendingUp size={20} className="text-indigo-500" />,
+      iconBg: "bg-indigo-50 dark:bg-indigo-950",
       sub: "all time",
     },
+    {
+      key: "flex-total",
+      title: "Total Flexibles",
+      value: stats.totalFlexibles.toString(),
+      icon: <LayersIcon size={20} className="text-amber-500" />,
+      iconBg: "bg-amber-50 dark:bg-amber-950",
+      sub: "AL + CU combined",
+    },
+    {
+      key: "labour-total",
+      title: "Labour Jobs",
+      value: stats.totalLabour.toString(),
+      icon: <Wrench size={20} className="text-emerald-500" />,
+      iconBg: "bg-emerald-50 dark:bg-emerald-950",
+      sub: "saved labour jobs",
+    },
   ];
+
+  const moduleBadgeStyles: Record<ActivityModule, string> = {
+    "SS Fab": "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300",
+    Flexible:
+      "bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300",
+    Labour:
+      "bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300",
+  };
 
   return (
     <div className="flex flex-col gap-6" data-ocid="dashboard.page">
@@ -96,43 +178,81 @@ export function Dashboard({ onNavigate }: DashboardProps) {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      {/* Stat cards — 2x2 on mobile, 4-col on desktop */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
         {statCards.map((card) => (
           <Card key={card.key} className="shadow-card border-border">
-            <CardContent className="pt-5 pb-4">
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">
+            <CardContent className="pt-4 pb-3 px-4">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="text-xs text-muted-foreground font-medium leading-tight">
                     {card.title}
                   </p>
                   <p className="text-2xl font-bold mt-1 tabular-nums">
-                    {jobsLoading ? "—" : card.value}
+                    {isLoading ? "—" : card.value}
                   </p>
                   <p className="text-xs text-muted-foreground mt-0.5">
                     {card.sub}
                   </p>
                 </div>
-                <div className="p-2 rounded-lg bg-muted">{card.icon}</div>
+                <div className={`p-2 rounded-lg shrink-0 ${card.iconBg}`}>
+                  {card.icon}
+                </div>
               </div>
             </CardContent>
           </Card>
         ))}
       </div>
 
+      {/* Quick actions */}
+      <div className="flex flex-wrap gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => onNavigate("ssFabrication")}
+          className="gap-1.5 text-blue-600 border-blue-200 hover:bg-blue-50 dark:border-blue-800 dark:hover:bg-blue-950"
+          data-ocid="dashboard.ss_fab.button"
+        >
+          <Briefcase size={14} />
+          SS Fabrication
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => onNavigate("labour")}
+          className="gap-1.5 text-emerald-600 border-emerald-200 hover:bg-emerald-50 dark:border-emerald-800 dark:hover:bg-emerald-950"
+          data-ocid="dashboard.labour.button"
+        >
+          <Wrench size={14} />
+          Labour
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => onNavigate("flexibles")}
+          className="gap-1.5 text-amber-600 border-amber-200 hover:bg-amber-50 dark:border-amber-800 dark:hover:bg-amber-950"
+          data-ocid="dashboard.flexibles.button"
+        >
+          <LayersIcon size={14} />
+          Flexibles
+        </Button>
+      </div>
+
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+        {/* Recent Activity */}
         <div className="xl:col-span-2">
           <Card className="shadow-card border-border">
             <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center gap-2">
-                <Briefcase size={16} className="text-primary" />
-                Recent Jobs
+                <Calculator size={16} className="text-primary" />
+                Recent Activity
               </CardTitle>
             </CardHeader>
             <CardContent className="px-0 pb-2">
-              {stats.recentJobs.length === 0 ? (
+              {stats.recentActivity.length === 0 ? (
                 <div
                   className="flex flex-col items-center justify-center py-10 text-center"
-                  data-ocid="dashboard.jobs.empty_state"
+                  data-ocid="dashboard.activity.empty_state"
                 >
                   <Briefcase
                     size={32}
@@ -141,8 +261,9 @@ export function Dashboard({ onNavigate }: DashboardProps) {
                   <p className="text-sm text-muted-foreground">No jobs yet</p>
                   <button
                     type="button"
-                    onClick={() => onNavigate("jobCalculator")}
+                    onClick={() => onNavigate("ssFabrication")}
                     className="text-xs text-primary hover:underline mt-1"
+                    data-ocid="dashboard.create_job.button"
                   >
                     Create your first job
                   </button>
@@ -152,40 +273,47 @@ export function Dashboard({ onNavigate }: DashboardProps) {
                   <TableHeader>
                     <TableRow className="bg-muted/50 hover:bg-muted/50">
                       <TableHead className="text-xs font-semibold uppercase tracking-wide pl-6">
-                        Job Name
+                        Module
                       </TableHead>
                       <TableHead className="text-xs font-semibold uppercase tracking-wide">
-                        Customer
+                        Description
                       </TableHead>
                       <TableHead className="text-xs font-semibold uppercase tracking-wide">
                         Date
                       </TableHead>
                       <TableHead className="text-xs font-semibold uppercase tracking-wide text-right pr-6">
-                        Total
+                        Cost
                       </TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {stats.recentJobs.map((sj, idx) => (
+                    {stats.recentActivity.map((item, idx) => (
                       <TableRow
-                        key={sj.job.id}
+                        key={item.id}
                         className="border-b border-border/60"
-                        data-ocid={`dashboard.jobs.item.${idx + 1}`}
+                        data-ocid={`dashboard.activity.item.${idx + 1}`}
                       >
-                        <TableCell className="pl-6 font-medium text-sm">
-                          {sj.job.name}
+                        <TableCell className="pl-6">
+                          <span
+                            className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                              moduleBadgeStyles[item.module]
+                            }`}
+                          >
+                            {item.module}
+                          </span>
                         </TableCell>
-                        <TableCell className="text-sm text-muted-foreground">
-                          {sj.customerName ?? "—"}
+                        <TableCell className="font-medium text-sm max-w-[160px] truncate">
+                          {item.description}
                         </TableCell>
-                        <TableCell className="text-sm text-muted-foreground">
-                          {bigIntToDate(sj.job.createdAt).toLocaleDateString(
-                            "en-IN",
-                            { day: "2-digit", month: "short", year: "numeric" },
-                          )}
+                        <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
+                          {item.date.toLocaleDateString("en-IN", {
+                            day: "2-digit",
+                            month: "short",
+                            year: "numeric",
+                          })}
                         </TableCell>
-                        <TableCell className="text-sm font-mono font-bold text-primary text-right pr-6">
-                          ₹{fmt(sj.totalFinalPrice)}
+                        <TableCell className="text-sm font-mono font-bold text-primary text-right pr-6 whitespace-nowrap">
+                          ₹{fmt(item.cost)}
                         </TableCell>
                       </TableRow>
                     ))}
@@ -196,6 +324,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
           </Card>
         </div>
 
+        {/* Top Materials */}
         <div>
           <Card className="shadow-card border-border">
             <CardHeader className="pb-3">
