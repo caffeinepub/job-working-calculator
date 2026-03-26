@@ -1,32 +1,31 @@
 # Job Working Calculator
 
 ## Current State
-The app has a flat navigation with 9 items: Dashboard, Job History, SS Fabrication (jobCalculator), Labour, Flexibles, Raw Materials, Customers, Formulas & Settings, Export & Backup.
-
-Dashboard only shows SS Fabrication jobs (jobs this month, total jobs, recent jobs, top materials).
+- App uses `h-screen` for the outer layout container, which causes iOS Safari scroll issues because `100vh` doesn't account for the dynamic browser chrome (address bar showing/hiding). Top and bottom content gets cut off or unreachable.
+- `main.tsx` still wraps the app with `InternetIdentityProvider` (from auth that was supposed to be fully removed) and a duplicate `QueryClientProvider`. This is dead code that initializes AuthClient on every load, potentially interfering with stable operation.
+- `useActor.ts` still imports `useInternetIdentity` and calls `_initializeAccessControlWithSecret` on the backend, though it's not directly called by pages. The backend `main.mo` imports AccessControl but doesn't use it in any public function.
+- Pages use `getActor()` from `actorSingleton.ts` directly (correct path). But any residual auth initialization can cause timing/state issues.
 
 ## Requested Changes (Diff)
 
 ### Add
-- New `SSFabrication` page component that contains three tabs: "Raw Materials", "Job Calculator", "Job History" -- housing the existing RawMaterials, JobCalculator, and JobHistory page components.
-- Dashboard stats for all three modules: SS Fabrication job count, Flexible job count (AL + CU), Labour job count, total raw materials count.
-- Dashboard recent activity across all three modules (recent SS jobs, recent Flexibles, recent Labour jobs) with module badge labels.
+- Add `-webkit-overflow-scrolling: touch` to the scrollable main content area for smooth inertia scrolling on iOS
+- Add `scroll-smooth` behavior globally
+- Add bottom safe area padding so content isn't hidden behind iOS home indicator
 
 ### Modify
-- `AppPage` type: remove `rawMaterials` and `jobHistory` as top-level pages, add `ssFabrication`.
-- `Sidebar`: 7 items only: Dashboard, SS Fabrication, Labour, Flexibles, Customers, Formulas & Settings, Export & Backup.
-- `App.tsx`: route `ssFabrication` to new SSFabrication tabbed page; remove top-level routes for `rawMaterials` and `jobHistory`.
-- `Dashboard`: revamp to show stats for all modules (SS jobs this month, total SS jobs, total Flexible jobs, total Labour jobs, total raw materials). Recent jobs table shows entries from all three modules with a module type badge. Top Materials section retained.
-- `PAGE_TITLES`: update to reflect new pages.
-- Navigation from Dashboard "Create your first job" button should go to `ssFabrication`.
-- `handleEditJob` in App.tsx navigates to `ssFabrication` (with tab pre-selected to Job Calculator).
+- `App.tsx`: Change outer container from `h-screen` to `h-[100dvh]` to use dynamic viewport height (adjusts when browser UI shows/hides on mobile)
+- `main.tsx`: Remove `InternetIdentityProvider` wrapper and the redundant outer `QueryClientProvider` (App.tsx already provides its own)
+- `main.tsx`: Render App directly without any auth or query wrappers
+- `index.css`: Ensure `html, body` fill full height properly and don't have double scroll containers
 
 ### Remove
-- `rawMaterials` and `jobHistory` as standalone top-level nav items.
+- Remove `InternetIdentityProvider` import and usage from `main.tsx`
+- Remove redundant `QueryClientProvider` from `main.tsx`
 
 ## Implementation Plan
-1. Create `src/pages/SSFabrication.tsx` -- tabbed page with three tabs: Raw Materials | Job Calculator | Job History. Accept `editJobOnMount` and `onEditConsumed` props, pass through to JobCalculator. Accept optional `initialTab` prop.
-2. Update `AppPage` type in Sidebar.tsx: remove `rawMaterials`, `jobHistory`, add `ssFabrication`.
-3. Update Sidebar navItems to 7 items.
-4. Update App.tsx: add SSFabrication import, update PAGE_TITLES, add route for `ssFabrication`, remove routes for `rawMaterials`/`jobHistory`, update `handleEditJob` to navigate to `ssFabrication`.
-5. Revamp Dashboard.tsx: add `useFlexibleJobs` and `useLabourJobs` query hooks, show 4 stat cards (SS jobs this month, total SS, total Flexibles, total Labour + raw materials count), recent activity from all modules with module badge, keep top materials panel.
+1. Fix `main.tsx` to render App with no wrappers (App.tsx already has its own QueryClientProvider)
+2. Fix `App.tsx` outer div to use `h-[100dvh]` instead of `h-screen`
+3. Add `overscroll-contain` to the main scroll area to prevent scroll chaining on mobile
+4. Add iOS-specific scroll fix in `index.css`: ensure `html` and `body` are `height: 100%` not `100vh`, prevent double scroll
+5. Add bottom padding (`pb-safe` equivalent) to `<main>` to account for iOS home indicator

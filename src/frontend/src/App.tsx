@@ -34,9 +34,9 @@ function AppShell() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
-    <div className="flex h-screen bg-background overflow-hidden">
+    <div className="flex h-[100dvh] bg-background overflow-hidden">
       {/* Desktop sidebar */}
-      <div className="hidden md:flex md:fixed md:left-0 md:top-0 md:h-screen md:z-30">
+      <div className="hidden md:flex md:fixed md:left-0 md:top-0 md:h-[100dvh] md:z-30">
         <Sidebar currentPage={currentPage} onNavigate={setCurrentPage} />
       </div>
 
@@ -91,7 +91,7 @@ function AppShell() {
         </header>
 
         {/* Page content */}
-        <main className="flex-1 overflow-auto min-h-0 p-4 md:p-6">
+        <main className="flex-1 overflow-y-auto overscroll-contain min-h-0 p-4 md:p-6 pb-8 md:pb-6">
           {currentPage === "dashboard" && (
             <Dashboard onNavigate={setCurrentPage} />
           )}

@@ -59,6 +59,12 @@
     --sidebar-ring: 0.55 0.22 264;
   }
 
+  html,
+  body {
+    height: 100%;
+    overscroll-behavior: none;
+  }
+
   * {
     @apply border-border;
   }
