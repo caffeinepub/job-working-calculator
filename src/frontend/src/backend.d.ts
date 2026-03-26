@@ -76,6 +76,8 @@ export interface FlexibleJob {
     overheadCost: number;
     profitCost: number;
     totalCost: number;
+    discountPct: number;
+    quotedPrice: number;
     customerId?: string;
     customerName?: string;
     createdAt: bigint;
@@ -164,6 +166,8 @@ export interface backendInterface {
         overheadCost: number,
         profitCost: number,
         totalCost: number,
+        discountPct: number,
+        quotedPrice: number,
     ): Promise<FlexibleJob>;
     saveJob(name: string, laborRate: number, transportIncluded: boolean, customerId: string | null, transportCost: number, dispatchQty: number, jobLineItems: Array<JobLineItem>, weldingLineItems: Array<WeldingLineItem>, totalFinalPrice: number, totalProductWeight: number, ratePerKg: number): Promise<SavedJob>;
     saveLabourJob(description: string, customerId: string | null, materialType: string, weldLength: number, laborRate: number, totalCost: number): Promise<LabourJob>;

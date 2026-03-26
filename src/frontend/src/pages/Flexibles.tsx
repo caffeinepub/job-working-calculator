@@ -696,6 +696,8 @@ function TabCalculator({
     overheadCost,
     profitCost,
     totalCost,
+    discountPct: discountNum,
+    quotedPrice,
   });
 
   const handleSave = async () => {
@@ -884,6 +886,8 @@ function TabCalculator({
           overheadCost: newOverhead,
           profitCost: newProfit,
           totalCost: newTotal,
+          discountPct: job.discountPct ?? 0,
+          quotedPrice: job.quotedPrice ?? newTotal,
         });
         migrateJobDiscount(job.id, newJob.id);
         migrateCostHistory(job.id, newJob.id);

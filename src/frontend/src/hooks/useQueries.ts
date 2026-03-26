@@ -358,6 +358,8 @@ export function useSaveFlexibleJob() {
       overheadCost: number;
       profitCost: number;
       totalCost: number;
+      discountPct: number;
+      quotedPrice: number;
     }) => {
       const actor = await getActor();
       return actor.saveFlexibleJob(
@@ -389,6 +391,8 @@ export function useSaveFlexibleJob() {
         data.overheadCost,
         data.profitCost,
         data.totalCost,
+        data.discountPct,
+        data.quotedPrice,
       );
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["flexibleJobs"] }),
@@ -439,6 +443,8 @@ export function useUpdateFlexibleJob() {
       overheadCost: number;
       profitCost: number;
       totalCost: number;
+      discountPct: number;
+      quotedPrice: number;
     }) => {
       const actor = await getActor();
       await actor.deleteFlexibleJob(data.oldId);
@@ -471,6 +477,8 @@ export function useUpdateFlexibleJob() {
         data.overheadCost,
         data.profitCost,
         data.totalCost,
+        data.discountPct,
+        data.quotedPrice,
       );
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["flexibleJobs"] }),

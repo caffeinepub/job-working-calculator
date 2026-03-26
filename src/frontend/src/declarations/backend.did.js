@@ -108,6 +108,8 @@ export const FlexibleJob = IDL.Record({
   'overheadCost' : IDL.Float64,
   'profitCost' : IDL.Float64,
   'totalCost' : IDL.Float64,
+  'discountPct' : IDL.Float64,
+  'quotedPrice' : IDL.Float64,
   'customerId' : IDL.Opt(IDL.Text),
   'customerName' : IDL.Opt(IDL.Text),
   'createdAt' : IDL.Int,
@@ -179,6 +181,8 @@ export const idlService = IDL.Service({
         IDL.Float64,
         IDL.Float64,
         IDL.Float64,
+        IDL.Float64, // discountPct
+        IDL.Float64, // quotedPrice
       ],
       [FlexibleJob],
       [],
@@ -345,6 +349,8 @@ export const idlFactory = ({ IDL }) => {
     'overheadCost' : IDL.Float64,
     'profitCost' : IDL.Float64,
     'totalCost' : IDL.Float64,
+    'discountPct' : IDL.Float64,
+    'quotedPrice' : IDL.Float64,
     'customerId' : IDL.Opt(IDL.Text),
     'customerName' : IDL.Opt(IDL.Text),
     'createdAt' : IDL.Int,
@@ -416,6 +422,8 @@ export const idlFactory = ({ IDL }) => {
           IDL.Float64,
           IDL.Float64,
           IDL.Float64,
+          IDL.Float64, // discountPct
+          IDL.Float64, // quotedPrice
         ],
         [FlexibleJob],
         [],
