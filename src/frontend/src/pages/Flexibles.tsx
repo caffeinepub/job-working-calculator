@@ -342,7 +342,7 @@ function SavedJobsTab({
                 </TableHeader>
                 <TableBody>
                   {tabJobs.map((job, idx) => {
-                    const disc = discountMap[job.id] ?? 0;
+                    const disc = job.discountPct ?? discountMap[job.id] ?? 0;
                     return (
                       <>
                         <TableRow
@@ -360,7 +360,10 @@ function SavedJobsTab({
                             )}
                           </TableCell>
                           <TableCell className="text-right text-sm">
-                            ₹{job.totalCost.toFixed(2)}
+                            ₹
+                            {disc > 0
+                              ? (job.quotedPrice ?? job.totalCost).toFixed(2)
+                              : job.totalCost.toFixed(2)}
                           </TableCell>
                           <TableCell className="text-right text-sm">
                             {disc > 0 ? (
@@ -372,9 +375,7 @@ function SavedJobsTab({
                             )}
                           </TableCell>
                           <TableCell className="text-right text-sm font-semibold">
-                            {disc > 0
-                              ? `₹${(job.totalCost * (1 - disc / 100)).toFixed(2)}`
-                              : `₹${job.totalCost.toFixed(2)}`}
+                            ₹{job.totalCost.toFixed(2)}
                           </TableCell>
                           <TableCell>
                             <div className="flex gap-1 justify-end">

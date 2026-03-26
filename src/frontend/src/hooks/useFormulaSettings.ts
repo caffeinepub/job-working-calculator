@@ -96,7 +96,11 @@ export function useFormulaSettings() {
 
   const updateSetting = useCallback(
     <K extends keyof FormulaSettings>(key: K, value: FormulaSettings[K]) => {
-      setSettings((prev) => ({ ...prev, [key]: value }));
+      setSettings((prev) => {
+        const updated = { ...prev, [key]: value };
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+        return updated;
+      });
       setDirty(true);
     },
     [],
