@@ -220,6 +220,16 @@ function FormulaRow({
   );
 }
 
+// ---- Helper to load cost history ----
+function loadCostHistory(jobId: string) {
+  try {
+    const key = `flex_cost_history_${jobId}`;
+    const data = localStorage.getItem(key);
+    if (data) return JSON.parse(data);
+  } catch {}
+  return [];
+}
+
 // ---- Saved Jobs Tab ----
 function SavedJobsTab({
   onEditJob,
@@ -227,6 +237,7 @@ function SavedJobsTab({
   onEditJob: (job: FlexibleJob) => void;
 }) {
   const [subTab, setSubTab] = useState<MaterialTab>("AL");
+  const [expandedHistory, setExpandedHistory] = useState<string | null>(null);
   const { data: savedJobs = [], isLoading } = useFlexibleJobs();
   const deleteJob = useDeleteFlexibleJob();
 
@@ -323,66 +334,155 @@ function SavedJobsTab({
                   <TableRow>
                     <TableHead>Date</TableHead>
                     <TableHead>Description</TableHead>
+                    <TableHead className="text-right">Before Disc.</TableHead>
                     <TableHead className="text-right">Discount %</TableHead>
                     <TableHead className="text-right">Final Price</TableHead>
-                    <TableHead className="w-20" />
+                    <TableHead className="w-24" />
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {tabJobs.map((job, idx) => {
                     const disc = discountMap[job.id] ?? 0;
                     return (
-                      <TableRow
-                        key={job.id}
-                        data-ocid={`flexibles.item.${idx + 1}`}
-                      >
-                        <TableCell className="text-sm whitespace-nowrap">
-                          {formatDate(job.createdAt)}
-                        </TableCell>
-                        <TableCell className="text-sm">
-                          {job.description || (
-                            <span className="text-muted-foreground italic">
-                              No description
-                            </span>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-right text-sm">
-                          {disc > 0 ? (
-                            <Badge variant="outline" className="text-xs">
-                              {disc}%
-                            </Badge>
-                          ) : (
-                            <span className="text-muted-foreground">—</span>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-right text-sm font-semibold">
-                          Rs {job.totalCost.toFixed(2)}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex gap-1 justify-end">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7 text-primary hover:text-primary hover:bg-primary/10"
-                              onClick={() => onEditJob(job)}
-                              title="Edit job"
-                              data-ocid={`flexibles.edit_button.${idx + 1}`}
-                            >
-                              <Pencil size={13} />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
-                              onClick={() => handleDelete(job)}
-                              disabled={deleteJob.isPending}
-                              data-ocid={`flexibles.delete_button.${idx + 1}`}
-                            >
-                              <Trash2 size={13} />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
+                      <>
+                        <TableRow
+                          key={job.id}
+                          data-ocid={`flexibles.item.${idx + 1}`}
+                        >
+                          <TableCell className="text-sm whitespace-nowrap">
+                            {formatDate(job.createdAt)}
+                          </TableCell>
+                          <TableCell className="text-sm">
+                            {job.description || (
+                              <span className="text-muted-foreground italic">
+                                No description
+                              </span>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-right text-sm">
+                            ₹{job.totalCost.toFixed(2)}
+                          </TableCell>
+                          <TableCell className="text-right text-sm">
+                            {disc > 0 ? (
+                              <Badge variant="outline" className="text-xs">
+                                {disc}%
+                              </Badge>
+                            ) : (
+                              <span className="text-muted-foreground">—</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-right text-sm font-semibold">
+                            {disc > 0
+                              ? `₹${(job.totalCost * (1 - disc / 100)).toFixed(2)}`
+                              : `₹${job.totalCost.toFixed(2)}`}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex gap-1 justify-end">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className={`h-7 w-7 transition-colors ${expandedHistory === job.id ? "text-primary bg-primary/10" : "text-muted-foreground hover:text-primary hover:bg-primary/10"}`}
+                                onClick={() =>
+                                  setExpandedHistory(
+                                    expandedHistory === job.id ? null : job.id,
+                                  )
+                                }
+                                title="Rate change history"
+                                data-ocid={`flexibles.toggle.${idx + 1}`}
+                              >
+                                <History size={13} />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 text-primary hover:text-primary hover:bg-primary/10"
+                                onClick={() => onEditJob(job)}
+                                title="Edit job"
+                                data-ocid={`flexibles.edit_button.${idx + 1}`}
+                              >
+                                <Pencil size={13} />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                onClick={() => handleDelete(job)}
+                                disabled={deleteJob.isPending}
+                                data-ocid={`flexibles.delete_button.${idx + 1}`}
+                              >
+                                <Trash2 size={13} />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                        {expandedHistory === job.id &&
+                          (() => {
+                            const history = loadCostHistory(job.id);
+                            return (
+                              <TableRow
+                                key={`${job.id}-history`}
+                                className="bg-muted/20"
+                              >
+                                <TableCell colSpan={6} className="py-3 px-4">
+                                  <div className="space-y-1.5">
+                                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+                                      Cost Snapshots on Rate Change
+                                    </p>
+                                    {history.length === 0 ? (
+                                      <p className="text-xs text-muted-foreground">
+                                        No rate change history yet.
+                                      </p>
+                                    ) : (
+                                      history.map(
+                                        (
+                                          entry: {
+                                            totalCost: number;
+                                            discountPct: number;
+                                            quotedPrice: number;
+                                            changedAt: number;
+                                          },
+                                          _i: number,
+                                        ) => (
+                                          <div
+                                            key={String(entry.changedAt)}
+                                            className="flex flex-wrap items-center gap-3 text-xs bg-background border border-border rounded px-3 py-1.5"
+                                          >
+                                            <span className="text-muted-foreground font-medium">
+                                              {new Date(
+                                                entry.changedAt,
+                                              ).toLocaleDateString("en-IN", {
+                                                day: "2-digit",
+                                                month: "short",
+                                                year: "numeric",
+                                              })}
+                                            </span>
+                                            <span className="text-foreground">
+                                              Before discount: ₹
+                                              {entry.totalCost.toFixed(2)}
+                                            </span>
+                                            {entry.discountPct > 0 && (
+                                              <span className="text-orange-600">
+                                                Discount: {entry.discountPct}%
+                                              </span>
+                                            )}
+                                            <span className="font-semibold text-primary">
+                                              Final: ₹
+                                              {(entry.discountPct > 0
+                                                ? entry.totalCost *
+                                                  (1 - entry.discountPct / 100)
+                                                : entry.totalCost
+                                              ).toFixed(2)}
+                                            </span>
+                                          </div>
+                                        ),
+                                      )
+                                    )}
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })()}
+                      </>
                     );
                   })}
                 </TableBody>
@@ -698,6 +798,7 @@ function TabCalculator({
     totalCost,
     discountPct: discountNum,
     quotedPrice,
+    customerId: null as null,
   });
 
   const handleSave = async () => {
@@ -806,8 +907,8 @@ function TabCalculator({
     } else {
       updateSetting("flexCuMaterialRate", newRate);
     }
-    saveSettings();
     setLocalRate(newRate);
+    saveSettings();
     setEditingRate(false);
     toast.success(`${materialTab} material rate updated to ₹${newRate}/kg`);
 
@@ -818,7 +919,10 @@ function TabCalculator({
     let updatedCount = 0;
     for (const job of tabJobs) {
       try {
-        const disc = getDiscountMap()[job.id] ?? 0;
+        const disc: number =
+          (job.discountPct ?? 0) > 0
+            ? (job.discountPct ?? 0)
+            : (getDiscountMap()[job.id] ?? 0);
         // Save snapshot of old cost
         saveCostSnapshot(job.id, job.totalCost, disc);
 
@@ -886,20 +990,27 @@ function TabCalculator({
           overheadCost: newOverhead,
           profitCost: newProfit,
           totalCost: newTotal,
-          discountPct: job.discountPct ?? 0,
-          quotedPrice: job.quotedPrice ?? newTotal,
+          discountPct: disc,
+          quotedPrice: disc > 0 ? newTotal / (1 - disc / 100) : newTotal,
         });
         migrateJobDiscount(job.id, newJob.id);
         migrateCostHistory(job.id, newJob.id);
         updatedCount++;
       } catch {
-        // skip individual failures silently
+        // individual job update failed
       }
     }
     if (updatedCount > 0) {
       toast.success(
         `${updatedCount} saved job${updatedCount > 1 ? "s" : ""} auto-updated with new rate`,
       );
+    }
+    if (updatedCount < tabJobs.length) {
+      const failed = tabJobs.length - updatedCount;
+      if (failed > 0)
+        toast.error(
+          `Failed to update ${failed} saved job${failed > 1 ? "s" : ""}`,
+        );
     }
   };
 
@@ -928,6 +1039,127 @@ function TabCalculator({
           </Button>
         </div>
       )}
+
+      {/* Current Material Rate - Full Width */}
+      <Card className="border border-border rounded-xl shadow-sm">
+        <CardContent className="py-3 px-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div>
+                <p className="text-sm font-semibold text-foreground">
+                  {materialTab === "AL" ? "Aluminium" : "Copper"} Material Rate
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Current raw material rate (₹/kg) — updates all saved jobs
+                </p>
+              </div>
+              {!editingRate && (
+                <span className="text-xl font-bold text-primary">
+                  ₹{localRate}/kg
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              {editingRate ? (
+                <>
+                  <span className="text-sm text-muted-foreground">
+                    New rate:
+                  </span>
+                  <Input
+                    type="number"
+                    min={1}
+                    className="h-8 w-28 text-sm"
+                    value={rateInputVal}
+                    onChange={(e) => setRateInputVal(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") handleRateEditConfirm();
+                      if (e.key === "Escape") {
+                        setEditingRate(false);
+                        setRateInputVal(String(localRate));
+                      }
+                    }}
+                    autoFocus
+                    data-ocid="flexibles.input"
+                  />
+                  <Button
+                    size="sm"
+                    className="h-8 px-3 text-xs"
+                    onClick={handleRateEditConfirm}
+                  >
+                    Update Rate
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => {
+                      setEditingRate(false);
+                      setRateInputVal(String(localRate));
+                    }}
+                  >
+                    <X size={13} />
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 gap-1.5 text-xs"
+                    onClick={() => {
+                      setRateInputVal(String(localRate));
+                      setEditingRate(true);
+                    }}
+                    title="Edit rate"
+                  >
+                    <Pencil size={12} />
+                    Edit Rate
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => setShowRateHistory((v) => !v)}
+                    title="Rate history"
+                  >
+                    <History size={14} />
+                  </Button>
+                </>
+              )}
+            </div>
+          </div>
+          {showRateHistory && !editingRate && (
+            <div className="mt-3 border-t border-border pt-3 space-y-1">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
+                Rate History
+              </p>
+              {rateHistory.length === 0 ? (
+                <p className="text-xs text-muted-foreground">
+                  No rate history yet.
+                </p>
+              ) : (
+                rateHistory.map((entry, idx) => (
+                  <div
+                    key={`${entry.rate}-${entry.date}-${idx}`}
+                    className="flex items-center justify-between text-xs text-muted-foreground bg-muted/40 rounded px-2 py-1"
+                  >
+                    <span>
+                      ₹{entry.rate}/kg — {entry.date}
+                    </span>
+                    <button
+                      type="button"
+                      className="text-destructive hover:text-destructive/80 ml-2"
+                      onClick={() => handleDeleteRateHistory(idx)}
+                    >
+                      <Trash2 size={11} />
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Inputs */}
@@ -1061,113 +1293,6 @@ function TabCalculator({
                   <SelectItem value="0.3">0.30 mm</SelectItem>
                 </SelectContent>
               </Select>
-            </div>
-
-            {/* Material Rate inline edit */}
-            <div className="space-y-1.5 border border-border rounded-lg px-3 py-2.5">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium">
-                    {materialTab === "AL" ? "Aluminium" : "Copper"} Material
-                    Rate
-                  </p>
-                  <p className="text-xs text-muted-foreground">Rs/kg</p>
-                </div>
-                <div className="flex items-center gap-2">
-                  {editingRate ? (
-                    <>
-                      <Input
-                        type="number"
-                        min={1}
-                        className="h-7 w-24 text-sm"
-                        value={rateInputVal}
-                        onChange={(e) => setRateInputVal(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") handleRateEditConfirm();
-                          if (e.key === "Escape") {
-                            setEditingRate(false);
-                            setRateInputVal(String(localRate));
-                          }
-                        }}
-                        autoFocus
-                        data-ocid="flexibles.input"
-                      />
-                      <Button
-                        size="sm"
-                        className="h-7 px-2 text-xs"
-                        onClick={handleRateEditConfirm}
-                      >
-                        Save
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7"
-                        onClick={() => {
-                          setEditingRate(false);
-                          setRateInputVal(String(localRate));
-                        }}
-                      >
-                        <X size={13} />
-                      </Button>
-                    </>
-                  ) : (
-                    <>
-                      <span className="text-sm font-semibold text-foreground">
-                        ₹{localRate}/kg
-                      </span>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7"
-                        onClick={() => {
-                          setRateInputVal(String(localRate));
-                          setEditingRate(true);
-                        }}
-                        title="Edit rate"
-                      >
-                        <Pencil size={13} />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7"
-                        onClick={() => setShowRateHistory((v) => !v)}
-                        title="Rate history"
-                      >
-                        <History size={13} />
-                      </Button>
-                    </>
-                  )}
-                </div>
-              </div>
-              {showRateHistory && !editingRate && (
-                <div className="mt-2 space-y-1">
-                  {rateHistory.length === 0 ? (
-                    <p className="text-xs text-muted-foreground">
-                      No rate history yet.
-                    </p>
-                  ) : (
-                    rateHistory.map((entry, idx) => (
-                      <div
-                        key={`${entry.rate}-${entry.date}-${idx}`}
-                        className="flex items-center justify-between text-xs text-muted-foreground bg-muted/40 rounded px-2 py-1"
-                      >
-                        <span>
-                          ₹{entry.rate}/kg — {entry.date}
-                        </span>
-                        <button
-                          type="button"
-                          className="text-destructive hover:text-destructive/80 ml-2"
-                          onClick={() => handleDeleteRateHistory(idx)}
-                        >
-                          <Trash2 size={11} />
-                        </button>
-                      </div>
-                    ))
-                  )}
-                </div>
-              )}
             </div>
 
             {/* Bars Supplied toggle */}
@@ -1396,24 +1521,6 @@ function TabCalculator({
                 />
               </div>
             )}
-
-            <Button
-              className="w-full gap-2 mt-2"
-              disabled={!canCalculate || isPending}
-              onClick={handleSave}
-              data-ocid="flexibles.primary_button"
-            >
-              {isPending ? (
-                <Loader2 size={15} className="animate-spin" />
-              ) : (
-                <Save size={15} />
-              )}
-              {isPending
-                ? "Saving…"
-                : editingJob
-                  ? "Update Job"
-                  : "Save This Job"}
-            </Button>
           </CardContent>
         </Card>
 
@@ -1638,6 +1745,21 @@ function TabCalculator({
           </CardContent>
         </Card>
       </div>
+
+      {/* Save button - below cost breakdown */}
+      <Button
+        className="w-full gap-2"
+        disabled={!canCalculate || isPending}
+        onClick={handleSave}
+        data-ocid="flexibles.primary_button"
+      >
+        {isPending ? (
+          <Loader2 size={15} className="animate-spin" />
+        ) : (
+          <Save size={15} />
+        )}
+        {isPending ? "Saving…" : editingJob ? "Update Job" : "Save This Job"}
+      </Button>
     </div>
   );
 }
