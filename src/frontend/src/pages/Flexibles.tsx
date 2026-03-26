@@ -323,9 +323,6 @@ function SavedJobsTab({
                   <TableRow>
                     <TableHead>Date</TableHead>
                     <TableHead>Description</TableHead>
-                    <TableHead className="text-right">
-                      Before Discount
-                    </TableHead>
                     <TableHead className="text-right">Discount %</TableHead>
                     <TableHead className="text-right">Final Price</TableHead>
                     <TableHead className="w-20" />
@@ -334,10 +331,6 @@ function SavedJobsTab({
                 <TableBody>
                   {tabJobs.map((job, idx) => {
                     const disc = discountMap[job.id] ?? 0;
-                    const quotedPrice =
-                      disc > 0
-                        ? job.totalCost / (1 - disc / 100)
-                        : job.totalCost;
                     return (
                       <TableRow
                         key={job.id}
@@ -351,15 +344,6 @@ function SavedJobsTab({
                             <span className="text-muted-foreground italic">
                               No description
                             </span>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-right text-sm">
-                          {disc > 0 ? (
-                            <span className="text-muted-foreground">
-                              Rs {quotedPrice.toFixed(2)}
-                            </span>
-                          ) : (
-                            <span className="text-muted-foreground">—</span>
                           )}
                         </TableCell>
                         <TableCell className="text-right text-sm">
@@ -670,7 +654,7 @@ function TabCalculator({
   const quotedPrice = hasDiscount
     ? totalCost / (1 - discountNum / 100)
     : totalCost;
-  const discountAmount = hasDiscount ? quotedPrice - totalCost : 0;
+  const markupFactor = hasDiscount ? quotedPrice / totalCost : 1;
 
   const canCalculate =
     widthNum > 0 &&
@@ -680,7 +664,7 @@ function TabCalculator({
 
   const ratePerMeter =
     canCalculate && totalWeldLength > 0
-      ? totalCost / (totalWeldLength / 1000)
+      ? quotedPrice / (totalWeldLength / 1000)
       : null;
 
   // Helper to build job payload
@@ -1054,18 +1038,6 @@ function TabCalculator({
                 }
                 data-ocid="flexibles.input"
               />
-              {hasDiscount && canCalculate && (
-                <p className="text-xs text-muted-foreground">
-                  Quote{" "}
-                  <span className="font-semibold text-foreground">
-                    Rs {quotedPrice.toFixed(2)}
-                  </span>{" "}
-                  → after {discountNum}% discount customer pays{" "}
-                  <span className="font-semibold text-foreground">
-                    Rs {totalCost.toFixed(2)}
-                  </span>
-                </p>
-              )}
             </div>
 
             {/* Sheet Thickness dropdown */}
@@ -1508,7 +1480,11 @@ function TabCalculator({
               <FormulaRow
                 rowKey="matCost"
                 label="Material Cost"
-                value={materialCost > 0 ? `Rs ${materialCost.toFixed(2)}` : "—"}
+                value={
+                  materialCost > 0
+                    ? `Rs ${(materialCost * markupFactor).toFixed(2)}`
+                    : "—"
+                }
                 formula={`TotalWt × 1.2 × ₹${localRate}/kg`}
                 openFormulas={openFormulas}
                 toggleFormula={toggleFormula}
@@ -1516,7 +1492,11 @@ function TabCalculator({
               <FormulaRow
                 rowKey="cutting"
                 label="Sheet Cutting Cost"
-                value={cuttingCost > 0 ? `Rs ${cuttingCost.toFixed(2)}` : "—"}
+                value={
+                  cuttingCost > 0
+                    ? `Rs ${(cuttingCost * markupFactor).toFixed(2)}`
+                    : "—"
+                }
                 formula="(Sheets + 4) × 2.5"
                 openFormulas={openFormulas}
                 toggleFormula={toggleFormula}
@@ -1524,7 +1504,7 @@ function TabCalculator({
               <FormulaRow
                 rowKey="folding"
                 label="Folding Cost"
-                value={`Rs ${foldingCost.toFixed(2)}`}
+                value={`Rs ${(foldingCost * markupFactor).toFixed(2)}`}
                 formula={`1 fold × ₹${settings.flexFoldingCostPerFold}`}
                 openFormulas={openFormulas}
                 toggleFormula={toggleFormula}
@@ -1532,7 +1512,7 @@ function TabCalculator({
               <FormulaRow
                 rowKey="chamfer"
                 label="Chamfering"
-                value={`Rs ${chamferingCost.toFixed(2)}`}
+                value={`Rs ${(chamferingCost * markupFactor).toFixed(2)}`}
                 formula={`₹${chamferingCost} (both bars, always)`}
                 openFormulas={openFormulas}
                 toggleFormula={toggleFormula}
@@ -1541,7 +1521,7 @@ function TabCalculator({
                 <FormulaRow
                   rowKey="drilling"
                   label="Drilling"
-                  value={`Rs ${drillingCost.toFixed(2)}`}
+                  value={`Rs ${(drillingCost * markupFactor).toFixed(2)}`}
                   formula={`${effectiveDrills} × ₹${
                     settings.flexDrillingCostPerHole
                   }/drill`}
@@ -1552,7 +1532,11 @@ function TabCalculator({
               <FormulaRow
                 rowKey="welding"
                 label="Welding Cost"
-                value={canCalculate ? `Rs ${weldingCost.toFixed(2)}` : "—"}
+                value={
+                  canCalculate
+                    ? `Rs ${(weldingCost * markupFactor).toFixed(2)}`
+                    : "—"
+                }
                 formula="(Width ÷ 25) × Labour Rate"
                 openFormulas={openFormulas}
                 toggleFormula={toggleFormula}
@@ -1570,7 +1554,11 @@ function TabCalculator({
               <FormulaRow
                 rowKey="overhead"
                 label="Overhead"
-                value={canCalculate ? `Rs ${overheadCost.toFixed(2)}` : "—"}
+                value={
+                  canCalculate
+                    ? `Rs ${(overheadCost * markupFactor).toFixed(2)}`
+                    : "—"
+                }
                 formula={`${settings.overheadPct}% of subtotal`}
                 openFormulas={openFormulas}
                 toggleFormula={toggleFormula}
@@ -1578,69 +1566,30 @@ function TabCalculator({
               <FormulaRow
                 rowKey="profit"
                 label="Profit"
-                value={canCalculate ? `Rs ${profitCost.toFixed(2)}` : "—"}
+                value={
+                  canCalculate
+                    ? `Rs ${(profitCost * markupFactor).toFixed(2)}`
+                    : "—"
+                }
                 formula={`${settings.profitPct}% of (subtotal + overhead)`}
                 openFormulas={openFormulas}
                 toggleFormula={toggleFormula}
               />
 
-              {/* Base cost */}
+              {/* Total Cost */}
               <div className="border-b border-border">
                 <div className="flex justify-between items-center py-3">
                   <span className="text-sm font-semibold text-foreground">
-                    {hasDiscount ? "Your Cost" : "Total Cost"}
+                    Total Cost
                   </span>
                   <span
-                    className={`font-bold ${
-                      hasDiscount
-                        ? "text-sm text-muted-foreground"
-                        : "text-lg text-primary"
-                    }`}
+                    className="text-lg font-bold text-primary"
                     data-ocid="flexibles.card"
                   >
-                    {canCalculate ? `Rs ${totalCost.toFixed(2)}` : "—"}
+                    {canCalculate ? `Rs ${quotedPrice.toFixed(2)}` : "—"}
                   </span>
                 </div>
               </div>
-
-              {/* Discount section */}
-              {hasDiscount && canCalculate && (
-                <>
-                  <div className="border-b border-border">
-                    <div className="flex justify-between items-center py-1.5">
-                      <span className="text-sm text-muted-foreground">
-                        Quoted Price (before discount)
-                      </span>
-                      <span className="text-sm font-semibold">
-                        Rs {quotedPrice.toFixed(2)}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="border-b border-border">
-                    <div className="flex justify-between items-center py-1.5">
-                      <span className="text-sm text-muted-foreground">
-                        Discount ({discountNum}%)
-                      </span>
-                      <span className="text-sm font-medium text-red-500">
-                        − Rs {discountAmount.toFixed(2)}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="border-b border-border">
-                    <div className="flex justify-between items-center py-3">
-                      <span className="text-sm font-semibold text-foreground">
-                        Final Price (Customer Pays)
-                      </span>
-                      <span
-                        className="text-lg font-bold text-primary"
-                        data-ocid="flexibles.card"
-                      >
-                        Rs {totalCost.toFixed(2)}
-                      </span>
-                    </div>
-                  </div>
-                </>
-              )}
 
               {/* Rate per Meter */}
               {canCalculate && ratePerMeter !== null && (
