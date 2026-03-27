@@ -53,6 +53,7 @@ import type {
   WeldingLineItem,
 } from "../backend";
 import { loadFormulaSettings } from "../hooks/useFormulaSettings";
+import type { FormulaSettings } from "../hooks/useFormulaSettings";
 import {
   useCustomers,
   useMaterials,
@@ -78,6 +79,27 @@ interface WeldingRow {
   rowId: string;
   grade: "SS304" | "SS310";
   weightKg: number;
+}
+
+interface MachiningRow {
+  rowId: string;
+  opType: "drilling" | "tapping" | "countersink" | "milling" | "other";
+  // Drilling
+  drillDia?: number;
+  matThickness?: number;
+  // Tapping
+  tapSize?: "M6" | "M8" | "M10" | "M12" | "M16" | "M20";
+  // Countersink
+  csDia?: number;
+  // Milling
+  slotLength?: number;
+  slotWidth?: number;
+  // Other
+  otherDesc?: string;
+  otherCostPerUnit?: number;
+  // Common
+  grade: "SS304" | "SS310";
+  qty: number;
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -154,6 +176,63 @@ function nextId() {
   return `row-${rowCounter}`;
 }
 
+// ── Machining cost helper (module-level) ──────────────────────────────────
+function calcMachiningRow(
+  row: MachiningRow,
+  fs: FormulaSettings,
+): { cost: number; weightRemovedKg: number } {
+  const gradeMultiplier =
+    row.grade === "SS310" ? fs.drillGradeMultiplierSS310 : 1;
+
+  if (row.opType === "drilling") {
+    const dia = row.drillDia ?? 0;
+    const thk = row.matThickness ?? 0;
+    if (dia <= 0 || thk <= 0) return { cost: 0, weightRemovedKg: 0 };
+    const costPerHole =
+      fs.drillBaseRateSS304 * (dia / 10) * (thk / 10) * gradeMultiplier;
+    const weightPerHole = Math.PI * (dia / 2) ** 2 * thk * 7.93e-6;
+    return {
+      cost: costPerHole * row.qty,
+      weightRemovedKg: weightPerHole * row.qty,
+    };
+  }
+
+  if (row.opType === "tapping") {
+    const rateMap: Record<string, number> = {
+      M6: fs.tappingRateM6,
+      M8: fs.tappingRateM8,
+      M10: fs.tappingRateM10,
+      M12: fs.tappingRateM12,
+      M16: fs.tappingRateM16,
+      M20: fs.tappingRateM20,
+    };
+    const rate = rateMap[row.tapSize ?? "M6"] ?? fs.tappingRateM6;
+    return { cost: rate * gradeMultiplier * row.qty, weightRemovedKg: 0 };
+  }
+
+  if (row.opType === "countersink") {
+    return {
+      cost: fs.counterSinkRate * gradeMultiplier * row.qty,
+      weightRemovedKg: 0,
+    };
+  }
+
+  if (row.opType === "milling") {
+    const length = row.slotLength ?? 0;
+    if (length <= 0) return { cost: 0, weightRemovedKg: 0 };
+    return {
+      cost: fs.millingRatePerMm * length * gradeMultiplier * row.qty,
+      weightRemovedKg: 0,
+    };
+  }
+
+  if (row.opType === "other") {
+    return { cost: (row.otherCostPerUnit ?? 0) * row.qty, weightRemovedKg: 0 };
+  }
+
+  return { cost: 0, weightRemovedKg: 0 };
+}
+
 // ── Component ──────────────────────────────────────────────────────────────
 interface JobCalculatorProps {
   editJobOnMount?: SavedJob | null;
@@ -179,6 +258,7 @@ export function JobCalculator({
   const [customerId, setCustomerId] = useState<string>("none");
   const [materialRows, setMaterialRows] = useState<MaterialRow[]>([]);
   const [weldingRows, setWeldingRows] = useState<WeldingRow[]>([]);
+  const [machiningRows, setMachiningRows] = useState<MachiningRow[]>([]);
   const [editingJobId, setEditingJobId] = useState<string | null>(null);
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
 
@@ -267,6 +347,10 @@ export function JobCalculator({
     });
   }, [weldingRows, WELDING_RATES]);
 
+  const machiningCalcs = useMemo(() => {
+    return machiningRows.map((row) => calcMachiningRow(row, fs));
+  }, [machiningRows, fs]);
+
   // ── Aggregate summary — labor, overhead, profit calculated ONCE ──────────
   const summary = useMemo(() => {
     let totalMaterialCost = 0;
@@ -283,7 +367,13 @@ export function JobCalculator({
     for (const c of weldCalcs) {
       if (c) weldingCost += c.weldingCost;
     }
-    const laborCost = totalWeight * laborRate;
+    let totalMachiningCost = 0;
+    let totalWeightRemoved = 0;
+    for (const c of machiningCalcs) {
+      totalMachiningCost += c.cost;
+      totalWeightRemoved += c.weightRemovedKg;
+    }
+    const laborCost = totalWeight * laborRate + totalMachiningCost;
     const overhead =
       (totalMaterialCost + laborCost + weldingCost) * overheadRate;
     const profit =
@@ -297,7 +387,7 @@ export function JobCalculator({
       overhead +
       profit +
       transportTotal;
-    const totalProductWeight = totalRawWeight;
+    const totalProductWeight = Math.max(0, totalRawWeight - totalWeightRemoved);
     const ratePerKg =
       totalProductWeight > 0 ? totalFinalPrice / totalProductWeight : 0;
     return {
@@ -310,10 +400,12 @@ export function JobCalculator({
       totalFinalPrice,
       totalProductWeight,
       ratePerKg,
+      machiningCost: totalMachiningCost,
     };
   }, [
     matCalcs,
     weldCalcs,
+    machiningCalcs,
     laborRate,
     transportIncluded,
     transportCost,
@@ -360,6 +452,27 @@ export function JobCalculator({
       prev.map((r) => (r.rowId === rowId ? { ...r, ...patch } : r)),
     );
 
+  const addMachiningRow = () =>
+    setMachiningRows((prev) => [
+      ...prev,
+      {
+        rowId: nextId(),
+        opType: "drilling",
+        drillDia: 10,
+        matThickness: 10,
+        grade: "SS304",
+        qty: 1,
+      },
+    ]);
+
+  const removeMachiningRow = (rowId: string) =>
+    setMachiningRows((prev) => prev.filter((r) => r.rowId !== rowId));
+
+  const updateMachiningRow = (rowId: string, patch: Partial<MachiningRow>) =>
+    setMachiningRows((prev) =>
+      prev.map((r) => (r.rowId === rowId ? { ...r, ...patch } : r)),
+    );
+
   // ── Form reset ───────────────────────────────────────────────────────────
   const resetForm = () => {
     setJobName("");
@@ -370,6 +483,7 @@ export function JobCalculator({
     setCustomerId("none");
     setMaterialRows([]);
     setWeldingRows([]);
+    setMachiningRows([]);
     setEditingJobId(null);
   };
 
@@ -456,7 +570,10 @@ export function JobCalculator({
   };
 
   const difficulty = laborLabel(laborRate);
-  const hasAnyCalcs = matCalcs.some(Boolean) || weldCalcs.some(Boolean);
+  const hasAnyCalcs =
+    matCalcs.some(Boolean) ||
+    weldCalcs.some(Boolean) ||
+    machiningCalcs.some((c) => c.cost > 0);
   const isMutating = saveJobMutation.isPending || updateJobMutation.isPending;
 
   return (
@@ -1033,6 +1150,354 @@ export function JobCalculator({
             </CardContent>
           </Card>
 
+          {/* Machining Operations */}
+          <Card className="shadow-card border-border">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Wrench size={16} className="text-amber-600" />
+                  Machining Operations
+                </CardTitle>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="gap-1.5 h-8 text-xs"
+                  onClick={addMachiningRow}
+                  data-ocid="job.add_machining.button"
+                >
+                  <Plus size={13} />
+                  Add Operation
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {machiningRows.length === 0 ? (
+                <div
+                  className="flex flex-col items-center justify-center py-8 text-center rounded-lg border border-dashed border-border"
+                  data-ocid="job.machining.empty_state"
+                >
+                  <Wrench size={28} className="text-muted-foreground/30 mb-2" />
+                  <p className="text-sm text-muted-foreground">
+                    No machining operations
+                  </p>
+                  <p className="text-xs text-muted-foreground/60 mt-0.5">
+                    Drilling · Tapping · Counter-sinking · Milling · Other
+                  </p>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-3">
+                  <AnimatePresence mode="popLayout">
+                    {machiningRows.map((row, idx) => {
+                      const calc = machiningCalcs[idx];
+                      return (
+                        <motion.div
+                          key={row.rowId}
+                          initial={{ opacity: 0, y: 4 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0 }}
+                          transition={{ duration: 0.15 }}
+                          className="border border-border rounded-lg p-3 bg-muted/20"
+                          data-ocid={`job.machining.item.${idx + 1}`}
+                        >
+                          <div className="flex flex-wrap gap-2 items-start">
+                            {/* Operation type */}
+                            <div className="flex flex-col gap-1 min-w-[150px]">
+                              <Label className="text-xs text-muted-foreground">
+                                Operation
+                              </Label>
+                              <Select
+                                value={row.opType}
+                                onValueChange={(v) =>
+                                  updateMachiningRow(row.rowId, {
+                                    opType: v as MachiningRow["opType"],
+                                  })
+                                }
+                              >
+                                <SelectTrigger
+                                  className="h-8 text-xs"
+                                  data-ocid={`job.machining.op.select.${idx + 1}`}
+                                >
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="drilling">
+                                    Drilling
+                                  </SelectItem>
+                                  <SelectItem value="tapping">
+                                    Tapping
+                                  </SelectItem>
+                                  <SelectItem value="countersink">
+                                    Counter-sinking
+                                  </SelectItem>
+                                  <SelectItem value="milling">
+                                    Milling / Slotting
+                                  </SelectItem>
+                                  <SelectItem value="other">Other</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+
+                            {/* Conditional inputs */}
+                            {row.opType === "drilling" && (
+                              <>
+                                <div className="flex flex-col gap-1">
+                                  <Label className="text-xs text-muted-foreground">
+                                    Drill Dia (mm)
+                                  </Label>
+                                  <Input
+                                    type="number"
+                                    min={1}
+                                    value={row.drillDia ?? ""}
+                                    onChange={(e) =>
+                                      updateMachiningRow(row.rowId, {
+                                        drillDia: Number(e.target.value),
+                                      })
+                                    }
+                                    className="h-8 text-xs w-24"
+                                    data-ocid={`job.machining.drill_dia.input.${idx + 1}`}
+                                  />
+                                </div>
+                                <div className="flex flex-col gap-1">
+                                  <Label className="text-xs text-muted-foreground">
+                                    Mat Thk (mm)
+                                  </Label>
+                                  <Input
+                                    type="number"
+                                    min={1}
+                                    value={row.matThickness ?? ""}
+                                    onChange={(e) =>
+                                      updateMachiningRow(row.rowId, {
+                                        matThickness: Number(e.target.value),
+                                      })
+                                    }
+                                    className="h-8 text-xs w-24"
+                                    data-ocid={`job.machining.mat_thk.input.${idx + 1}`}
+                                  />
+                                </div>
+                              </>
+                            )}
+
+                            {row.opType === "tapping" && (
+                              <div className="flex flex-col gap-1 min-w-[100px]">
+                                <Label className="text-xs text-muted-foreground">
+                                  Tap Size
+                                </Label>
+                                <Select
+                                  value={row.tapSize ?? "M6"}
+                                  onValueChange={(v) =>
+                                    updateMachiningRow(row.rowId, {
+                                      tapSize: v as MachiningRow["tapSize"],
+                                    })
+                                  }
+                                >
+                                  <SelectTrigger
+                                    className="h-8 text-xs"
+                                    data-ocid={`job.machining.tap_size.select.${idx + 1}`}
+                                  >
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {[
+                                      "M6",
+                                      "M8",
+                                      "M10",
+                                      "M12",
+                                      "M16",
+                                      "M20",
+                                    ].map((s) => (
+                                      <SelectItem key={s} value={s}>
+                                        {s}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            )}
+
+                            {row.opType === "countersink" && (
+                              <div className="flex flex-col gap-1">
+                                <Label className="text-xs text-muted-foreground">
+                                  Hole Dia (mm)
+                                </Label>
+                                <Input
+                                  type="number"
+                                  min={1}
+                                  value={row.csDia ?? ""}
+                                  onChange={(e) =>
+                                    updateMachiningRow(row.rowId, {
+                                      csDia: Number(e.target.value),
+                                    })
+                                  }
+                                  className="h-8 text-xs w-24"
+                                  data-ocid={`job.machining.cs_dia.input.${idx + 1}`}
+                                />
+                              </div>
+                            )}
+
+                            {row.opType === "milling" && (
+                              <>
+                                <div className="flex flex-col gap-1">
+                                  <Label className="text-xs text-muted-foreground">
+                                    Slot Length (mm)
+                                  </Label>
+                                  <Input
+                                    type="number"
+                                    min={1}
+                                    value={row.slotLength ?? ""}
+                                    onChange={(e) =>
+                                      updateMachiningRow(row.rowId, {
+                                        slotLength: Number(e.target.value),
+                                      })
+                                    }
+                                    className="h-8 text-xs w-28"
+                                    data-ocid={`job.machining.slot_len.input.${idx + 1}`}
+                                  />
+                                </div>
+                                <div className="flex flex-col gap-1">
+                                  <Label className="text-xs text-muted-foreground">
+                                    Slot Width (mm)
+                                  </Label>
+                                  <Input
+                                    type="number"
+                                    min={1}
+                                    value={row.slotWidth ?? ""}
+                                    onChange={(e) =>
+                                      updateMachiningRow(row.rowId, {
+                                        slotWidth: Number(e.target.value),
+                                      })
+                                    }
+                                    className="h-8 text-xs w-28"
+                                    data-ocid={`job.machining.slot_wid.input.${idx + 1}`}
+                                  />
+                                </div>
+                              </>
+                            )}
+
+                            {row.opType === "other" && (
+                              <>
+                                <div className="flex flex-col gap-1 flex-1 min-w-[140px]">
+                                  <Label className="text-xs text-muted-foreground">
+                                    Description
+                                  </Label>
+                                  <Input
+                                    type="text"
+                                    value={row.otherDesc ?? ""}
+                                    onChange={(e) =>
+                                      updateMachiningRow(row.rowId, {
+                                        otherDesc: e.target.value,
+                                      })
+                                    }
+                                    className="h-8 text-xs"
+                                    placeholder="e.g. Grinding"
+                                    data-ocid={`job.machining.other_desc.input.${idx + 1}`}
+                                  />
+                                </div>
+                                <div className="flex flex-col gap-1">
+                                  <Label className="text-xs text-muted-foreground">
+                                    Cost/Unit (₹)
+                                  </Label>
+                                  <Input
+                                    type="number"
+                                    min={0}
+                                    value={row.otherCostPerUnit ?? ""}
+                                    onChange={(e) =>
+                                      updateMachiningRow(row.rowId, {
+                                        otherCostPerUnit: Number(
+                                          e.target.value,
+                                        ),
+                                      })
+                                    }
+                                    className="h-8 text-xs w-24"
+                                    data-ocid={`job.machining.other_cost.input.${idx + 1}`}
+                                  />
+                                </div>
+                              </>
+                            )}
+
+                            {/* Grade (for all except other) */}
+                            {row.opType !== "other" && (
+                              <div className="flex flex-col gap-1 min-w-[100px]">
+                                <Label className="text-xs text-muted-foreground">
+                                  Grade
+                                </Label>
+                                <Select
+                                  value={row.grade}
+                                  onValueChange={(v) =>
+                                    updateMachiningRow(row.rowId, {
+                                      grade: v as "SS304" | "SS310",
+                                    })
+                                  }
+                                >
+                                  <SelectTrigger
+                                    className="h-8 text-xs"
+                                    data-ocid={`job.machining.grade.select.${idx + 1}`}
+                                  >
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="SS304">SS304</SelectItem>
+                                    <SelectItem value="SS310">SS310</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            )}
+
+                            {/* Qty */}
+                            <div className="flex flex-col gap-1">
+                              <Label className="text-xs text-muted-foreground">
+                                Qty
+                              </Label>
+                              <Input
+                                type="number"
+                                min={1}
+                                value={row.qty}
+                                onChange={(e) =>
+                                  updateMachiningRow(row.rowId, {
+                                    qty: Math.max(1, Number(e.target.value)),
+                                  })
+                                }
+                                className="h-8 text-xs w-16"
+                                data-ocid={`job.machining.qty.input.${idx + 1}`}
+                              />
+                            </div>
+
+                            {/* Cost + delete */}
+                            <div className="flex flex-col gap-1 ml-auto">
+                              <Label className="text-xs text-muted-foreground">
+                                Cost
+                              </Label>
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm font-semibold tabular-nums text-foreground">
+                                  ₹{fmt(calc?.cost ?? 0)}
+                                </span>
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-8 w-8 text-destructive hover:text-destructive"
+                                  onClick={() => removeMachiningRow(row.rowId)}
+                                  data-ocid={`job.machining.delete_button.${idx + 1}`}
+                                >
+                                  <Trash2 size={13} />
+                                </Button>
+                              </div>
+                              {row.opType === "drilling" &&
+                                calc &&
+                                calc.weightRemovedKg > 0 && (
+                                  <span className="text-xs text-muted-foreground/70">
+                                    −{fmt(calc.weightRemovedKg)} kg removed
+                                  </span>
+                                )}
+                            </div>
+                          </div>
+                        </motion.div>
+                      );
+                    })}
+                  </AnimatePresence>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
           {/* Welding Line Items */}
           <Card className="shadow-card border-border">
             <CardHeader className="pb-3">
@@ -1274,13 +1739,28 @@ export function JobCalculator({
                             ₹{fmt(summary.totalMaterialCost)}
                           </span>
                         </div>
-                        <div className="flex justify-between text-xs">
-                          <span className="text-muted-foreground">
-                            Labour (₹{laborRate}/kg)
-                          </span>
-                          <span className="font-mono">
-                            ₹{fmt(summary.laborCost)}
-                          </span>
+                        <div className="flex flex-col gap-0.5">
+                          <div className="flex justify-between text-xs">
+                            <span className="text-muted-foreground">
+                              Labour
+                              {summary.machiningCost > 0
+                                ? " (incl. machining)"
+                                : ` (₹${laborRate}/kg)`}
+                            </span>
+                            <span className="font-mono">
+                              ₹{fmt(summary.laborCost)}
+                            </span>
+                          </div>
+                          {summary.machiningCost > 0 && (
+                            <div className="flex justify-between text-xs pl-3">
+                              <span className="text-muted-foreground/70">
+                                ↳ Machining ops
+                              </span>
+                              <span className="font-mono text-muted-foreground/70">
+                                ₹{fmt(summary.machiningCost)}
+                              </span>
+                            </div>
+                          )}
                         </div>
                         {summary.weldingCost > 0 && (
                           <div className="flex justify-between text-xs">

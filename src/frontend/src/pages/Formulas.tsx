@@ -266,6 +266,54 @@ function MaterialOptionsTab() {
   );
 }
 
+function DrillCalculator({
+  baseRate,
+  multiplierSS310,
+}: { baseRate: number; multiplierSS310: number }) {
+  const [dia, setDia] = useState(10);
+  const [thk, setThk] = useState(10);
+  const costSS304 = baseRate * (dia / 10) * (thk / 10);
+  const costSS310 = costSS304 * multiplierSS310;
+  return (
+    <CalcGrid>
+      <div className="flex flex-wrap gap-3 items-end">
+        <div className="flex flex-col gap-1">
+          <span className="text-xs text-muted-foreground">Drill Dia (mm)</span>
+          <input
+            type="number"
+            min={1}
+            value={dia}
+            onChange={(e) => setDia(Number(e.target.value))}
+            className="w-20 h-8 px-2 rounded-md border border-border bg-background text-sm"
+          />
+        </div>
+        <div className="flex flex-col gap-1">
+          <span className="text-xs text-muted-foreground">
+            Material Thk (mm)
+          </span>
+          <input
+            type="number"
+            min={1}
+            value={thk}
+            onChange={(e) => setThk(Number(e.target.value))}
+            className="w-20 h-8 px-2 rounded-md border border-border bg-background text-sm"
+          />
+        </div>
+      </div>
+      <div className="flex flex-wrap gap-4 mt-2">
+        <CalcResult
+          label="SS304 cost/hole"
+          value={`₹${costSS304.toFixed(2)}`}
+        />
+        <CalcResult
+          label="SS310 cost/hole"
+          value={`₹${costSS310.toFixed(2)}`}
+        />
+      </div>
+    </CalcGrid>
+  );
+}
+
 export function Formulas() {
   const { settings, updateSetting, save, reset, dirty } = useFormulaSettings();
 
@@ -383,6 +431,9 @@ export function Formulas() {
           </TabsTrigger>
           <TabsTrigger value="flexibles" className="flex-1 text-xs sm:text-sm">
             Flexibles
+          </TabsTrigger>
+          <TabsTrigger value="machining" className="flex-1 text-xs sm:text-sm">
+            Machining
           </TabsTrigger>
         </TabsList>
 
@@ -1103,6 +1154,105 @@ export function Formulas() {
               step={1}
               min={0}
             />
+          </div>
+        </TabsContent>
+
+        {/* ── MACHINING RATES ──────────────────────────────────── */}
+        <TabsContent value="machining" className="space-y-6 mt-4">
+          {/* Drilling */}
+          <div className="bg-card border border-border rounded-xl p-5">
+            <SectionHeader title="Drilling" badge="SS304 base" />
+            <FormulaDisplay formula="Cost per hole = BaseDrillRate × (Dia ÷ 10) × (Thickness ÷ 10) × GradeMultiplier" />
+            <p className="text-xs text-muted-foreground mt-2 mb-4">
+              At 10mm dia × 10mm thickness, cost = base rate. Scales
+              proportionally with diameter and material thickness.
+            </p>
+            <FormulaRow
+              label="Base drill rate (SS304)"
+              description="Cost per hole at 10mm dia × 10mm thickness"
+              value={settings.drillBaseRateSS304}
+              onChange={(v) =>
+                updateSetting("drillBaseRateSS304" as FormulaKey, v)
+              }
+              unit="₹/hole"
+              step={1}
+              min={0}
+            />
+            <FormulaRow
+              label="SS310 grade multiplier"
+              description="Applied on top of SS304 rate for SS310 material"
+              value={settings.drillGradeMultiplierSS310}
+              onChange={(v) =>
+                updateSetting("drillGradeMultiplierSS310" as FormulaKey, v)
+              }
+              unit="×"
+              step={0.1}
+              min={1}
+            />
+            {/* Live calculator */}
+            <DrillCalculator
+              baseRate={settings.drillBaseRateSS304}
+              multiplierSS310={settings.drillGradeMultiplierSS310}
+            />
+          </div>
+
+          {/* Tapping */}
+          <div className="bg-card border border-border rounded-xl p-5">
+            <SectionHeader title="Tapping" badge="SS304 rates" />
+            <p className="text-xs text-muted-foreground mb-4">
+              SS310 tapping cost = SS304 rate × SS310 grade multiplier (set
+              above).
+            </p>
+            {(["M6", "M8", "M10", "M12", "M16", "M20"] as const).map((size) => {
+              const key = `tappingRate${size}` as FormulaKey;
+              return (
+                <FormulaRow
+                  key={size}
+                  label={`${size} tapping rate`}
+                  description={`Cost per tap — ${size} thread, SS304`}
+                  value={settings[key] as number}
+                  onChange={(v) => updateSetting(key, v)}
+                  unit="₹/hole"
+                  step={1}
+                  min={0}
+                />
+              );
+            })}
+          </div>
+
+          {/* Counter-sinking */}
+          <div className="bg-card border border-border rounded-xl p-5">
+            <SectionHeader title="Counter-sinking" />
+            <FormulaRow
+              label="Counter-sink rate"
+              description="Cost per counter-sunk hole (SS304). SS310 applies grade multiplier."
+              value={settings.counterSinkRate}
+              onChange={(v) =>
+                updateSetting("counterSinkRate" as FormulaKey, v)
+              }
+              unit="₹/hole"
+              step={1}
+              min={0}
+            />
+          </div>
+
+          {/* Milling / Slotting */}
+          <div className="bg-card border border-border rounded-xl p-5">
+            <SectionHeader title="Milling / Slotting" />
+            <FormulaDisplay formula="Milling Cost = Rate per mm × Slot Length × GradeMultiplier" />
+            <div className="mt-4">
+              <FormulaRow
+                label="Milling rate per mm"
+                description="Cost per mm of slot length (SS304). SS310 applies grade multiplier."
+                value={settings.millingRatePerMm}
+                onChange={(v) =>
+                  updateSetting("millingRatePerMm" as FormulaKey, v)
+                }
+                unit="₹/mm"
+                step={0.5}
+                min={0}
+              />
+            </div>
           </div>
         </TabsContent>
       </Tabs>

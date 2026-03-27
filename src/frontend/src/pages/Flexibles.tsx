@@ -332,11 +332,14 @@ function SavedJobsTab({
               <Table data-ocid="flexibles.table">
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Date</TableHead>
                     <TableHead>Description</TableHead>
                     <TableHead className="text-right">Before Disc.</TableHead>
                     <TableHead className="text-right">Discount %</TableHead>
                     <TableHead className="text-right">Final Price</TableHead>
+                    <TableHead className="text-right">Rate Used</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">
+                      Date
+                    </TableHead>
                     <TableHead className="w-24" />
                   </TableRow>
                 </TableHeader>
@@ -349,9 +352,6 @@ function SavedJobsTab({
                           key={job.id}
                           data-ocid={`flexibles.item.${idx + 1}`}
                         >
-                          <TableCell className="text-sm whitespace-nowrap">
-                            {formatDate(job.createdAt)}
-                          </TableCell>
                           <TableCell className="text-sm">
                             {job.description || (
                               <span className="text-muted-foreground italic">
@@ -376,6 +376,16 @@ function SavedJobsTab({
                           </TableCell>
                           <TableCell className="text-right text-sm font-semibold">
                             ₹{job.totalCost.toFixed(2)}
+                          </TableCell>
+                          <TableCell className="text-right text-sm text-muted-foreground whitespace-nowrap">
+                            {job.totalMaterialWeight > 0 ? (
+                              `₹${(job.materialCost / (job.totalMaterialWeight * 1.2)).toFixed(0)}/kg`
+                            ) : (
+                              <span className="text-muted-foreground">—</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-right text-sm text-muted-foreground whitespace-nowrap">
+                            {formatDate(job.createdAt)}
                           </TableCell>
                           <TableCell>
                             <div className="flex gap-1 justify-end">
