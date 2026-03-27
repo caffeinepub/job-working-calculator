@@ -54,6 +54,7 @@ import type {
 } from "../backend";
 import { loadFormulaSettings } from "../hooks/useFormulaSettings";
 import type { FormulaSettings } from "../hooks/useFormulaSettings";
+import { usePredefinedOperations } from "../hooks/usePredefinedOperations";
 import {
   useCustomers,
   useMaterials,
@@ -248,6 +249,7 @@ export function JobCalculator({
   const saveJobMutation = useSaveJob();
   const updateJobMutation = useUpdateJob();
 
+  const { operations: predefinedOps } = usePredefinedOperations();
   const formTopRef = useRef<HTMLDivElement>(null);
 
   const [jobName, setJobName] = useState("");
@@ -387,7 +389,14 @@ export function JobCalculator({
       overhead +
       profit +
       transportTotal;
-    const totalProductWeight = Math.max(0, totalRawWeight - totalWeightRemoved);
+    const totalWeldWeight = weldingRows.reduce(
+      (sum, r) => sum + (r.weightKg || 0),
+      0,
+    );
+    const totalProductWeight = Math.max(
+      0,
+      totalRawWeight - totalWeightRemoved + totalWeldWeight,
+    );
     const ratePerKg =
       totalProductWeight > 0 ? totalFinalPrice / totalProductWeight : 0;
     return {
@@ -405,6 +414,7 @@ export function JobCalculator({
   }, [
     matCalcs,
     weldCalcs,
+    weldingRows,
     machiningCalcs,
     laborRate,
     transportIncluded,
@@ -851,6 +861,9 @@ export function JobCalculator({
                             ? calcMeshAreaSqft(row)
                             : null;
 
+                          // Machined items are shown in the Machining Operations section
+                          if (isMachined_) return null;
+
                           return (
                             <motion.tr
                               key={row.rowId}
@@ -1158,19 +1171,136 @@ export function JobCalculator({
                   <Wrench size={16} className="text-amber-600" />
                   Machining Operations
                 </CardTitle>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="gap-1.5 h-8 text-xs"
-                  onClick={addMachiningRow}
-                  data-ocid="job.add_machining.button"
-                >
-                  <Plus size={13} />
-                  Add Operation
-                </Button>
+                <div className="flex items-center gap-2">
+                  {predefinedOps.length > 0 && (
+                    <Select
+                      onValueChange={(opId) => {
+                        const op = predefinedOps.find((o) => o.id === opId);
+                        if (!op) return;
+                        setMachiningRows((prev) => [
+                          ...prev,
+                          {
+                            rowId: `row_${Date.now()}`,
+                            opType: op.opType,
+                            drillDia: op.drillDia ?? 10,
+                            matThickness: op.matThickness ?? 10,
+                            tapSize:
+                              (op.tapSize as
+                                | "M6"
+                                | "M8"
+                                | "M10"
+                                | "M12"
+                                | "M16"
+                                | "M20") ?? "M6",
+                            csDia: op.csDia,
+                            slotLength: op.slotLength,
+                            otherCostPerUnit: op.otherCostPerUnit,
+                            grade: op.defaultGrade,
+                            qty: 1,
+                          },
+                        ]);
+                      }}
+                    >
+                      <SelectTrigger
+                        className="h-8 text-xs w-36"
+                        data-ocid="job.machining.select"
+                      >
+                        <SelectValue placeholder="Load Preset" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {predefinedOps.map((op) => (
+                          <SelectItem key={op.id} value={op.id}>
+                            {op.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="gap-1.5 h-8 text-xs"
+                    onClick={addMachiningRow}
+                    data-ocid="job.add_machining.button"
+                  >
+                    <Plus size={13} />
+                    Add Operation
+                  </Button>
+                </div>
               </div>
             </CardHeader>
             <CardContent>
+              {/* Machined Items subsection */}
+              {materialRows.some((row) =>
+                isMachined(
+                  materials.find((m) => m.id === row.materialId)
+                    ?.materialType ?? "",
+                ),
+              ) && (
+                <div className="mb-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-medium text-muted-foreground">
+                      Machined Items
+                    </span>
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    {materialRows.map((row, idx) => {
+                      const mat = materials.find(
+                        (m) => m.id === row.materialId,
+                      );
+                      if (!isMachined(mat?.materialType ?? "")) return null;
+                      const calc = matCalcs[idx];
+                      const itemCost =
+                        row.lengthMeters * (mat?.currentRate ?? 0) * 2;
+                      return (
+                        <div
+                          key={row.rowId}
+                          className="flex flex-wrap items-center gap-3 p-3 border border-border rounded-lg bg-amber-50/30 dark:bg-amber-900/10"
+                        >
+                          <div className="flex-1 min-w-[140px]">
+                            <p className="text-sm font-medium">
+                              {mat?.size || "Machined Item"}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              Rate: ₹{mat?.currentRate ?? 0}/unit × 2 = ₹
+                              {((mat?.currentRate ?? 0) * 2).toFixed(2)} each
+                            </p>
+                          </div>
+                          <div className="flex flex-col gap-1">
+                            <span className="text-xs text-muted-foreground">
+                              Qty
+                            </span>
+                            <Input
+                              type="number"
+                              min={0}
+                              value={row.lengthMeters || ""}
+                              onChange={(e) =>
+                                updateMaterialRow(row.rowId, {
+                                  lengthMeters: Number(e.target.value),
+                                })
+                              }
+                              className="h-8 text-xs w-20"
+                            />
+                          </div>
+                          <div className="text-sm font-semibold min-w-[80px] text-right">
+                            {calc
+                              ? `₹${calc.materialCost.toFixed(2)}`
+                              : `₹${itemCost.toFixed(2)}`}
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-destructive hover:bg-destructive/10"
+                            onClick={() => removeMaterialRow(row.rowId)}
+                          >
+                            <Trash2 size={13} />
+                          </Button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
               {machiningRows.length === 0 ? (
                 <div
                   className="flex flex-col items-center justify-center py-8 text-center rounded-lg border border-dashed border-border"

@@ -81,6 +81,23 @@ export interface LabourJob {
   'laborRate' : number,
   'materialType' : string,
 }
+export interface AlWeldingJob {
+  'id' : string,
+  'description' : string,
+  'numJoints' : bigint,
+  'numBrackets' : bigint,
+  'numDummy' : bigint,
+  'weldLengthEachMm' : number,
+  'thickness' : number,
+  'laborCostPer2mm' : number,
+  'totalFullLength' : number,
+  'totalWeldLines' : bigint,
+  'adjustedLaborCost' : number,
+  'totalCost' : number,
+  'costPerFullLength' : number,
+  'createdAt' : bigint,
+}
+
 export interface RateHistoryEntry { 'changedAt' : bigint, 'rate' : number }
 export interface RawMaterial {
   'id' : string,
@@ -123,6 +140,7 @@ export interface _SERVICE {
   'deleteFlexibleJob' : ActorMethod<[string], boolean>,
   'deleteJob' : ActorMethod<[string], boolean>,
   'deleteLabourJob' : ActorMethod<[string], boolean>,
+  'deleteAlWeldingJob' : ActorMethod<[string], boolean>,
   'deleteMaterial' : ActorMethod<[string], boolean>,
   'deleteRateHistoryEntry' : ActorMethod<[string, bigint], RawMaterial>,
   'getCallerUserProfile' : ActorMethod<[], [] | [UserProfile]>,
@@ -133,6 +151,7 @@ export interface _SERVICE {
   'getJob' : ActorMethod<[string], SavedJob>,
   'getJobs' : ActorMethod<[], Array<SavedJob>>,
   'getLabourJobs' : ActorMethod<[], Array<LabourJob>>,
+  'getAlWeldingJobs' : ActorMethod<[], Array<AlWeldingJob>>,
   'getMaterial' : ActorMethod<[string], RawMaterial>,
   'getMaterials' : ActorMethod<[], Array<RawMaterial>>,
   'getUserProfile' : ActorMethod<[Principal], [] | [UserProfile]>,
@@ -192,6 +211,10 @@ export interface _SERVICE {
   'saveLabourJob' : ActorMethod<
     [string, [] | [string], string, number, number, number],
     LabourJob
+  >,
+  'saveAlWeldingJob' : ActorMethod<
+    [string, bigint, bigint, bigint, number, number, number, number, bigint, number, number, number],
+    AlWeldingJob
   >,
   'updateCustomer' : ActorMethod<
     [string, string, string, string, string],

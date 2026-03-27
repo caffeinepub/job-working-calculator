@@ -26,6 +26,9 @@ export interface FormulaSettings {
   labourRateSS304: number; // default 550
   labourRateAL: number; // default 900
 
+  // AL Welding (new job type in Labour)
+  alWeldBaseRate: number; // default 800 (Rs per weld line per meter at 2mm thk)
+
   // Flexibles labour rates (Rs per unit per 25mm weld)
   flexAlRate6: number; // default 110
   flexAlRate10: number; // default 115
@@ -72,6 +75,7 @@ const DEFAULTS: FormulaSettings = {
   flatBarFactor: 0.00793,
   labourRateSS304: 550,
   labourRateAL: 900,
+  alWeldBaseRate: 800,
   flexAlRate6: 110,
   flexAlRate10: 115,
   flexAlRate12: 120,

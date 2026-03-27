@@ -115,6 +115,24 @@ export const FlexibleJob = IDL.Record({
   'createdAt' : IDL.Int,
 });
 
+
+export const AlWeldingJob = IDL.Record({
+  'id' : IDL.Text,
+  'description' : IDL.Text,
+  'numJoints' : IDL.Nat,
+  'numBrackets' : IDL.Nat,
+  'numDummy' : IDL.Nat,
+  'weldLengthEachMm' : IDL.Float64,
+  'thickness' : IDL.Float64,
+  'laborCostPer2mm' : IDL.Float64,
+  'totalFullLength' : IDL.Float64,
+  'totalWeldLines' : IDL.Nat,
+  'adjustedLaborCost' : IDL.Float64,
+  'totalCost' : IDL.Float64,
+  'costPerFullLength' : IDL.Float64,
+  'createdAt' : IDL.Int,
+});
+
 export const idlService = IDL.Service({
   '_initializeAccessControlWithSecret' : IDL.Func([IDL.Text], [], []),
   'addCustomer' : IDL.Func(
@@ -244,6 +262,26 @@ export const idlService = IDL.Service({
       [RawMaterial],
       [],
     ),
+  'deleteAlWeldingJob' : IDL.Func([IDL.Text], [IDL.Bool], []),
+  'getAlWeldingJobs' : IDL.Func([], [IDL.Vec(AlWeldingJob)], ['query']),
+  'saveAlWeldingJob' : IDL.Func(
+      [
+        IDL.Text,
+        IDL.Nat,
+        IDL.Nat,
+        IDL.Nat,
+        IDL.Float64,
+        IDL.Float64,
+        IDL.Float64,
+        IDL.Float64,
+        IDL.Nat,
+        IDL.Float64,
+        IDL.Float64,
+        IDL.Float64,
+      ],
+      [AlWeldingJob],
+      [],
+    ),
 });
 
 export const idlInitArgs = [];
@@ -353,6 +391,23 @@ export const idlFactory = ({ IDL }) => {
     'quotedPrice' : IDL.Float64,
     'customerId' : IDL.Opt(IDL.Text),
     'customerName' : IDL.Opt(IDL.Text),
+    'createdAt' : IDL.Int,
+  });
+
+  const AlWeldingJob = IDL.Record({
+    'id' : IDL.Text,
+    'description' : IDL.Text,
+    'numJoints' : IDL.Nat,
+    'numBrackets' : IDL.Nat,
+    'numDummy' : IDL.Nat,
+    'weldLengthEachMm' : IDL.Float64,
+    'thickness' : IDL.Float64,
+    'laborCostPer2mm' : IDL.Float64,
+    'totalFullLength' : IDL.Float64,
+    'totalWeldLines' : IDL.Nat,
+    'adjustedLaborCost' : IDL.Float64,
+    'totalCost' : IDL.Float64,
+    'costPerFullLength' : IDL.Float64,
     'createdAt' : IDL.Int,
   });
 
@@ -483,6 +538,26 @@ export const idlFactory = ({ IDL }) => {
     'updateMaterial' : IDL.Func(
         [IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Float64, IDL.Float64],
         [RawMaterial],
+        [],
+      ),
+    'deleteAlWeldingJob' : IDL.Func([IDL.Text], [IDL.Bool], []),
+    'getAlWeldingJobs' : IDL.Func([], [IDL.Vec(AlWeldingJob)], ['query']),
+    'saveAlWeldingJob' : IDL.Func(
+        [
+          IDL.Text,
+          IDL.Nat,
+          IDL.Nat,
+          IDL.Nat,
+          IDL.Float64,
+          IDL.Float64,
+          IDL.Float64,
+          IDL.Float64,
+          IDL.Nat,
+          IDL.Float64,
+          IDL.Float64,
+          IDL.Float64,
+        ],
+        [AlWeldingJob],
         [],
       ),
   });

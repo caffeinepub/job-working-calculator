@@ -2,12 +2,24 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { RefreshCw, Save, X } from "lucide-react";
+import { Plus, RefreshCw, Save, Trash2, X } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useFormulaSettings } from "../hooks/useFormulaSettings";
 import { useMaterialOptions } from "../hooks/useMaterialOptions";
+import type {
+  MachiningOpType,
+  PredefinedOperation,
+} from "../hooks/usePredefinedOperations";
+import { usePredefinedOperations } from "../hooks/usePredefinedOperations";
 
 type FormulaKey = Parameters<
   ReturnType<typeof useFormulaSettings>["updateSetting"]
@@ -314,6 +326,309 @@ function DrillCalculator({
   );
 }
 
+// ── Predefined Operations Tab ────────────────────────────────────────
+const OP_TYPE_LABELS: Record<MachiningOpType, string> = {
+  drilling: "Drilling",
+  tapping: "Tapping",
+  countersink: "Counter-sinking",
+  milling: "Milling / Slotting",
+  other: "Other",
+};
+
+const BLANK_OP: Omit<PredefinedOperation, "id"> = {
+  name: "",
+  opType: "drilling",
+  drillDia: 10,
+  matThickness: 10,
+  tapSize: "M6",
+  csDia: 10,
+  slotLength: 50,
+  otherCostPerUnit: 0,
+  defaultGrade: "SS304",
+};
+
+function OperationsTab() {
+  const { operations, addOperation, removeOperation } =
+    usePredefinedOperations();
+  const [form, setForm] = useState<Omit<PredefinedOperation, "id">>(BLANK_OP);
+  const [showing, setShowing] = useState(false);
+
+  const handleAdd = () => {
+    if (!form.name.trim()) return;
+    addOperation(form);
+    setForm(BLANK_OP);
+    setShowing(false);
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="bg-card border border-border rounded-xl p-5">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="text-sm font-semibold text-foreground">
+              Predefined Operation Templates
+            </h3>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Save common machining operations as presets. Load them quickly in
+              the Job Calculator.
+            </p>
+          </div>
+          <Button
+            size="sm"
+            variant="outline"
+            className="gap-1.5 h-8 text-xs"
+            onClick={() => setShowing((v) => !v)}
+            data-ocid="formulas.ops.open_modal_button"
+          >
+            <Plus size={13} /> Add Operation
+          </Button>
+        </div>
+
+        {showing && (
+          <div className="border border-border rounded-lg p-4 mb-4 bg-muted/20 space-y-3">
+            <h4 className="text-sm font-medium text-foreground">
+              New Operation Preset
+            </h4>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs">Name *</Label>
+                <Input
+                  className="h-8 text-sm"
+                  placeholder="e.g. Drill M8 x 10mm"
+                  value={form.name}
+                  onChange={(e) =>
+                    setForm((p) => ({ ...p, name: e.target.value }))
+                  }
+                  data-ocid="formulas.ops.input"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Operation Type</Label>
+                <Select
+                  value={form.opType}
+                  onValueChange={(v) =>
+                    setForm((p) => ({ ...p, opType: v as MachiningOpType }))
+                  }
+                >
+                  <SelectTrigger
+                    className="h-8 text-sm"
+                    data-ocid="formulas.ops.select"
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(Object.keys(OP_TYPE_LABELS) as MachiningOpType[]).map(
+                      (t) => (
+                        <SelectItem key={t} value={t}>
+                          {OP_TYPE_LABELS[t]}
+                        </SelectItem>
+                      ),
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Default Grade</Label>
+                <Select
+                  value={form.defaultGrade}
+                  onValueChange={(v) =>
+                    setForm((p) => ({
+                      ...p,
+                      defaultGrade: v as "SS304" | "SS310",
+                    }))
+                  }
+                >
+                  <SelectTrigger
+                    className="h-8 text-sm"
+                    data-ocid="formulas.ops.select"
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="SS304">SS304</SelectItem>
+                    <SelectItem value="SS310">SS310</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {form.opType === "drilling" && (
+                <>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Drill Diameter (mm)</Label>
+                    <Input
+                      type="number"
+                      className="h-8 text-sm"
+                      value={form.drillDia ?? ""}
+                      onChange={(e) =>
+                        setForm((p) => ({
+                          ...p,
+                          drillDia: Number(e.target.value),
+                        }))
+                      }
+                      data-ocid="formulas.ops.input"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Material Thickness (mm)</Label>
+                    <Input
+                      type="number"
+                      className="h-8 text-sm"
+                      value={form.matThickness ?? ""}
+                      onChange={(e) =>
+                        setForm((p) => ({
+                          ...p,
+                          matThickness: Number(e.target.value),
+                        }))
+                      }
+                      data-ocid="formulas.ops.input"
+                    />
+                  </div>
+                </>
+              )}
+              {form.opType === "tapping" && (
+                <div className="space-y-1">
+                  <Label className="text-xs">Tap Size</Label>
+                  <Select
+                    value={form.tapSize ?? "M6"}
+                    onValueChange={(v) =>
+                      setForm((p) => ({ ...p, tapSize: v }))
+                    }
+                  >
+                    <SelectTrigger
+                      className="h-8 text-sm"
+                      data-ocid="formulas.ops.select"
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {["M6", "M8", "M10", "M12", "M16", "M20"].map((s) => (
+                        <SelectItem key={s} value={s}>
+                          {s}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              {form.opType === "countersink" && (
+                <div className="space-y-1">
+                  <Label className="text-xs">Countersink Diameter (mm)</Label>
+                  <Input
+                    type="number"
+                    className="h-8 text-sm"
+                    value={form.csDia ?? ""}
+                    onChange={(e) =>
+                      setForm((p) => ({ ...p, csDia: Number(e.target.value) }))
+                    }
+                    data-ocid="formulas.ops.input"
+                  />
+                </div>
+              )}
+              {form.opType === "milling" && (
+                <div className="space-y-1">
+                  <Label className="text-xs">Slot Length (mm)</Label>
+                  <Input
+                    type="number"
+                    className="h-8 text-sm"
+                    value={form.slotLength ?? ""}
+                    onChange={(e) =>
+                      setForm((p) => ({
+                        ...p,
+                        slotLength: Number(e.target.value),
+                      }))
+                    }
+                    data-ocid="formulas.ops.input"
+                  />
+                </div>
+              )}
+              {form.opType === "other" && (
+                <div className="space-y-1">
+                  <Label className="text-xs">Cost Per Unit (₹)</Label>
+                  <Input
+                    type="number"
+                    className="h-8 text-sm"
+                    value={form.otherCostPerUnit ?? ""}
+                    onChange={(e) =>
+                      setForm((p) => ({
+                        ...p,
+                        otherCostPerUnit: Number(e.target.value),
+                      }))
+                    }
+                    data-ocid="formulas.ops.input"
+                  />
+                </div>
+              )}
+            </div>
+            <div className="flex gap-2 pt-1">
+              <Button
+                size="sm"
+                className="h-8 text-xs gap-1.5"
+                onClick={handleAdd}
+                disabled={!form.name.trim()}
+                data-ocid="formulas.ops.submit_button"
+              >
+                <Plus size={12} /> Save Preset
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-8 text-xs"
+                onClick={() => setShowing(false)}
+                data-ocid="formulas.ops.cancel_button"
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {operations.length === 0 ? (
+          <div
+            className="text-center py-10 text-muted-foreground"
+            data-ocid="formulas.ops.empty_state"
+          >
+            <p className="text-sm">No operation presets saved yet.</p>
+            <p className="text-xs mt-1">
+              Add presets to load them quickly in the Job Calculator machining
+              section.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {operations.map((op, idx) => (
+              <div
+                key={op.id}
+                className="flex items-center justify-between py-2 px-3 border border-border rounded-lg bg-background"
+                data-ocid={`formulas.ops.item.${idx + 1}`}
+              >
+                <div className="flex items-center gap-3">
+                  <span className="text-sm font-medium text-foreground">
+                    {op.name}
+                  </span>
+                  <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded">
+                    {OP_TYPE_LABELS[op.opType]}
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    {op.defaultGrade}
+                  </span>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 text-destructive hover:bg-destructive/10"
+                  onClick={() => removeOperation(op.id)}
+                  data-ocid={`formulas.ops.delete_button.${idx + 1}`}
+                >
+                  <Trash2 size={13} />
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function Formulas() {
   const { settings, updateSetting, save, reset, dirty } = useFormulaSettings();
 
@@ -434,6 +749,9 @@ export function Formulas() {
           </TabsTrigger>
           <TabsTrigger value="machining" className="flex-1 text-xs sm:text-sm">
             Machining
+          </TabsTrigger>
+          <TabsTrigger value="operations" className="flex-1 text-xs sm:text-sm">
+            Operations
           </TabsTrigger>
         </TabsList>
 
@@ -962,6 +1280,17 @@ export function Formulas() {
                 step={1}
                 min={0}
               />
+              <FormulaRow
+                label="AL Welding Base Rate (₹/line at 2mm thk)"
+                description="Base rate per weld line per meter for 2mm thick sheet. Rate scales linearly with thickness."
+                value={settings.alWeldBaseRate}
+                onChange={(v) =>
+                  updateSetting("alWeldBaseRate" as FormulaKey, v)
+                }
+                unit="₹/line/m"
+                step={1}
+                min={0}
+              />
             </div>
           </div>
         </TabsContent>
@@ -1254,6 +1583,11 @@ export function Formulas() {
               />
             </div>
           </div>
+        </TabsContent>
+
+        {/* ── OPERATIONS ──────────────────────────────────── */}
+        <TabsContent value="operations" className="space-y-6 mt-4">
+          <OperationsTab />
         </TabsContent>
       </Tabs>
 

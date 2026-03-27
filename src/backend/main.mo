@@ -743,6 +743,80 @@ actor {
     };
   };
 
+
+  // ===== Aluminium Welding Jobs =====
+
+  type AlWeldingJob = {
+    id : Text;
+    description : Text;
+    numJoints : Nat;
+    numBrackets : Nat;
+    numDummy : Nat;
+    weldLengthEachMm : Float;
+    thickness : Float;
+    laborCostPer2mm : Float;
+    totalFullLength : Float;
+    totalWeldLines : Nat;
+    adjustedLaborCost : Float;
+    totalCost : Float;
+    costPerFullLength : Float;
+    createdAt : Int;
+  };
+
+  module AlWeldingJob {
+    public func compare(a : AlWeldingJob, b : AlWeldingJob) : Order.Order {
+      Text.compare(a.id, b.id);
+    };
+  };
+
+  let alWeldingJobs = Map.empty<Text, AlWeldingJob>();
+
+  public shared func saveAlWeldingJob(
+    description : Text,
+    numJoints : Nat,
+    numBrackets : Nat,
+    numDummy : Nat,
+    weldLengthEachMm : Float,
+    thickness : Float,
+    laborCostPer2mm : Float,
+    totalFullLength : Float,
+    totalWeldLines : Nat,
+    adjustedLaborCost : Float,
+    totalCost : Float,
+    costPerFullLength : Float,
+  ) : async AlWeldingJob {
+    let id = generateId();
+    let job : AlWeldingJob = {
+      id;
+      description;
+      numJoints;
+      numBrackets;
+      numDummy;
+      weldLengthEachMm;
+      thickness;
+      laborCostPer2mm;
+      totalFullLength;
+      totalWeldLines;
+      adjustedLaborCost;
+      totalCost;
+      costPerFullLength;
+      createdAt = Time.now();
+    };
+    alWeldingJobs.add(id, job);
+    job;
+  };
+
+  public query func getAlWeldingJobs() : async [AlWeldingJob] {
+    alWeldingJobs.values().toArray().sort();
+  };
+
+  public shared func deleteAlWeldingJob(id : Text) : async Bool {
+    switch (alWeldingJobs.get(id)) {
+      case (null) { false };
+      case (_) { alWeldingJobs.remove(id); true };
+    };
+  };
+
   // ===== User / Auth stubs (kept for interface compatibility) =====
 
   type UserProfile = { name : Text };

@@ -1,6 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { getActor } from "../actorSingleton";
 
+// Candid optional encoding: null -> [], string -> [string]
+const opt = (v: string | null): [] | [string] => (v === null ? [] : [v]);
+
 export function useMaterials() {
   return useQuery({
     queryKey: ["materials"],
@@ -137,7 +140,7 @@ export function useSaveJob() {
         data.name,
         data.laborRate,
         data.transportIncluded,
-        data.customerId,
+        opt(data.customerId) as any,
         data.transportCost,
         data.dispatchQty,
         data.jobLineItems,
@@ -185,7 +188,7 @@ export function useUpdateJob() {
         data.name,
         data.laborRate,
         data.transportIncluded,
-        data.customerId,
+        opt(data.customerId) as any,
         data.transportCost,
         data.dispatchQty,
         data.jobLineItems,
@@ -294,7 +297,7 @@ export function useSaveLabourJob() {
       const actor = await getActor();
       return actor.saveLabourJob(
         data.description,
-        data.customerId,
+        opt(data.customerId) as any,
         data.materialType,
         data.weldLength,
         data.laborRate,
@@ -364,7 +367,7 @@ export function useSaveFlexibleJob() {
       const actor = await getActor();
       return actor.saveFlexibleJob(
         data.description,
-        data.customerId,
+        opt(data.customerId) as any,
         data.materialTab,
         data.centerLength,
         data.sheetBunchWidth,
@@ -450,7 +453,7 @@ export function useUpdateFlexibleJob() {
       await actor.deleteFlexibleJob(data.oldId);
       return actor.saveFlexibleJob(
         data.description,
-        null,
+        opt(null) as any,
         data.materialTab,
         data.centerLength,
         data.sheetBunchWidth,
@@ -482,5 +485,63 @@ export function useUpdateFlexibleJob() {
       );
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["flexibleJobs"] }),
+  });
+}
+
+export function useAlWeldingJobs() {
+  return useQuery({
+    queryKey: ["alWeldingJobs"],
+    queryFn: async () => {
+      const actor = await getActor();
+      return (actor as any).getAlWeldingJobs();
+    },
+  });
+}
+
+export function useSaveAlWeldingJob() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: {
+      description: string;
+      numJoints: number;
+      numBrackets: number;
+      numDummy: number;
+      weldLengthEachMm: number;
+      thickness: number;
+      laborCostPer2mm: number;
+      totalFullLength: number;
+      totalWeldLines: number;
+      adjustedLaborCost: number;
+      totalCost: number;
+      costPerFullLength: number;
+    }) => {
+      const actor = await getActor();
+      return (actor as any).saveAlWeldingJob(
+        data.description,
+        BigInt(data.numJoints),
+        BigInt(data.numBrackets),
+        BigInt(data.numDummy),
+        data.weldLengthEachMm,
+        data.thickness,
+        data.laborCostPer2mm,
+        data.totalFullLength,
+        BigInt(data.totalWeldLines),
+        data.adjustedLaborCost,
+        data.totalCost,
+        data.costPerFullLength,
+      );
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["alWeldingJobs"] }),
+  });
+}
+
+export function useDeleteAlWeldingJob() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const actor = await getActor();
+      return (actor as any).deleteAlWeldingJob(id);
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["alWeldingJobs"] }),
   });
 }
