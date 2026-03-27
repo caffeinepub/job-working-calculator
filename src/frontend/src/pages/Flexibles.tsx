@@ -530,7 +530,7 @@ function TabCalculator({
   const [description, setDescription] = useState("");
   const [centerLength, setCenterLength] = useState<number | "">("");
   const [sheetBunchWidth, setSheetBunchWidth] = useState<number | "">("");
-  const [sheetThicknessMm, setSheetThicknessMm] = useState<0.28 | 0.3 | "">("");
+  const sheetThicknessMm = settings.flexSheetThickness ?? 0.3;
   const [sheetBunchThickness, setSheetBunchThickness] = useState<number | "">(
     "",
   );
@@ -576,7 +576,6 @@ function TabCalculator({
     setCenterLength(editingJob.centerLength);
     setSheetBunchWidth(editingJob.sheetBunchWidth);
     const sThk = editingJob.sheetThickness;
-    setSheetThicknessMm(sThk === 0.28 ? 0.28 : 0.3);
     const bunchThk = sThk * Number(editingJob.sheetCount);
     setSheetBunchThickness(bunchThk);
     setBarsSupplied(editingJob.barsSupplied);
@@ -670,8 +669,7 @@ function TabCalculator({
   const materialRate = localRate;
 
   const widthNum = typeof sheetBunchWidth === "number" ? sheetBunchWidth : 0;
-  const sheetThkNum =
-    typeof sheetThicknessMm === "number" ? sheetThicknessMm : 0;
+  const sheetThkNum = sheetThicknessMm;
   const sheetBunchThkNum =
     typeof sheetBunchThickness === "number" ? sheetBunchThickness : 0;
 
@@ -1287,23 +1285,15 @@ function TabCalculator({
               />
             </div>
 
-            {/* Sheet Thickness dropdown */}
+            {/* Sheet Thickness (from Formula Settings) */}
             <div className="space-y-1.5">
               <Label>Sheet Thickness (mm)</Label>
-              <Select
-                value={sheetThicknessMm === "" ? "" : String(sheetThicknessMm)}
-                onValueChange={(v) =>
-                  setSheetThicknessMm(v === "0.28" ? 0.28 : 0.3)
-                }
-              >
-                <SelectTrigger data-ocid="flexibles.select">
-                  <SelectValue placeholder="Select sheet thickness" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="0.28">0.28 mm</SelectItem>
-                  <SelectItem value="0.3">0.30 mm</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="text-sm px-3 py-2 border border-border rounded-md bg-muted text-muted-foreground">
+                {sheetThicknessMm} mm{" "}
+                <span className="text-xs">
+                  (edit in Formulas &amp; Settings)
+                </span>
+              </div>
             </div>
 
             {/* Bars Supplied toggle */}

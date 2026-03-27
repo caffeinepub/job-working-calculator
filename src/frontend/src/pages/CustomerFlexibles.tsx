@@ -57,8 +57,8 @@ function interpolateLabourRate(
 }
 
 export function CustomerFlexibles() {
-  const { currentUser, logout } = useAuth();
-  const discountPct = currentUser?.discountPct ?? 0;
+  const { logout } = useAuth();
+  const discountPct = 0;
 
   const [bunchWidth, setBunchWidth] = useState<number | "">("");
   const [bunchThk, setBunchThk] = useState<number | "">("");
@@ -171,7 +171,7 @@ export function CustomerFlexibles() {
         </div>
         <div className="flex items-center gap-3">
           <span className="text-sm text-muted-foreground hidden sm:inline">
-            {currentUser?.username}
+            {"Customer"}
           </span>
           <Button
             variant="outline"

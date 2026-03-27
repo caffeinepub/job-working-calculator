@@ -6,11 +6,9 @@ import {
   FlaskConical,
   LayersIcon,
   LayoutDashboard,
-  ShieldCheck,
   Users,
   Wrench,
 } from "lucide-react";
-import { useAuth } from "../context/AuthContext";
 
 export type AppPage =
   | "dashboard"
@@ -19,14 +17,12 @@ export type AppPage =
   | "flexibles"
   | "customers"
   | "formulas"
-  | "export"
-  | "users";
+  | "export";
 
 type NavItem = {
   label: string;
   icon: React.ReactNode;
   page: AppPage;
-  adminOnly?: boolean;
 };
 
 const navItems: NavItem[] = [
@@ -49,12 +45,6 @@ const navItems: NavItem[] = [
     page: "formulas",
   },
   { label: "Export & Backup", icon: <Download size={18} />, page: "export" },
-  {
-    label: "Users",
-    icon: <ShieldCheck size={18} />,
-    page: "users",
-    adminOnly: true,
-  },
 ];
 
 interface SidebarProps {
@@ -64,15 +54,10 @@ interface SidebarProps {
 }
 
 export function Sidebar({ currentPage, onNavigate, onClose }: SidebarProps) {
-  const { currentUser } = useAuth();
-  const isAdmin = currentUser?.role === "admin";
-
   const handleNavigate = (page: AppPage) => {
     onNavigate(page);
     onClose?.();
   };
-
-  const visibleItems = navItems.filter((item) => !item.adminOnly || isAdmin);
 
   return (
     <aside className="flex flex-col h-full w-60 bg-sidebar border-r border-sidebar-border">
@@ -91,7 +76,7 @@ export function Sidebar({ currentPage, onNavigate, onClose }: SidebarProps) {
         className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto"
         data-ocid="sidebar.panel"
       >
-        {visibleItems.map((item) => {
+        {navItems.map((item) => {
           const isActive = item.page === currentPage;
           return (
             <button

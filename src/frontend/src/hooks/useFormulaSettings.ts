@@ -47,6 +47,7 @@ export interface FormulaSettings {
   flexCuMaterialRate: number; // default 800 (Rs/kg)
   flexFoldingCostPerFold: number; // default 15 (Rs per fold)
   flexDrillingCostPerHole: number; // default 15 (Rs per drill)
+  flexSheetThickness: number; // default 0.3 (mm)
 
   // Machining rates
   drillBaseRateSS304: number; // default 15 (Rs per hole at 10mm dia, 10mm thk)
@@ -91,6 +92,7 @@ const DEFAULTS: FormulaSettings = {
   flexCuMaterialRate: 800,
   flexFoldingCostPerFold: 15,
   flexDrillingCostPerHole: 15,
+  flexSheetThickness: 0.3,
   drillBaseRateSS304: 15,
   drillGradeMultiplierSS310: 2,
   tappingRateM6: 15,

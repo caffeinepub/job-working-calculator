@@ -1,19 +1,20 @@
 import { Button } from "@/components/ui/button";
 import { Toaster } from "@/components/ui/sonner";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Calculator, Menu, Moon, Sun } from "lucide-react";
+import { Calculator, LogOut, Menu, Moon, Sun } from "lucide-react";
 import { useEffect, useState } from "react";
 import { getAuthActor } from "./authActor";
 import type { AppPage } from "./components/Sidebar";
 import { Sidebar } from "./components/Sidebar";
+import { AuthProvider, useAuth } from "./context/AuthContext";
 import { Customers } from "./pages/Customers";
 import { Dashboard } from "./pages/Dashboard";
 import { ExportData } from "./pages/ExportData";
 import { Flexibles } from "./pages/Flexibles";
 import { Formulas } from "./pages/Formulas";
 import { Labour } from "./pages/Labour";
+import { Login } from "./pages/Login";
 import { SSFabrication } from "./pages/SSFabrication";
-import { UsersManagement } from "./pages/UsersManagement";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -29,7 +30,6 @@ const PAGE_TITLES: Record<AppPage, string> = {
   export: "Export & Backup",
   labour: "Labour Jobs",
   flexibles: "Flexibles",
-  users: "User Management",
 };
 
 function useDarkMode() {
@@ -54,6 +54,7 @@ function useDarkMode() {
 }
 
 function AppShell() {
+  const { isLoggedIn, logout, username } = useAuth();
   const [currentPage, setCurrentPage] = useState<AppPage>("dashboard");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [dark, setDark] = useDarkMode();
@@ -63,6 +64,10 @@ function AppShell() {
       .then((a) => a.initAdmin())
       .catch(() => {});
   }, []);
+
+  if (!isLoggedIn) {
+    return <Login />;
+  }
 
   return (
     <div className="flex h-[100dvh] bg-background overflow-hidden">
@@ -116,7 +121,7 @@ function AppShell() {
           </div>
           <div className="flex items-center gap-2">
             <span className="text-xs text-muted-foreground hidden sm:inline">
-              Admin
+              {username}
             </span>
             <Button
               variant="ghost"
@@ -127,6 +132,16 @@ function AppShell() {
               data-ocid="header.toggle"
             >
               {dark ? <Sun size={16} /> : <Moon size={16} />}
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={logout}
+              aria-label="Logout"
+              data-ocid="header.logout_button"
+            >
+              <LogOut size={16} />
             </Button>
           </div>
         </header>
@@ -144,7 +159,6 @@ function AppShell() {
           {currentPage === "export" && <ExportData />}
           {currentPage === "labour" && <Labour />}
           {currentPage === "flexibles" && <Flexibles />}
-          {currentPage === "users" && <UsersManagement />}
         </main>
       </div>
     </div>
@@ -154,8 +168,10 @@ function AppShell() {
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <AppShell />
-      <Toaster richColors position="top-right" />
+      <AuthProvider>
+        <AppShell />
+        <Toaster richColors position="top-right" />
+      </AuthProvider>
     </QueryClientProvider>
   );
 }

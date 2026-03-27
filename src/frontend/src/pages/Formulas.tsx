@@ -14,6 +14,7 @@ import { Loader2, Plus, RefreshCw, Save, Trash2, X } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { getAuthActor } from "../authActor";
+import { useAuth } from "../context/AuthContext";
 import { useFormulaSettings } from "../hooks/useFormulaSettings";
 import { useMaterialOptions } from "../hooks/useMaterialOptions";
 import type {
@@ -349,12 +350,13 @@ const BLANK_OP: Omit<PredefinedOperation, "id"> = {
 };
 
 function SecurityTab() {
+  const { changePassword } = useAuth();
   const [currentPwd, setCurrentPwd] = useState("");
   const [newPwd, setNewPwd] = useState("");
   const [confirmPwd, setConfirmPwd] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const handleChange = async (e: React.FormEvent) => {
+  const handleChange = (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentPwd || !newPwd || !confirmPwd) return;
     if (newPwd !== confirmPwd) {
@@ -366,27 +368,15 @@ function SecurityTab() {
       return;
     }
     setLoading(true);
-    try {
-      const authRaw = localStorage.getItem("jobcalc_auth_user");
-      if (!authRaw) {
-        toast.error("Not logged in");
-        return;
-      }
-      const user = JSON.parse(authRaw);
-      const actor = await getAuthActor();
-      const ok = await actor.changePassword(user.id, newPwd);
-      if (ok) {
-        toast.success("Password changed successfully");
-        setCurrentPwd("");
-        setNewPwd("");
-        setConfirmPwd("");
-      } else {
-        toast.error("Failed to change password");
-      }
-    } catch {
-      toast.error("Failed to change password");
-    } finally {
-      setLoading(false);
+    const ok = changePassword(currentPwd, newPwd);
+    setLoading(false);
+    if (ok) {
+      toast.success("Password changed successfully");
+      setCurrentPwd("");
+      setNewPwd("");
+      setConfirmPwd("");
+    } else {
+      toast.error("Current password is incorrect");
     }
   };
 
@@ -1567,6 +1557,17 @@ export function Formulas() {
               unit="Rs/kg"
               step={1}
               min={0}
+            />
+            <FormulaRow
+              label="Sheet Thickness (mm)"
+              description="Default sheet thickness for Flexibles calculations"
+              value={settings.flexSheetThickness}
+              onChange={(v) =>
+                updateSetting("flexSheetThickness" as FormulaKey, v)
+              }
+              unit="mm"
+              step={0.01}
+              min={0.1}
             />
             <FormulaRow
               label="Folding Cost per Fold (Rs)"
