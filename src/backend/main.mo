@@ -14,6 +14,278 @@ actor {
   let accessControlState = AccessControl.initState();
   let userProfiles = Map.empty<Principal, { name : Text }>();
 
+
+  // ===== App Users =====
+
+  type AppUser = {
+    id : Text;
+    username : Text;
+    password : Text;
+    role : Text; // "admin" | "customer"
+    status : Text; // "pending" | "approved" | "rejected"
+    discountPct : Float;
+    createdAt : Int;
+  };
+
+  module AppUser {
+    public func compare(a : AppUser, b : AppUser) : Order.Order {
+      Text.compare(a.id, b.id);
+    };
+  };
+
+  let appUsers = Map.empty<Text, AppUser>();
+  var userNextId = 1000;
+
+  func generateUserId() : Text {
+    let id = userNextId;
+    userNextId += 1;
+    "u" # id.toText();
+  };
+
+  // Initialize default admin on first run
+  system func postupgrade() {
+    // If no admin exists, create default admin
+    var hasAdmin = false;
+    for (u in appUsers.values()) {
+      if (u.role == "admin") { hasAdmin := true };
+    };
+    if (not hasAdmin) {
+      let adminId = generateUserId();
+      let admin : AppUser = {
+        id = adminId;
+        username = "admin";
+        password = "admin123";
+        role = "admin";
+        status = "approved";
+        discountPct = 0.0;
+        createdAt = Time.now();
+      };
+      appUsers.add(adminId, admin);
+    };
+    // Migrate V1 flexible jobs
+    for (v1 in flexibleJobs.values()) {
+      let v3 : FlexibleJob = {
+        id = v1.id;
+        description = v1.description;
+        materialTab = v1.materialTab;
+        centerLength = 0.0;
+        sheetBunchWidth = v1.sheetBunchWidth;
+        sheetThickness = v1.thickness;
+        sheetCount = 0;
+        barsSupplied = false;
+        barLength = 0.0;
+        barWidth = 0.0;
+        barThickness = 0.0;
+        numberOfDrills = 0;
+        numberOfFolds = 1;
+        sheetStackWeight = 0.0;
+        stripWeight = 0.0;
+        bar1Weight = 0.0;
+        bar2Weight = 0.0;
+        totalMaterialWeight = 0.0;
+        materialCost = 0.0;
+        cuttingCost = 0.0;
+        foldingCost = 0.0;
+        drillingCost = 0.0;
+        weldingCost = v1.weldingCost;
+        chamferingCost = v1.chamferingCost;
+        totalWeldLength = 0.0;
+        overheadCost = v1.overheadCost;
+        profitCost = v1.profitCost;
+        totalCost = v1.totalCost;
+        discountPct = 0.0;
+        quotedPrice = v1.totalCost;
+        customerId = v1.customerId;
+        customerName = v1.customerName;
+        createdAt = v1.createdAt;
+      };
+      if (flexibleJobsV3.get(v1.id) == null) {
+        flexibleJobsV3.add(v1.id, v3);
+      };
+    };
+    // Migrate V2 flexible jobs
+    for (v2 in flexibleJobsV2.values()) {
+      let v3 : FlexibleJob = {
+        id = v2.id;
+        description = v2.description;
+        materialTab = v2.materialTab;
+        centerLength = v2.centerLength;
+        sheetBunchWidth = v2.sheetBunchWidth;
+        sheetThickness = v2.sheetThickness;
+        sheetCount = v2.sheetCount;
+        barsSupplied = v2.barsSupplied;
+        barLength = v2.barLength;
+        barWidth = v2.barWidth;
+        barThickness = v2.barThickness;
+        numberOfDrills = v2.numberOfDrills;
+        numberOfFolds = v2.numberOfFolds;
+        sheetStackWeight = v2.sheetStackWeight;
+        stripWeight = v2.stripWeight;
+        bar1Weight = v2.bar1Weight;
+        bar2Weight = v2.bar2Weight;
+        totalMaterialWeight = v2.totalMaterialWeight;
+        materialCost = v2.materialCost;
+        cuttingCost = v2.cuttingCost;
+        foldingCost = v2.foldingCost;
+        drillingCost = v2.drillingCost;
+        weldingCost = v2.weldingCost;
+        chamferingCost = v2.chamferingCost;
+        totalWeldLength = v2.totalWeldLength;
+        overheadCost = v2.overheadCost;
+        profitCost = v2.profitCost;
+        totalCost = v2.totalCost;
+        discountPct = 0.0;
+        quotedPrice = v2.totalCost;
+        customerId = v2.customerId;
+        customerName = v2.customerName;
+        createdAt = v2.createdAt;
+      };
+      if (flexibleJobsV3.get(v2.id) == null) {
+        flexibleJobsV3.add(v2.id, v3);
+      };
+    };
+  };
+
+  public shared func initAdmin() : async Bool {
+    var hasAdmin = false;
+    for (u in appUsers.values()) {
+      if (u.role == "admin") { hasAdmin := true };
+    };
+    if (not hasAdmin) {
+      let adminId = generateUserId();
+      let admin : AppUser = {
+        id = adminId;
+        username = "admin";
+        password = "admin123";
+        role = "admin";
+        status = "approved";
+        discountPct = 0.0;
+        createdAt = Time.now();
+      };
+      appUsers.add(adminId, admin);
+      true;
+    } else {
+      false;
+    };
+  };
+
+  public shared func registerUser(username : Text, password : Text) : async { #ok : AppUser; #err : Text } {
+    // Check if username taken
+    for (u in appUsers.values()) {
+      if (u.username == username) {
+        return #err("Username already taken");
+      };
+    };
+    let id = generateUserId();
+    let user : AppUser = {
+      id;
+      username;
+      password;
+      role = "customer";
+      status = "pending";
+      discountPct = 0.0;
+      createdAt = Time.now();
+    };
+    appUsers.add(id, user);
+    #ok(user);
+  };
+
+  public shared func loginUser(username : Text, password : Text) : async { #ok : AppUser; #err : Text } {
+    for (u in appUsers.values()) {
+      if (u.username == username and u.password == password) {
+        return #ok(u);
+      };
+    };
+    #err("Invalid username or password");
+  };
+
+  public shared func getUsers() : async [AppUser] {
+    appUsers.values().toArray();
+  };
+
+  public shared func approveUser(id : Text) : async Bool {
+    switch (appUsers.get(id)) {
+      case (null) { false };
+      case (?u) {
+        let updated : AppUser = {
+          id = u.id;
+          username = u.username;
+          password = u.password;
+          role = u.role;
+          status = "approved";
+          discountPct = u.discountPct;
+          createdAt = u.createdAt;
+        };
+        appUsers.add(id, updated);
+        true;
+      };
+    };
+  };
+
+  public shared func rejectUser(id : Text) : async Bool {
+    switch (appUsers.get(id)) {
+      case (null) { false };
+      case (?u) {
+        let updated : AppUser = {
+          id = u.id;
+          username = u.username;
+          password = u.password;
+          role = u.role;
+          status = "rejected";
+          discountPct = u.discountPct;
+          createdAt = u.createdAt;
+        };
+        appUsers.add(id, updated);
+        true;
+      };
+    };
+  };
+
+  public shared func updateUserDiscount(id : Text, discountPct : Float) : async Bool {
+    switch (appUsers.get(id)) {
+      case (null) { false };
+      case (?u) {
+        let updated : AppUser = {
+          id = u.id;
+          username = u.username;
+          password = u.password;
+          role = u.role;
+          status = u.status;
+          discountPct;
+          createdAt = u.createdAt;
+        };
+        appUsers.add(id, updated);
+        true;
+      };
+    };
+  };
+
+  public shared func changePassword(id : Text, newPassword : Text) : async Bool {
+    switch (appUsers.get(id)) {
+      case (null) { false };
+      case (?u) {
+        let updated : AppUser = {
+          id = u.id;
+          username = u.username;
+          password = newPassword;
+          role = u.role;
+          status = u.status;
+          discountPct = u.discountPct;
+          createdAt = u.createdAt;
+        };
+        appUsers.add(id, updated);
+        true;
+      };
+    };
+  };
+
+  public shared func deleteUser(id : Text) : async Bool {
+    switch (appUsers.get(id)) {
+      case (null) { false };
+      case (_) { appUsers.remove(id); true };
+    };
+  };
+
   // ===== Raw Materials =====
 
   type RateHistoryEntry = {
@@ -388,7 +660,6 @@ actor {
   };
 
   // ===== Flexible Jobs =====
-  // V1 type kept for stable variable migration compatibility
 
   type FlexibleJobV1 = {
     id : Text;
@@ -409,7 +680,6 @@ actor {
 
   let flexibleJobs = Map.empty<Text, FlexibleJobV1>();
 
-  // V2 type
   type FlexibleJobV2 = {
     id : Text;
     description : Text;
@@ -446,7 +716,6 @@ actor {
 
   let flexibleJobsV2 = Map.empty<Text, FlexibleJobV2>();
 
-  // V3 type with discount fields
   type FlexibleJob = {
     id : Text;
     description : Text;
@@ -491,91 +760,6 @@ actor {
 
   let flexibleJobsV3 = Map.empty<Text, FlexibleJob>();
 
-  system func postupgrade() {
-    // Migrate V1 -> V3
-    for (v1 in flexibleJobs.values()) {
-      let v3 : FlexibleJob = {
-        id = v1.id;
-        description = v1.description;
-        materialTab = v1.materialTab;
-        centerLength = 0.0;
-        sheetBunchWidth = v1.sheetBunchWidth;
-        sheetThickness = v1.thickness;
-        sheetCount = 0;
-        barsSupplied = false;
-        barLength = 0.0;
-        barWidth = 0.0;
-        barThickness = 0.0;
-        numberOfDrills = 0;
-        numberOfFolds = 1;
-        sheetStackWeight = 0.0;
-        stripWeight = 0.0;
-        bar1Weight = 0.0;
-        bar2Weight = 0.0;
-        totalMaterialWeight = 0.0;
-        materialCost = 0.0;
-        cuttingCost = 0.0;
-        foldingCost = 0.0;
-        drillingCost = 0.0;
-        weldingCost = v1.weldingCost;
-        chamferingCost = v1.chamferingCost;
-        totalWeldLength = 0.0;
-        overheadCost = v1.overheadCost;
-        profitCost = v1.profitCost;
-        totalCost = v1.totalCost;
-        discountPct = 0.0;
-        quotedPrice = v1.totalCost;
-        customerId = v1.customerId;
-        customerName = v1.customerName;
-        createdAt = v1.createdAt;
-      };
-      if (flexibleJobsV3.get(v1.id) == null) {
-        flexibleJobsV3.add(v1.id, v3);
-      };
-    };
-    // Migrate V2 -> V3
-    for (v2 in flexibleJobsV2.values()) {
-      let v3 : FlexibleJob = {
-        id = v2.id;
-        description = v2.description;
-        materialTab = v2.materialTab;
-        centerLength = v2.centerLength;
-        sheetBunchWidth = v2.sheetBunchWidth;
-        sheetThickness = v2.sheetThickness;
-        sheetCount = v2.sheetCount;
-        barsSupplied = v2.barsSupplied;
-        barLength = v2.barLength;
-        barWidth = v2.barWidth;
-        barThickness = v2.barThickness;
-        numberOfDrills = v2.numberOfDrills;
-        numberOfFolds = v2.numberOfFolds;
-        sheetStackWeight = v2.sheetStackWeight;
-        stripWeight = v2.stripWeight;
-        bar1Weight = v2.bar1Weight;
-        bar2Weight = v2.bar2Weight;
-        totalMaterialWeight = v2.totalMaterialWeight;
-        materialCost = v2.materialCost;
-        cuttingCost = v2.cuttingCost;
-        foldingCost = v2.foldingCost;
-        drillingCost = v2.drillingCost;
-        weldingCost = v2.weldingCost;
-        chamferingCost = v2.chamferingCost;
-        totalWeldLength = v2.totalWeldLength;
-        overheadCost = v2.overheadCost;
-        profitCost = v2.profitCost;
-        totalCost = v2.totalCost;
-        discountPct = 0.0;
-        quotedPrice = v2.totalCost;
-        customerId = v2.customerId;
-        customerName = v2.customerName;
-        createdAt = v2.createdAt;
-      };
-      if (flexibleJobsV3.get(v2.id) == null) {
-        flexibleJobsV3.add(v2.id, v3);
-      };
-    };
-  };
-
   public shared func saveFlexibleJob(
     description : Text,
     customerId : ?Text,
@@ -619,38 +803,12 @@ actor {
       };
     };
     let fj : FlexibleJob = {
-      id;
-      description;
-      materialTab;
-      centerLength;
-      sheetBunchWidth;
-      sheetThickness;
-      sheetCount;
-      barsSupplied;
-      barLength;
-      barWidth;
-      barThickness;
-      numberOfDrills;
-      numberOfFolds;
-      sheetStackWeight;
-      stripWeight;
-      bar1Weight;
-      bar2Weight;
-      totalMaterialWeight;
-      materialCost;
-      cuttingCost;
-      foldingCost;
-      drillingCost;
-      weldingCost;
-      chamferingCost;
-      totalWeldLength;
-      overheadCost;
-      profitCost;
-      totalCost;
-      discountPct;
-      quotedPrice;
-      customerId;
-      customerName;
+      id; description; materialTab; centerLength; sheetBunchWidth; sheetThickness;
+      sheetCount; barsSupplied; barLength; barWidth; barThickness; numberOfDrills;
+      numberOfFolds; sheetStackWeight; stripWeight; bar1Weight; bar2Weight;
+      totalMaterialWeight; materialCost; cuttingCost; foldingCost; drillingCost;
+      weldingCost; chamferingCost; totalWeldLength; overheadCost; profitCost;
+      totalCost; discountPct; quotedPrice; customerId; customerName;
       createdAt = Time.now();
     };
     flexibleJobsV3.add(id, fj);
@@ -694,36 +852,12 @@ actor {
       case (?j) { j };
     };
     let fj : FlexibleJob = {
-      id;
-      description;
-      materialTab;
-      centerLength;
-      sheetBunchWidth;
-      sheetThickness;
-      sheetCount;
-      barsSupplied;
-      barLength;
-      barWidth;
-      barThickness;
-      numberOfDrills;
-      numberOfFolds;
-      sheetStackWeight;
-      stripWeight;
-      bar1Weight;
-      bar2Weight;
-      totalMaterialWeight;
-      materialCost;
-      cuttingCost;
-      foldingCost;
-      drillingCost;
-      weldingCost;
-      chamferingCost;
-      totalWeldLength;
-      overheadCost;
-      profitCost;
-      totalCost;
-      discountPct;
-      quotedPrice;
+      id; description; materialTab; centerLength; sheetBunchWidth; sheetThickness;
+      sheetCount; barsSupplied; barLength; barWidth; barThickness; numberOfDrills;
+      numberOfFolds; sheetStackWeight; stripWeight; bar1Weight; bar2Weight;
+      totalMaterialWeight; materialCost; cuttingCost; foldingCost; drillingCost;
+      weldingCost; chamferingCost; totalWeldLength; overheadCost; profitCost;
+      totalCost; discountPct; quotedPrice;
       customerId = existing.customerId;
       customerName = existing.customerName;
       createdAt = existing.createdAt;
@@ -742,7 +876,6 @@ actor {
       case (_) { flexibleJobsV3.remove(id); true };
     };
   };
-
 
   // ===== Aluminium Welding Jobs =====
 
@@ -787,19 +920,9 @@ actor {
   ) : async AlWeldingJob {
     let id = generateId();
     let job : AlWeldingJob = {
-      id;
-      description;
-      numJoints;
-      numBrackets;
-      numDummy;
-      weldLengthEachMm;
-      thickness;
-      laborCostPer2mm;
-      totalFullLength;
-      totalWeldLines;
-      adjustedLaborCost;
-      totalCost;
-      costPerFullLength;
+      id; description; numJoints; numBrackets; numDummy; weldLengthEachMm;
+      thickness; laborCostPer2mm; totalFullLength; totalWeldLines;
+      adjustedLaborCost; totalCost; costPerFullLength;
       createdAt = Time.now();
     };
     alWeldingJobs.add(id, job);
@@ -817,11 +940,9 @@ actor {
     };
   };
 
-  // ===== User / Auth stubs (kept for interface compatibility) =====
-
+  // ===== Legacy stubs for interface compatibility =====
   type UserProfile = { name : Text };
   type UserRole = { #admin; #user };
-
   public shared func saveCallerUserProfile(_profile : UserProfile) : async () {};
   public query func getCallerUserProfile() : async ?UserProfile { null };
   public query func getUserProfile(_user : Principal) : async ?UserProfile { null };

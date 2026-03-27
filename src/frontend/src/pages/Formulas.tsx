@@ -10,9 +10,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, RefreshCw, Save, Trash2, X } from "lucide-react";
+import { Loader2, Plus, RefreshCw, Save, Trash2, X } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
+import { getAuthActor } from "../authActor";
 import { useFormulaSettings } from "../hooks/useFormulaSettings";
 import { useMaterialOptions } from "../hooks/useMaterialOptions";
 import type {
@@ -346,6 +347,109 @@ const BLANK_OP: Omit<PredefinedOperation, "id"> = {
   otherCostPerUnit: 0,
   defaultGrade: "SS304",
 };
+
+function SecurityTab() {
+  const [currentPwd, setCurrentPwd] = useState("");
+  const [newPwd, setNewPwd] = useState("");
+  const [confirmPwd, setConfirmPwd] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const handleChange = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentPwd || !newPwd || !confirmPwd) return;
+    if (newPwd !== confirmPwd) {
+      toast.error("New passwords do not match");
+      return;
+    }
+    if (newPwd.length < 4) {
+      toast.error("Password must be at least 4 characters");
+      return;
+    }
+    setLoading(true);
+    try {
+      const authRaw = localStorage.getItem("jobcalc_auth_user");
+      if (!authRaw) {
+        toast.error("Not logged in");
+        return;
+      }
+      const user = JSON.parse(authRaw);
+      const actor = await getAuthActor();
+      const ok = await actor.changePassword(user.id, newPwd);
+      if (ok) {
+        toast.success("Password changed successfully");
+        setCurrentPwd("");
+        setNewPwd("");
+        setConfirmPwd("");
+      } else {
+        toast.error("Failed to change password");
+      }
+    } catch {
+      toast.error("Failed to change password");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="bg-card border border-border rounded-xl p-5 max-w-md space-y-4">
+      <h3 className="text-sm font-semibold text-foreground">Change Password</h3>
+      <form onSubmit={handleChange} className="space-y-3">
+        <div className="space-y-1.5">
+          <Label htmlFor="cur-pwd" className="text-sm">
+            Current Password
+          </Label>
+          <Input
+            id="cur-pwd"
+            type="password"
+            autoComplete="current-password"
+            value={currentPwd}
+            onChange={(e) => setCurrentPwd(e.target.value)}
+            data-ocid="security.input"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="new-pwd" className="text-sm">
+            New Password
+          </Label>
+          <Input
+            id="new-pwd"
+            type="password"
+            autoComplete="new-password"
+            value={newPwd}
+            onChange={(e) => setNewPwd(e.target.value)}
+            data-ocid="security.input"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="confirm-pwd" className="text-sm">
+            Confirm New Password
+          </Label>
+          <Input
+            id="confirm-pwd"
+            type="password"
+            autoComplete="new-password"
+            value={confirmPwd}
+            onChange={(e) => setConfirmPwd(e.target.value)}
+            data-ocid="security.input"
+          />
+        </div>
+        <Button
+          type="submit"
+          className="w-full gap-2"
+          disabled={loading || !currentPwd || !newPwd || !confirmPwd}
+          data-ocid="security.submit_button"
+        >
+          {loading ? (
+            <Loader2 size={14} className="animate-spin" />
+          ) : (
+            <Save size={14} />
+          )}
+          {loading ? "Saving…" : "Change Password"}
+        </Button>
+      </form>
+    </div>
+  );
+}
 
 function OperationsTab() {
   const { operations, addOperation, removeOperation } =
@@ -752,6 +856,9 @@ export function Formulas() {
           </TabsTrigger>
           <TabsTrigger value="operations" className="flex-1 text-xs sm:text-sm">
             Operations
+          </TabsTrigger>
+          <TabsTrigger value="security" className="flex-1 text-xs sm:text-sm">
+            Security
           </TabsTrigger>
         </TabsList>
 
@@ -1588,6 +1695,10 @@ export function Formulas() {
         {/* ── OPERATIONS ──────────────────────────────────── */}
         <TabsContent value="operations" className="space-y-6 mt-4">
           <OperationsTab />
+        </TabsContent>
+        {/* ── SECURITY ──────────────────────────────────────────── */}
+        <TabsContent value="security" className="space-y-6 mt-4">
+          <SecurityTab />
         </TabsContent>
       </Tabs>
 

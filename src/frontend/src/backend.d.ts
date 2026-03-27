@@ -107,6 +107,16 @@ export interface Customer {
     address: string;
     phone: string;
 }
+export interface AppUser {
+    id: string;
+    username: string;
+    password: string;
+    role: string;
+    status: string;
+    discountPct: number;
+    createdAt: bigint;
+}
+export type LoginResult = { ok: AppUser } | { err: string };
 export interface UserProfile {
     name: string;
 }
@@ -115,7 +125,34 @@ export enum UserRole {
     user = "user",
     guest = "guest"
 }
+export interface AlWeldingJob {
+    id: string;
+    description: string;
+    numJoints: bigint;
+    numBrackets: bigint;
+    numDummy: bigint;
+    weldLengthEachMm: number;
+    thickness: number;
+    laborCostPer2mm: number;
+    totalFullLength: number;
+    totalWeldLines: bigint;
+    adjustedLaborCost: number;
+    totalCost: number;
+    costPerFullLength: number;
+    createdAt: bigint;
+}
 export interface backendInterface {
+    // User management
+    initAdmin(): Promise<boolean>;
+    registerUser(username: string, password: string): Promise<LoginResult>;
+    loginUser(username: string, password: string): Promise<LoginResult>;
+    getUsers(): Promise<Array<AppUser>>;
+    approveUser(id: string): Promise<boolean>;
+    rejectUser(id: string): Promise<boolean>;
+    updateUserDiscount(id: string, discountPct: number): Promise<boolean>;
+    changePassword(id: string, newPassword: string): Promise<boolean>;
+    deleteUser(id: string): Promise<boolean>;
+    // Materials
     addCustomer(name: string, phone: string, email: string, address: string): Promise<Customer>;
     addMaterial(grade: string, materialType: string, size: string, weightPerMeter: number, currentRate: number): Promise<RawMaterial>;
     deleteCustomer(id: string): Promise<boolean>;
@@ -171,7 +208,42 @@ export interface backendInterface {
     ): Promise<FlexibleJob>;
     saveJob(name: string, laborRate: number, transportIncluded: boolean, customerId: string | null, transportCost: number, dispatchQty: number, jobLineItems: Array<JobLineItem>, weldingLineItems: Array<WeldingLineItem>, totalFinalPrice: number, totalProductWeight: number, ratePerKg: number): Promise<SavedJob>;
     saveLabourJob(description: string, customerId: string | null, materialType: string, weldLength: number, laborRate: number, totalCost: number): Promise<LabourJob>;
+    saveAlWeldingJob(description: string, numJoints: bigint, numBrackets: bigint, numDummy: bigint, weldLengthEachMm: number, thickness: number, laborCostPer2mm: number, totalFullLength: number, totalWeldLines: bigint, adjustedLaborCost: number, totalCost: number, costPerFullLength: number): Promise<AlWeldingJob>;
+    getAlWeldingJobs(): Promise<Array<AlWeldingJob>>;
+    deleteAlWeldingJob(id: string): Promise<boolean>;
     updateCustomer(id: string, name: string, phone: string, email: string, address: string): Promise<Customer>;
     updateJob(id: string, name: string, laborRate: number, transportIncluded: boolean, customerId: string | null, transportCost: number, dispatchQty: number, jobLineItems: Array<JobLineItem>, weldingLineItems: Array<WeldingLineItem>, totalFinalPrice: number, totalProductWeight: number, ratePerKg: number): Promise<SavedJob>;
     updateMaterial(id: string, grade: string, materialType: string, size: string, weightPerMeter: number, currentRate: number): Promise<RawMaterial>;
+    updateFlexibleJob(
+        id: string,
+        description: string,
+        materialTab: string,
+        centerLength: number,
+        sheetBunchWidth: number,
+        sheetThickness: number,
+        sheetCount: bigint,
+        barsSupplied: boolean,
+        barLength: number,
+        barWidth: number,
+        barThickness: number,
+        numberOfDrills: bigint,
+        numberOfFolds: bigint,
+        sheetStackWeight: number,
+        stripWeight: number,
+        bar1Weight: number,
+        bar2Weight: number,
+        totalMaterialWeight: number,
+        materialCost: number,
+        cuttingCost: number,
+        foldingCost: number,
+        drillingCost: number,
+        weldingCost: number,
+        chamferingCost: number,
+        totalWeldLength: number,
+        overheadCost: number,
+        profitCost: number,
+        totalCost: number,
+        discountPct: number,
+        quotedPrice: number,
+    ): Promise<FlexibleJob>;
 }

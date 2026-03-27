@@ -24,12 +24,9 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { useFormulaSettings } from "../hooks/useFormulaSettings";
 import {
-  useAlWeldingJobs,
   useCustomers,
-  useDeleteAlWeldingJob,
   useDeleteLabourJob,
   useLabourJobs,
-  useSaveAlWeldingJob,
   useSaveLabourJob,
 } from "../hooks/useQueries";
 
@@ -111,6 +108,329 @@ function deleteGutterJob(id: string) {
   localStorage.setItem(GUTTER_JOBS_KEY, JSON.stringify(jobs));
 }
 
+function formatDate(ts: bigint | number): string {
+  return new Date(
+    typeof ts === "bigint" ? Number(ts) / 1_000_000 : ts,
+  ).toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+// ── Aluminium Rate localStorage helpers ───────────────────────────────────
+const AL_RATE_KEY = "labour_al_rate";
+
+function getAlRate(): number {
+  try {
+    const v = localStorage.getItem(AL_RATE_KEY);
+    return v ? Number(v) : 900;
+  } catch {
+    return 900;
+  }
+}
+
+function setAlRate(rate: number) {
+  localStorage.setItem(AL_RATE_KEY, String(rate));
+}
+
+function AluminiumTab() {
+  const { data: savedJobs = [], isLoading: jobsLoading } = useLabourJobs();
+  const saveJob = useSaveLabourJob();
+  const deleteJobMut = useDeleteLabourJob();
+  const { data: customers = [] } = useCustomers();
+
+  const [alDesc, setAlDesc] = useState("");
+  const [weldLength, setWeldLength] = useState<number | "">("");
+  const [customerId, setCustomerId] = useState("none");
+  const [alRate, setAlRateState] = useState<number>(getAlRate);
+  const [editingRate, setEditingRate] = useState(false);
+  const [rateInput, setRateInput] = useState<number | "">(getAlRate());
+
+  const weldNum = typeof weldLength === "number" ? weldLength : 0;
+  const totalCost = weldNum > 0 ? (weldNum / 1000) * alRate : 0;
+  const alJobs = savedJobs.filter((j) => j.materialType === "AL");
+
+  const handleSaveRate = () => {
+    const r = typeof rateInput === "number" ? rateInput : alRate;
+    setAlRate(r);
+    setAlRateState(r);
+    setEditingRate(false);
+    toast.success("Aluminium labour rate updated");
+  };
+
+  const handleSave = async () => {
+    if (weldNum <= 0) return;
+    try {
+      await saveJob.mutateAsync({
+        description: alDesc.trim(),
+        customerId: customerId === "none" ? null : customerId,
+        materialType: "AL",
+        weldLength: weldNum,
+        laborRate: alRate,
+        totalCost,
+      });
+      toast.success("Aluminium labour job saved");
+    } catch {
+      toast.error("Failed to save job");
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    try {
+      await deleteJobMut.mutateAsync(id);
+      toast.success("Job deleted");
+    } catch {
+      toast.error("Failed to delete job");
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card className="border border-border rounded-xl shadow-sm">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base">Aluminium Weld Labour</CardTitle>
+              {editingRate ? (
+                <div className="flex items-center gap-1.5">
+                  <Input
+                    type="number"
+                    min={0}
+                    className="w-20 h-7 text-right text-sm"
+                    value={rateInput}
+                    onChange={(e) =>
+                      setRateInput(
+                        e.target.value === "" ? "" : Number(e.target.value),
+                      )
+                    }
+                  />
+                  <span className="text-xs text-muted-foreground">₹/m</span>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 px-2"
+                    onClick={handleSaveRate}
+                  >
+                    <Save size={12} />
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 px-2"
+                    onClick={() => setEditingRate(false)}
+                  >
+                    <X size={12} />
+                  </Button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                  onClick={() => {
+                    setRateInput(alRate);
+                    setEditingRate(true);
+                  }}
+                  data-ocid="labour.al.toggle"
+                >
+                  <Pencil size={11} /> ₹{alRate}/m
+                </button>
+              )}
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="al-desc">Description (optional)</Label>
+              <Input
+                id="al-desc"
+                placeholder="Job description…"
+                value={alDesc}
+                onChange={(e) => setAlDesc(e.target.value)}
+                data-ocid="labour.al.input"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="al-weld">Weld Length (mm)</Label>
+              <Input
+                id="al-weld"
+                type="number"
+                min={0}
+                placeholder="Enter weld length in mm"
+                value={weldLength}
+                onChange={(e) =>
+                  setWeldLength(
+                    e.target.value === "" ? "" : Number(e.target.value),
+                  )
+                }
+                data-ocid="labour.al.input"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Customer (optional)</Label>
+              <Select value={customerId} onValueChange={setCustomerId}>
+                <SelectTrigger data-ocid="labour.al.select">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No Customer</SelectItem>
+                  {customers.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="rounded-lg bg-muted/50 border border-border px-3 py-2 text-xs text-muted-foreground">
+              Current rate:{" "}
+              <span className="font-semibold text-foreground">
+                ₹{alRate}/meter
+              </span>
+              . Click the pencil icon to edit.
+            </div>
+            <Button
+              className="w-full gap-2"
+              disabled={weldNum <= 0 || saveJob.isPending}
+              onClick={handleSave}
+              data-ocid="labour.al.primary_button"
+            >
+              {saveJob.isPending ? (
+                <Loader2 size={15} className="animate-spin" />
+              ) : (
+                <Save size={15} />
+              )}
+              {saveJob.isPending ? "Saving…" : "Save This Job"}
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card className="border border-border rounded-xl shadow-sm">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Cost Breakdown</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="bg-muted/50 rounded-lg px-4 py-3 font-mono text-sm text-foreground border border-border mb-4">
+              Labour Cost = (Weld Length mm / 1000) × ₹{alRate}/m
+            </div>
+            <div className="space-y-3">
+              <div className="flex justify-between items-center py-2 border-b border-border">
+                <span className="text-sm text-muted-foreground">
+                  Weld Length
+                </span>
+                <span className="text-sm font-medium">
+                  {weldNum > 0
+                    ? `${weldNum} mm (${(weldNum / 1000).toFixed(3)} m)`
+                    : "—"}
+                </span>
+              </div>
+              <div className="flex justify-between items-center py-2 border-b border-border">
+                <span className="text-sm text-muted-foreground">
+                  Labour Rate
+                </span>
+                <span className="text-sm font-medium">₹{alRate} / meter</span>
+              </div>
+              <div className="flex justify-between items-center py-2">
+                <span className="text-sm font-semibold text-foreground">
+                  Total Cost
+                </span>
+                <span
+                  className="text-lg font-bold text-primary"
+                  data-ocid="labour.al.card"
+                >
+                  {weldNum > 0 ? `₹${totalCost.toFixed(2)}` : "—"}
+                </span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Saved AL Jobs */}
+      <Card className="border border-border rounded-xl shadow-sm">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">
+            Saved Aluminium Labour Jobs
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          {jobsLoading ? (
+            <div
+              className="flex items-center justify-center py-12 text-muted-foreground gap-2"
+              data-ocid="labour.al.loading_state"
+            >
+              <Loader2 size={18} className="animate-spin" />
+              <span className="text-sm">Loading…</span>
+            </div>
+          ) : alJobs.length === 0 ? (
+            <div
+              className="text-center py-12 text-muted-foreground"
+              data-ocid="labour.al.empty_state"
+            >
+              <Wrench size={32} className="mx-auto mb-3 opacity-30" />
+              <p className="text-sm">No saved aluminium labour jobs yet.</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table data-ocid="labour.al.table">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Description</TableHead>
+                    <TableHead className="text-right">Weld Length</TableHead>
+                    <TableHead className="text-right">Rate/m</TableHead>
+                    <TableHead className="text-right">Total Cost</TableHead>
+                    <TableHead className="w-10" />
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {alJobs.map((job, idx) => (
+                    <TableRow
+                      key={job.id}
+                      data-ocid={`labour.al.item.${idx + 1}`}
+                    >
+                      <TableCell className="text-sm whitespace-nowrap">
+                        {formatDate(job.createdAt)}
+                      </TableCell>
+                      <TableCell className="text-sm">
+                        {job.description || (
+                          <span className="text-muted-foreground italic">
+                            No description
+                          </span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right text-sm">
+                        {job.weldLength} mm
+                      </TableCell>
+                      <TableCell className="text-right text-sm">
+                        ₹{job.laborRate}/m
+                      </TableCell>
+                      <TableCell className="text-right text-sm font-semibold">
+                        ₹{job.totalCost.toFixed(2)}
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
+                          onClick={() => handleDelete(job.id)}
+                          disabled={deleteJobMut.isPending}
+                          data-ocid={`labour.al.delete_button.${idx + 1}`}
+                        >
+                          <Trash2 size={14} />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 // ── Component ─────────────────────────────────────────────────────────────
 export function Labour() {
   const { settings } = useFormulaSettings();
@@ -157,72 +477,6 @@ export function Labour() {
   };
 
   const ss304Jobs = savedJobs.filter((j) => j.materialType === "SS304");
-
-  // ── Aluminium Welding state ───────────────────────────────────────────────
-  const { data: alWeldJobs = [], isLoading: alJobsLoading } =
-    useAlWeldingJobs();
-  const saveAlJob = useSaveAlWeldingJob();
-  const deleteAlJob = useDeleteAlWeldingJob();
-
-  const [alDesc, setAlDesc] = useState("");
-  const [numJoints, setNumJoints] = useState<number | "">("");
-  const [numBrackets, setNumBrackets] = useState<number | "">("");
-  const [numDummy, setNumDummy] = useState<number | "">("");
-  const [weldLengthEach, setWeldLengthEach] = useState<number | "">("");
-  const [thickness, setThickness] = useState<number | "">("");
-  const [totalFullLength, setTotalFullLength] = useState<number | "">("");
-
-  const nJoints = typeof numJoints === "number" ? numJoints : 0;
-  const nBrackets = typeof numBrackets === "number" ? numBrackets : 0;
-  const nDummy = typeof numDummy === "number" ? numDummy : 0;
-  const weldEachMm = typeof weldLengthEach === "number" ? weldLengthEach : 0;
-  const thkNum = typeof thickness === "number" ? thickness : 0;
-  const fullLenNum = typeof totalFullLength === "number" ? totalFullLength : 0;
-
-  const totalWeldLines = nJoints + nBrackets + nDummy;
-  const adjustedRate =
-    thkNum > 0
-      ? settings.alWeldBaseRate * (thkNum / 2)
-      : settings.alWeldBaseRate;
-  const totalCostAl =
-    totalWeldLines > 0 && weldEachMm > 0
-      ? totalWeldLines * adjustedRate * (weldEachMm / 1000)
-      : 0;
-  const costPerFullLength =
-    fullLenNum > 0 && totalCostAl > 0 ? totalCostAl / fullLenNum : 0;
-  const canSaveAl = weldEachMm > 0 && fullLenNum > 0 && totalWeldLines > 0;
-
-  const handleSaveAl = async () => {
-    if (!canSaveAl) return;
-    try {
-      await saveAlJob.mutateAsync({
-        description: alDesc.trim(),
-        numJoints: nJoints,
-        numBrackets: nBrackets,
-        numDummy: nDummy,
-        weldLengthEachMm: weldEachMm,
-        thickness: thkNum,
-        laborCostPer2mm: settings.alWeldBaseRate,
-        totalFullLength: fullLenNum,
-        totalWeldLines,
-        adjustedLaborCost: adjustedRate,
-        totalCost: totalCostAl,
-        costPerFullLength,
-      });
-      toast.success("AL welding job saved");
-    } catch {
-      toast.error("Failed to save AL welding job");
-    }
-  };
-
-  const handleDeleteAl = async (id: string) => {
-    try {
-      await deleteAlJob.mutateAsync(id);
-      toast.success("Job deleted");
-    } catch {
-      toast.error("Failed to delete AL welding job");
-    }
-  };
 
   // ── Gutter Welding state ──────────────────────────────────────────────────
   const [gutterRate, setGutterRateState] = useState<number>(getGutterRate);
@@ -294,16 +548,6 @@ export function Labour() {
     toast.success("Job deleted");
   };
 
-  const formatDate = (ts: bigint | number) => {
-    return new Date(
-      typeof ts === "bigint" ? Number(ts) / 1_000_000 : ts,
-    ).toLocaleDateString("en-IN", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    });
-  };
-
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
       {/* Page header */}
@@ -323,24 +567,33 @@ export function Labour() {
         <TabsList className="w-full">
           <TabsTrigger
             value="ss304"
-            className="flex-1"
+            className="flex-1 data-[state=active]:border-b-2 data-[state=active]:border-blue-500"
             data-ocid="labour.ss304.tab"
           >
-            SS304
+            <span className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-blue-500 shrink-0" />
+              SS304
+            </span>
           </TabsTrigger>
           <TabsTrigger
             value="aluminium"
-            className="flex-1"
+            className="flex-1 data-[state=active]:border-b-2 data-[state=active]:border-amber-500"
             data-ocid="labour.aluminium.tab"
           >
-            Aluminium
+            <span className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0" />
+              Aluminium
+            </span>
           </TabsTrigger>
           <TabsTrigger
             value="gutter"
-            className="flex-1"
+            className="flex-1 data-[state=active]:border-b-2 data-[state=active]:border-green-500"
             data-ocid="labour.gutter.tab"
           >
-            Gutter Welding
+            <span className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-green-500 shrink-0" />
+              Gutter Welding
+            </span>
           </TabsTrigger>
         </TabsList>
 
@@ -551,310 +804,8 @@ export function Labour() {
 
         {/* ── Aluminium Tab ────────────────────────────────────────────── */}
         <TabsContent value="aluminium" className="space-y-6 mt-6">
-          <p className="text-sm text-muted-foreground">
-            Base rate: ₹{settings.alWeldBaseRate}/line/m at 2mm thk (adjustable
-            in Formulas &amp; Settings).
-          </p>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card className="border border-border rounded-xl shadow-sm">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base">Job Inputs</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-1.5">
-                  <Label htmlFor="al-desc">Description (optional)</Label>
-                  <Input
-                    id="al-desc"
-                    placeholder="e.g. Bus bar junction box"
-                    value={alDesc}
-                    onChange={(e) => setAlDesc(e.target.value)}
-                    data-ocid="labour.al.input"
-                  />
-                </div>
-                <div className="grid grid-cols-3 gap-3">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="al-joints">No of Joints</Label>
-                    <Input
-                      id="al-joints"
-                      type="number"
-                      min={0}
-                      placeholder="0"
-                      value={numJoints}
-                      onChange={(e) =>
-                        setNumJoints(
-                          e.target.value === "" ? "" : Number(e.target.value),
-                        )
-                      }
-                      data-ocid="labour.al.input"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="al-brackets">No of Brackets</Label>
-                    <Input
-                      id="al-brackets"
-                      type="number"
-                      min={0}
-                      placeholder="0"
-                      value={numBrackets}
-                      onChange={(e) =>
-                        setNumBrackets(
-                          e.target.value === "" ? "" : Number(e.target.value),
-                        )
-                      }
-                      data-ocid="labour.al.input"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="al-dummy">No of Dummy</Label>
-                    <Input
-                      id="al-dummy"
-                      type="number"
-                      min={0}
-                      placeholder="0"
-                      value={numDummy}
-                      onChange={(e) =>
-                        setNumDummy(
-                          e.target.value === "" ? "" : Number(e.target.value),
-                        )
-                      }
-                      data-ocid="labour.al.input"
-                    />
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="al-weld-len">Weld Length Each (mm)</Label>
-                    <Input
-                      id="al-weld-len"
-                      type="number"
-                      min={0}
-                      placeholder="mm"
-                      value={weldLengthEach}
-                      onChange={(e) =>
-                        setWeldLengthEach(
-                          e.target.value === "" ? "" : Number(e.target.value),
-                        )
-                      }
-                      data-ocid="labour.al.input"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="al-thk">Sheet Thickness (mm)</Label>
-                    <Input
-                      id="al-thk"
-                      type="number"
-                      min={0}
-                      step={0.1}
-                      placeholder="mm"
-                      value={thickness}
-                      onChange={(e) =>
-                        setThickness(
-                          e.target.value === "" ? "" : Number(e.target.value),
-                        )
-                      }
-                      data-ocid="labour.al.input"
-                    />
-                  </div>
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="al-full-len">Total Full Length</Label>
-                  <Input
-                    id="al-full-len"
-                    type="number"
-                    min={0}
-                    placeholder="Total full length"
-                    value={totalFullLength}
-                    onChange={(e) =>
-                      setTotalFullLength(
-                        e.target.value === "" ? "" : Number(e.target.value),
-                      )
-                    }
-                    data-ocid="labour.al.input"
-                  />
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="border border-border rounded-xl shadow-sm">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base">Cost Breakdown</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="bg-muted/50 rounded-lg px-4 py-3 font-mono text-xs text-foreground border border-border mb-4 space-y-1">
-                  <div>Total Weld Lines = Joints + Brackets + Dummy</div>
-                  <div>Adjusted Rate = Base Rate × (Thickness ÷ 2)</div>
-                  <div>
-                    Total Cost = Weld Lines × Adjusted Rate × (Weld Length ÷
-                    1000)
-                  </div>
-                  <div>
-                    Cost Per Full Length = Total Cost ÷ Total Full Length
-                  </div>
-                </div>
-                <div className="space-y-3">
-                  <div className="flex justify-between items-center py-2 border-b border-border">
-                    <span className="text-sm text-muted-foreground">
-                      Total Weld Lines
-                    </span>
-                    <span className="text-sm font-medium">
-                      {nJoints} + {nBrackets} + {nDummy} ={" "}
-                      <strong>{totalWeldLines}</strong>
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center py-2 border-b border-border">
-                    <span className="text-sm text-muted-foreground">
-                      Sheet Thickness
-                    </span>
-                    <span className="text-sm font-medium">
-                      {thkNum > 0
-                        ? `${thkNum} mm → Rate ₹${adjustedRate.toFixed(2)}/line/m`
-                        : "—"}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center py-2 border-b border-border">
-                    <span className="text-sm text-muted-foreground">
-                      Weld Length Each
-                    </span>
-                    <span className="text-sm font-medium">
-                      {weldEachMm > 0
-                        ? `${weldEachMm} mm (${(weldEachMm / 1000).toFixed(3)} m)`
-                        : "—"}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center py-2 border-b border-border">
-                    <span className="text-sm font-semibold text-foreground">
-                      Total Cost
-                    </span>
-                    <span
-                      className="text-xl font-bold text-primary"
-                      data-ocid="labour.al.card"
-                    >
-                      {totalCostAl > 0 ? `₹${totalCostAl.toFixed(2)}` : "—"}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center py-2">
-                    <span className="text-sm text-muted-foreground">
-                      Cost Per Full Length
-                    </span>
-                    <span className="text-sm font-semibold">
-                      {costPerFullLength > 0
-                        ? `₹${costPerFullLength.toFixed(2)}`
-                        : "—"}
-                    </span>
-                  </div>
-                </div>
-                <Button
-                  className="w-full gap-2 mt-4"
-                  disabled={!canSaveAl || saveAlJob.isPending}
-                  onClick={handleSaveAl}
-                  data-ocid="labour.al.primary_button"
-                >
-                  {saveAlJob.isPending ? (
-                    <Loader2 size={15} className="animate-spin" />
-                  ) : (
-                    <Save size={15} />
-                  )}
-                  {saveAlJob.isPending ? "Saving…" : "Save This Job"}
-                </Button>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Saved AL Welding Jobs */}
-          <Card className="border border-border rounded-xl shadow-sm">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base">Saved AL Welding Jobs</CardTitle>
-            </CardHeader>
-            <CardContent className="p-0">
-              {alJobsLoading ? (
-                <div
-                  className="flex items-center justify-center py-12 text-muted-foreground gap-2"
-                  data-ocid="labour.al.loading_state"
-                >
-                  <Loader2 size={18} className="animate-spin" />
-                  <span className="text-sm">Loading…</span>
-                </div>
-              ) : alWeldJobs.length === 0 ? (
-                <div
-                  className="text-center py-12 text-muted-foreground"
-                  data-ocid="labour.al.empty_state"
-                >
-                  <Wrench size={32} className="mx-auto mb-3 opacity-30" />
-                  <p className="text-sm">No saved AL welding jobs yet.</p>
-                </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <Table data-ocid="labour.al.table">
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Date</TableHead>
-                        <TableHead>Description</TableHead>
-                        <TableHead className="text-right">Weld Lines</TableHead>
-                        <TableHead className="text-right">
-                          Weld Len (mm)
-                        </TableHead>
-                        <TableHead className="text-right">Thk (mm)</TableHead>
-                        <TableHead className="text-right">Total Cost</TableHead>
-                        <TableHead className="text-right">
-                          Cost/Full Len
-                        </TableHead>
-                        <TableHead className="w-10" />
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {alWeldJobs.map((job, idx) => (
-                        <TableRow
-                          key={job.id}
-                          data-ocid={`labour.al.item.${idx + 1}`}
-                        >
-                          <TableCell className="text-sm whitespace-nowrap">
-                            {formatDate(job.createdAt)}
-                          </TableCell>
-                          <TableCell className="text-sm">
-                            {job.description || (
-                              <span className="text-muted-foreground italic">
-                                No desc
-                              </span>
-                            )}
-                          </TableCell>
-                          <TableCell className="text-right text-sm">
-                            {Number(job.totalWeldLines)}
-                          </TableCell>
-                          <TableCell className="text-right text-sm">
-                            {job.weldLengthEachMm}
-                          </TableCell>
-                          <TableCell className="text-right text-sm">
-                            {job.thickness}
-                          </TableCell>
-                          <TableCell className="text-right text-sm font-semibold">
-                            ₹{job.totalCost.toFixed(2)}
-                          </TableCell>
-                          <TableCell className="text-right text-sm">
-                            ₹{job.costPerFullLength.toFixed(2)}
-                          </TableCell>
-                          <TableCell>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
-                              onClick={() => handleDeleteAl(job.id)}
-                              disabled={deleteAlJob.isPending}
-                              data-ocid={`labour.al.delete_button.${idx + 1}`}
-                            >
-                              <Trash2 size={14} />
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+          <AluminiumTab />
         </TabsContent>
-
-        {/* ── Gutter Welding Tab ───────────────────────────────────────── */}
         <TabsContent value="gutter" className="space-y-6 mt-6">
           {/* Rate widget */}
           <Card className="border border-border rounded-xl shadow-sm">
