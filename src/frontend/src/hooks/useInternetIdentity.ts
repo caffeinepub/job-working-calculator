@@ -69,7 +69,6 @@ const InternetIdentityReactContext = createContext<ProviderValue | undefined>(
 /**
  * Create the auth client with default options or options provided by the user.
  */
-// biome-ignore lint/correctness/noUnusedVariables: kept for platform compatibility
 async function createAuthClient(
   createOptions?: AuthClientCreateOptions,
 ): Promise<AuthClient> {
@@ -128,7 +127,7 @@ export const useInternetIdentity = (): InternetIdentityContext => {
  */
 export function InternetIdentityProvider({
   children,
-  createOptions: _createOptions,
+  createOptions,
 }: PropsWithChildren<{
   /** The child components that the InternetIdentityProvider will wrap. This allows any child
    * component to access the authentication context provided by the InternetIdentityProvider. */
@@ -233,11 +232,37 @@ export function InternetIdentityProvider({
   }, [authClient, setErrorMessage]);
 
   useEffect(() => {
-    // Workaround: this app uses fixed username/password auth, not Internet Identity.
-    // Return early to prevent AuthClient.create() from making network calls on mount.
-    setStatus("idle");
-    return;
-  }, []);
+    let cancelled = false;
+    void (async () => {
+      try {
+        setStatus("initializing");
+        let existingClient = authClient;
+        if (!existingClient) {
+          existingClient = await createAuthClient(createOptions);
+          if (cancelled) return;
+          setAuthClient(existingClient);
+        }
+        const isAuthenticated = await existingClient.isAuthenticated();
+        if (cancelled) return;
+        if (isAuthenticated) {
+          const loadedIdentity = existingClient.getIdentity();
+          setIdentity(loadedIdentity);
+        }
+      } catch (unknownError) {
+        setStatus("loginError");
+        setError(
+          unknownError instanceof Error
+            ? unknownError
+            : new Error("Initialization failed"),
+        );
+      } finally {
+        if (!cancelled) setStatus("idle");
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [createOptions, authClient]);
 
   const value = useMemo<ProviderValue>(
     () => ({

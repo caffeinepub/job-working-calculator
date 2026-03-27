@@ -1,9 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { getActor } from "../actorSingleton";
 
-// Candid optional encoding: null -> [], string -> [string]
-const opt = (v: string | null): [] | [string] => (v === null ? [] : [v]);
-
 export function useMaterials() {
   return useQuery({
     queryKey: ["materials"],
@@ -140,7 +137,7 @@ export function useSaveJob() {
         data.name,
         data.laborRate,
         data.transportIncluded,
-        opt(data.customerId) as any,
+        data.customerId,
         data.transportCost,
         data.dispatchQty,
         data.jobLineItems,
@@ -188,7 +185,7 @@ export function useUpdateJob() {
         data.name,
         data.laborRate,
         data.transportIncluded,
-        opt(data.customerId) as any,
+        data.customerId,
         data.transportCost,
         data.dispatchQty,
         data.jobLineItems,
@@ -297,7 +294,7 @@ export function useSaveLabourJob() {
       const actor = await getActor();
       return actor.saveLabourJob(
         data.description,
-        opt(data.customerId) as any,
+        data.customerId,
         data.materialType,
         data.weldLength,
         data.laborRate,
@@ -367,7 +364,7 @@ export function useSaveFlexibleJob() {
       const actor = await getActor();
       return actor.saveFlexibleJob(
         data.description,
-        opt(data.customerId) as any,
+        data.customerId,
         data.materialTab,
         data.centerLength,
         data.sheetBunchWidth,
@@ -453,7 +450,7 @@ export function useUpdateFlexibleJob() {
       await actor.deleteFlexibleJob(data.oldId);
       return actor.saveFlexibleJob(
         data.description,
-        opt(null) as any,
+        null,
         data.materialTab,
         data.centerLength,
         data.sheetBunchWidth,
