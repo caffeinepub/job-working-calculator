@@ -1,21 +1,17 @@
 import { Button } from "@/components/ui/button";
 import { Toaster } from "@/components/ui/sonner";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Calculator, LogOut, Menu, Moon, Sun } from "lucide-react";
+import { Calculator, Menu, Moon, Sun } from "lucide-react";
 import { useEffect, useState } from "react";
 import { getAuthActor } from "./authActor";
 import type { AppPage } from "./components/Sidebar";
 import { Sidebar } from "./components/Sidebar";
-import { AuthProvider, useAuth } from "./context/AuthContext";
-import { CustomerFlexibles } from "./pages/CustomerFlexibles";
 import { Customers } from "./pages/Customers";
 import { Dashboard } from "./pages/Dashboard";
 import { ExportData } from "./pages/ExportData";
 import { Flexibles } from "./pages/Flexibles";
 import { Formulas } from "./pages/Formulas";
 import { Labour } from "./pages/Labour";
-import { Login } from "./pages/Login";
-import { Register } from "./pages/Register";
 import { SSFabrication } from "./pages/SSFabrication";
 import { UsersManagement } from "./pages/UsersManagement";
 
@@ -58,85 +54,16 @@ function useDarkMode() {
 }
 
 function AppShell() {
-  const { currentUser, logout } = useAuth();
   const [currentPage, setCurrentPage] = useState<AppPage>("dashboard");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [dark, setDark] = useDarkMode();
 
-  // Init admin on startup
   useEffect(() => {
     getAuthActor()
       .then((a) => a.initAdmin())
       .catch(() => {});
   }, []);
 
-  // Auth gates
-  if (!currentUser) {
-    return <AuthGate />;
-  }
-
-  if (currentUser.status === "pending") {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background p-4">
-        <div className="max-w-sm w-full text-center space-y-6">
-          <div className="w-16 h-16 rounded-full bg-yellow-100 dark:bg-yellow-900/30 flex items-center justify-center mx-auto">
-            <span className="text-3xl">⏳</span>
-          </div>
-          <div>
-            <h2 className="text-xl font-bold text-foreground">
-              Pending Approval
-            </h2>
-            <p className="text-sm text-muted-foreground mt-2">
-              Your account is pending admin approval. Please check back later.
-            </p>
-          </div>
-          <Button
-            variant="outline"
-            onClick={logout}
-            className="gap-2"
-            data-ocid="app.button"
-          >
-            <LogOut size={16} /> Logout
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
-  if (currentUser.status === "rejected") {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background p-4">
-        <div className="max-w-sm w-full text-center space-y-6">
-          <div className="w-16 h-16 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center mx-auto">
-            <span className="text-3xl">❌</span>
-          </div>
-          <div>
-            <h2 className="text-xl font-bold text-foreground">
-              Account Rejected
-            </h2>
-            <p className="text-sm text-muted-foreground mt-2">
-              Your account has been rejected. Please contact the administrator.
-            </p>
-          </div>
-          <Button
-            variant="outline"
-            onClick={logout}
-            className="gap-2"
-            data-ocid="app.button"
-          >
-            <LogOut size={16} /> Logout
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
-  // Customer view
-  if (currentUser.role === "customer" && currentUser.status === "approved") {
-    return <CustomerFlexibles />;
-  }
-
-  // Admin view
   return (
     <div className="flex h-[100dvh] bg-background overflow-hidden">
       {/* Desktop sidebar */}
@@ -189,7 +116,7 @@ function AppShell() {
           </div>
           <div className="flex items-center gap-2">
             <span className="text-xs text-muted-foreground hidden sm:inline">
-              {currentUser.username}
+              Admin
             </span>
             <Button
               variant="ghost"
@@ -200,16 +127,6 @@ function AppShell() {
               data-ocid="header.toggle"
             >
               {dark ? <Sun size={16} /> : <Moon size={16} />}
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 text-muted-foreground"
-              onClick={logout}
-              aria-label="Logout"
-              data-ocid="header.button"
-            >
-              <LogOut size={16} />
             </Button>
           </div>
         </header>
@@ -234,22 +151,11 @@ function AppShell() {
   );
 }
 
-function AuthGate() {
-  const [view, setView] = useState<"login" | "register">("login");
-  return view === "login" ? (
-    <Login onGoRegister={() => setView("register")} />
-  ) : (
-    <Register onGoLogin={() => setView("login")} />
-  );
-}
-
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <AppShell />
-        <Toaster richColors position="top-right" />
-      </AuthProvider>
+      <AppShell />
+      <Toaster richColors position="top-right" />
     </QueryClientProvider>
   );
 }
