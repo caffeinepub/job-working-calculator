@@ -150,9 +150,7 @@ function ModalContent({
     !Number.isNaN(Number.parseFloat(form.currentRate));
 
   // For MATERIAL_TYPES filtering — include all types that match built-in MaterialType
-  const selectableTypes = allTypes.filter(
-    (t) => MATERIAL_TYPES.includes(t as MaterialType) || true,
-  );
+  const selectableTypes = allTypes.filter((t) => t !== "Machined");
 
   return (
     <>

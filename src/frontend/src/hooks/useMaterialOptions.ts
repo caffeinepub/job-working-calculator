@@ -3,16 +3,16 @@ import { useState } from "react";
 const STORAGE_KEY = "jobcalc_material_options";
 
 const BUILT_IN_TYPES = [
+  "Wire Mesh",
   "Round Bar",
   "Flat Bar",
   "Square Bar",
   "Pipe",
+  "Sheet",
+  "Plate",
   "Angle",
   "Channel (ISMC)",
   "I-Beam (ISMB)",
-  "Plate",
-  "Sheet",
-  "Wire Mesh",
 ];
 
 type StoredOptions = {

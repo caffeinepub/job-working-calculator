@@ -13,7 +13,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Loader2, Plus, RefreshCw, Save, Trash2, X } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
-import { getAuthActor } from "../authActor";
 import { useAuth } from "../context/AuthContext";
 import { useFormulaSettings } from "../hooks/useFormulaSettings";
 import { useMaterialOptions } from "../hooks/useMaterialOptions";

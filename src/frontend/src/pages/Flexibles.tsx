@@ -4,13 +4,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   Table,
   TableBody,
   TableCell,
@@ -86,11 +79,16 @@ function saveCostSnapshot(
   totalCost: number,
   discountPct: number,
   materialRate?: number,
+  storedQuotedPrice?: number,
 ) {
   try {
     const key = getCostHistoryKey(jobId);
     const quotedPrice =
-      discountPct > 0 ? totalCost / (1 - discountPct / 100) : totalCost;
+      storedQuotedPrice != null
+        ? storedQuotedPrice
+        : discountPct > 0
+          ? totalCost / (1 - discountPct / 100)
+          : totalCost;
     const existing = JSON.parse(localStorage.getItem(key) || "[]");
     existing.unshift({
       totalCost,
@@ -256,7 +254,8 @@ function SavedJobsTab({
       await deleteJob.mutateAsync(job.id);
       removeJobDiscount(job.id);
       toast.success("Job deleted");
-    } catch {
+    } catch (err) {
+      console.error("Failed to delete job:", err);
       toast.error("Failed to delete job");
     }
   };
@@ -851,7 +850,8 @@ function TabCalculator({
         if (discountNum > 0) setJobDiscount(newJob.id, discountNum);
         else removeJobDiscount(newJob.id);
         toast.success("Job updated (overwrite)");
-      } catch {
+      } catch (err) {
+        console.error("Failed to update job:", err);
         toast.error("Failed to update job");
       }
       return;
@@ -876,7 +876,8 @@ function TabCalculator({
         else removeJobDiscount(newJob.id);
         toast.success("Job updated");
         onEditComplete();
-      } catch {
+      } catch (err) {
+        console.error("Failed to update job:", err);
         toast.error("Failed to update job");
       }
       return;
@@ -890,7 +891,8 @@ function TabCalculator({
       });
       if (discountNum > 0) setJobDiscount(newJob.id, discountNum);
       toast.success("Flexible job saved");
-    } catch {
+    } catch (err) {
+      console.error("Failed to save job:", err);
       toast.error("Failed to save job");
     }
   };
@@ -966,7 +968,7 @@ function TabCalculator({
           ? (job.barLength * job.barWidth * job.barThickness * jDensity) /
             1_000_000
           : 0;
-        const newBar2 = job.barsSupplied ? newBar1 : 0;
+        const newBar2 = job.bar2Weight; // use stored value, only rate changed
         const newTotalMat =
           (job.barsSupplied ? newBar1 : 0) +
           newStrip +

@@ -19,13 +19,13 @@ export type MaterialType =
   | "Machined";
 
 export const MATERIAL_TYPES: MaterialType[] = [
-  "Pipe",
   "Wire Mesh",
-  "Sheet",
-  "Plate",
   "Round Bar",
   "Flat Bar",
   "Square Bar",
+  "Pipe",
+  "Sheet",
+  "Plate",
   "Angle",
   "Channel (ISMC)",
   "I-Beam (ISMB)",

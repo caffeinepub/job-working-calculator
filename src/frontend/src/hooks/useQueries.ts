@@ -410,7 +410,6 @@ export function useDeleteFlexibleJob() {
   });
 }
 
-// Update flexible job by deleting old and saving new
 export function useUpdateFlexibleJob() {
   const qc = useQueryClient();
   return useMutation({
@@ -447,10 +446,9 @@ export function useUpdateFlexibleJob() {
       quotedPrice: number;
     }) => {
       const actor = await getActor();
-      await actor.deleteFlexibleJob(data.oldId);
-      return actor.saveFlexibleJob(
+      return actor.updateFlexibleJob(
+        data.oldId,
         data.description,
-        null,
         data.materialTab,
         data.centerLength,
         data.sheetBunchWidth,
@@ -490,7 +488,7 @@ export function useAlWeldingJobs() {
     queryKey: ["alWeldingJobs"],
     queryFn: async () => {
       const actor = await getActor();
-      return (actor as any).getAlWeldingJobs();
+      return actor.getAlWeldingJobs();
     },
   });
 }
@@ -513,7 +511,7 @@ export function useSaveAlWeldingJob() {
       costPerFullLength: number;
     }) => {
       const actor = await getActor();
-      return (actor as any).saveAlWeldingJob(
+      return actor.saveAlWeldingJob(
         data.description,
         BigInt(data.numJoints),
         BigInt(data.numBrackets),
@@ -537,7 +535,7 @@ export function useDeleteAlWeldingJob() {
   return useMutation({
     mutationFn: async (id: string) => {
       const actor = await getActor();
-      return (actor as any).deleteAlWeldingJob(id);
+      return actor.deleteAlWeldingJob(id);
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["alWeldingJobs"] }),
   });

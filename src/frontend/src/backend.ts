@@ -164,6 +164,23 @@ export interface FlexibleJob {
     customerName?: string;
     createdAt: bigint;
 }
+
+export interface AlWeldingJob {
+    id: string;
+    description: string;
+    numJoints: bigint;
+    numBrackets: bigint;
+    numDummy: bigint;
+    weldLengthEachMm: number;
+    thickness: number;
+    laborCostPer2mm: number;
+    totalFullLength: number;
+    totalWeldLines: bigint;
+    adjustedLaborCost: number;
+    totalCost: number;
+    costPerFullLength: number;
+    createdAt: bigint;
+}
 export interface JobLineItem {
     finalPrice: number;
     lengthMeters: number;
@@ -223,6 +240,10 @@ export interface backendInterface {
     saveFlexibleJob(description: string, customerId: string | null, materialTab: string, centerLength: number, sheetBunchWidth: number, sheetThickness: number, sheetCount: bigint, barsSupplied: boolean, barLength: number, barWidth: number, barThickness: number, numberOfDrills: bigint, numberOfFolds: bigint, sheetStackWeight: number, stripWeight: number, bar1Weight: number, bar2Weight: number, totalMaterialWeight: number, materialCost: number, cuttingCost: number, foldingCost: number, drillingCost: number, weldingCost: number, chamferingCost: number, totalWeldLength: number, overheadCost: number, profitCost: number, totalCost: number, discountPct: number, quotedPrice: number): Promise<FlexibleJob>;
     getFlexibleJobs(): Promise<Array<FlexibleJob>>;
     deleteFlexibleJob(id: string): Promise<boolean>;
+    updateFlexibleJob(id: string, description: string, materialTab: string, centerLength: number, sheetBunchWidth: number, sheetThickness: number, sheetCount: bigint, barsSupplied: boolean, barLength: number, barWidth: number, barThickness: number, numberOfDrills: bigint, numberOfFolds: bigint, sheetStackWeight: number, stripWeight: number, bar1Weight: number, bar2Weight: number, totalMaterialWeight: number, materialCost: number, cuttingCost: number, foldingCost: number, drillingCost: number, weldingCost: number, chamferingCost: number, totalWeldLength: number, overheadCost: number, profitCost: number, totalCost: number, discountPct: number, quotedPrice: number): Promise<FlexibleJob>;
+    saveAlWeldingJob(description: string, numJoints: bigint, numBrackets: bigint, numDummy: bigint, weldLengthEachMm: number, thickness: number, laborCostPer2mm: number, totalFullLength: number, totalWeldLines: bigint, adjustedLaborCost: number, totalCost: number, costPerFullLength: number): Promise<AlWeldingJob>;
+    getAlWeldingJobs(): Promise<Array<AlWeldingJob>>;
+    deleteAlWeldingJob(id: string): Promise<boolean>;
     saveLabourJob(description: string, customerId: string | null, materialType: string, weldLength: number, laborRate: number, totalCost: number): Promise<LabourJob>;
     updateCustomer(id: string, name: string, phone: string, email: string, address: string): Promise<Customer>;
     updateJob(id: string, name: string, laborRate: number, transportIncluded: boolean, customerId: string | null, transportCost: number, dispatchQty: number, jobLineItems: Array<JobLineItem>, weldingLineItems: Array<WeldingLineItem>, totalFinalPrice: number, totalProductWeight: number, ratePerKg: number): Promise<SavedJob>;
@@ -605,6 +626,22 @@ export class Backend implements backendInterface {
     }
     async deleteFlexibleJob(arg0: string): Promise<boolean> {
         const result = await this.actor.deleteFlexibleJob(arg0);
+        return result;
+    }
+    async updateFlexibleJob(arg0: string, arg1: string, arg2: string, arg3: number, arg4: number, arg5: number, arg6: bigint, arg7: boolean, arg8: number, arg9: number, arg10: number, arg11: bigint, arg12: bigint, arg13: number, arg14: number, arg15: number, arg16: number, arg17: number, arg18: number, arg19: number, arg20: number, arg21: number, arg22: number, arg23: number, arg24: number, arg25: number, arg26: number, arg27: number, arg28: number, arg29: number): Promise<FlexibleJob> {
+        const result = await this.actor.updateFlexibleJob(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11, arg12, arg13, arg14, arg15, arg16, arg17, arg18, arg19, arg20, arg21, arg22, arg23, arg24, arg25, arg26, arg27, arg28, arg29);
+        return result;
+    }
+    async saveAlWeldingJob(arg0: string, arg1: bigint, arg2: bigint, arg3: bigint, arg4: number, arg5: number, arg6: number, arg7: number, arg8: bigint, arg9: number, arg10: number, arg11: number): Promise<AlWeldingJob> {
+        const result = await this.actor.saveAlWeldingJob(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11);
+        return result;
+    }
+    async getAlWeldingJobs(): Promise<Array<AlWeldingJob>> {
+        const result = await this.actor.getAlWeldingJobs();
+        return result;
+    }
+    async deleteAlWeldingJob(arg0: string): Promise<boolean> {
+        const result = await this.actor.deleteAlWeldingJob(arg0);
         return result;
     }
 }

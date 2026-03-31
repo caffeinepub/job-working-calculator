@@ -239,7 +239,8 @@ export function RawMaterials() {
       }
       setModalOpen(false);
       setEditItem(null);
-    } catch {
+    } catch (err) {
+      console.error("Failed to save material:", err);
       toast.error("Failed to save material");
     }
   };
@@ -250,7 +251,8 @@ export function RawMaterials() {
       await deleteMutation.mutateAsync(deleteItem.id);
       toast.success("Material deleted");
       setDeleteItem(null);
-    } catch {
+    } catch (err) {
+      console.error("Failed to delete material:", err);
       toast.error("Failed to delete material");
     }
   };
@@ -259,7 +261,8 @@ export function RawMaterials() {
     try {
       await deleteHistoryMutation.mutateAsync({ materialId, index });
       toast.success("Rate history entry deleted");
-    } catch {
+    } catch (err) {
+      console.error("Failed to delete history entry:", err);
       toast.error("Failed to delete history entry");
     }
   };

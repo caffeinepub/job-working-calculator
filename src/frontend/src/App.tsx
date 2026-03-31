@@ -3,7 +3,6 @@ import { Toaster } from "@/components/ui/sonner";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Calculator, LogOut, Menu, Moon, Sun } from "lucide-react";
 import { useEffect, useState } from "react";
-import { getAuthActor } from "./authActor";
 import type { AppPage } from "./components/Sidebar";
 import { Sidebar } from "./components/Sidebar";
 import { AuthProvider, useAuth } from "./context/AuthContext";
@@ -58,12 +57,6 @@ function AppShell() {
   const [currentPage, setCurrentPage] = useState<AppPage>("dashboard");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [dark, setDark] = useDarkMode();
-
-  useEffect(() => {
-    getAuthActor()
-      .then((a) => a.initAdmin())
-      .catch(() => {});
-  }, []);
 
   if (!isLoggedIn) {
     return <Login />;
