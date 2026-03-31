@@ -85,6 +85,7 @@ function saveCostSnapshot(
   jobId: string,
   totalCost: number,
   discountPct: number,
+  materialRate?: number,
 ) {
   try {
     const key = getCostHistoryKey(jobId);
@@ -95,6 +96,7 @@ function saveCostSnapshot(
       totalCost,
       quotedPrice,
       discountPct,
+      materialRate: materialRate ?? 0,
       changedAt: Date.now(),
     });
     localStorage.setItem(key, JSON.stringify(existing));
@@ -450,6 +452,7 @@ function SavedJobsTab({
                                             totalCost: number;
                                             discountPct: number;
                                             quotedPrice: number;
+                                            materialRate?: number;
                                             changedAt: number;
                                           },
                                           _i: number,
@@ -467,6 +470,11 @@ function SavedJobsTab({
                                                 year: "numeric",
                                               })}
                                             </span>
+                                            {entry.materialRate ? (
+                                              <span className="text-blue-600 dark:text-blue-400">
+                                                Rate: ₹{entry.materialRate}/kg
+                                              </span>
+                                            ) : null}
                                             <span className="text-foreground">
                                               Before discount: ₹
                                               {entry.totalCost.toFixed(2)}
@@ -771,7 +779,7 @@ function TabCalculator({
     sheetThkNum > 0 &&
     sheetCountNum > 0;
 
-  const ratePerMeter =
+  const _ratePerMeter =
     canCalculate && totalWeldLength > 0
       ? quotedPrice / (totalWeldLength / 1000)
       : null;
@@ -832,6 +840,7 @@ function TabCalculator({
           duplicate.id,
           duplicate.totalCost,
           getDiscountMap()[duplicate.id] ?? 0,
+          (duplicate as any).materialRate ?? 0,
         );
         const newJob = await updateJob.mutateAsync({
           oldId: duplicate.id,
@@ -855,6 +864,7 @@ function TabCalculator({
           editingJob.id,
           editingJob.totalCost,
           getDiscountMap()[editingJob.id] ?? 0,
+          (editingJob as any).materialRate ?? 0,
         );
         const newJob = await updateJob.mutateAsync({
           oldId: editingJob.id,
@@ -933,7 +943,12 @@ function TabCalculator({
             ? (job.discountPct ?? 0)
             : (getDiscountMap()[job.id] ?? 0);
         // Save snapshot of old cost
-        saveCostSnapshot(job.id, job.totalCost, disc);
+        saveCostSnapshot(
+          job.id,
+          job.totalCost,
+          disc,
+          (job as any).materialRate ?? 0,
+        );
 
         // Recalculate with new rate
         const sThk = job.sheetThickness;
@@ -1186,10 +1201,8 @@ function TabCalculator({
                 id={`flex-desc-${materialTab}`}
                 placeholder="Auto-fills from dimensions…"
                 value={description}
-                onChange={(e) => {
-                  if (e.target.value === "") lastAutoDesc.current = "";
-                  setDescription(e.target.value);
-                }}
+                readOnly
+                className="bg-muted cursor-default"
                 data-ocid="flexibles.input"
               />
             </div>
@@ -1727,20 +1740,6 @@ function TabCalculator({
                     </div>
                   </div>
                 </>
-              )}
-
-              {/* Rate per Meter */}
-              {canCalculate && ratePerMeter !== null && (
-                <FormulaRow
-                  rowKey="ratePerMeter"
-                  label="Rate per Meter"
-                  value={`Rs ${ratePerMeter.toFixed(2)} / m`}
-                  formula="Total Cost ÷ Total Weld Length (m)"
-                  openFormulas={openFormulas}
-                  toggleFormula={toggleFormula}
-                  bold
-                  large
-                />
               )}
             </div>
           </CardContent>

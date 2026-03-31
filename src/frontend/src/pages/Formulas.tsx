@@ -822,32 +822,59 @@ export function Formulas() {
       </div>
 
       <Tabs defaultValue="weight">
-        <TabsList className="w-full">
-          <TabsTrigger value="weight" className="flex-1 text-xs sm:text-sm">
+        <TabsList className="flex overflow-x-auto whitespace-nowrap w-full scrollbar-thin">
+          <TabsTrigger
+            value="weight"
+            className="text-xs sm:text-sm shrink-0 px-3"
+          >
             Weight
           </TabsTrigger>
-          <TabsTrigger value="jobcost" className="flex-1 text-xs sm:text-sm">
+          <TabsTrigger
+            value="jobcost"
+            className="text-xs sm:text-sm shrink-0 px-3"
+          >
             Job Costing
           </TabsTrigger>
-          <TabsTrigger value="welding" className="flex-1 text-xs sm:text-sm">
+          <TabsTrigger
+            value="welding"
+            className="text-xs sm:text-sm shrink-0 px-3"
+          >
             Welding
           </TabsTrigger>
-          <TabsTrigger value="options" className="flex-1 text-xs sm:text-sm">
+          <TabsTrigger
+            value="options"
+            className="text-xs sm:text-sm shrink-0 px-3"
+          >
             Options
           </TabsTrigger>
-          <TabsTrigger value="labour" className="flex-1 text-xs sm:text-sm">
+          <TabsTrigger
+            value="labour"
+            className="text-xs sm:text-sm shrink-0 px-3"
+          >
             Labour
           </TabsTrigger>
-          <TabsTrigger value="flexibles" className="flex-1 text-xs sm:text-sm">
+          <TabsTrigger
+            value="flexibles"
+            className="text-xs sm:text-sm shrink-0 px-3"
+          >
             Flexibles
           </TabsTrigger>
-          <TabsTrigger value="machining" className="flex-1 text-xs sm:text-sm">
+          <TabsTrigger
+            value="machining"
+            className="text-xs sm:text-sm shrink-0 px-3"
+          >
             Machining
           </TabsTrigger>
-          <TabsTrigger value="operations" className="flex-1 text-xs sm:text-sm">
+          <TabsTrigger
+            value="operations"
+            className="text-xs sm:text-sm shrink-0 px-3"
+          >
             Operations
           </TabsTrigger>
-          <TabsTrigger value="security" className="flex-1 text-xs sm:text-sm">
+          <TabsTrigger
+            value="security"
+            className="text-xs sm:text-sm shrink-0 px-3"
+          >
             Security
           </TabsTrigger>
         </TabsList>
