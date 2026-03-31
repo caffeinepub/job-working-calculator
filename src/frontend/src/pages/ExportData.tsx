@@ -1,4 +1,14 @@
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -17,10 +27,12 @@ import {
   FileSpreadsheet,
   Package,
   ShieldCheck,
+  UploadCloud,
   Users,
 } from "lucide-react";
-import { useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
+import { getActor } from "../actorSingleton";
 import { useCustomers, useJobs, useMaterials } from "../hooks/useQueries";
 import { downloadCSV, downloadJSON } from "../utils/exportUtils";
 
@@ -177,7 +189,7 @@ export function ExportData() {
       <BackupReminderBanner onTabSwitch={switchToBackup} />
 
       <Tabs value={tab} onValueChange={setTab} data-ocid="export.tab">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="materials" data-ocid="export.materials.tab">
             Materials
           </TabsTrigger>
@@ -193,6 +205,9 @@ export function ExportData() {
             data-ocid="export.backup.tab"
           >
             Full Backup
+          </TabsTrigger>
+          <TabsTrigger value="restore" data-ocid="export.restore.tab">
+            Restore
           </TabsTrigger>
         </TabsList>
 
@@ -322,6 +337,11 @@ export function ExportData() {
             </CardContent>
           </Card>
         </TabsContent>
+
+        {/* Restore */}
+        <TabsContent value="restore" className="mt-6">
+          <RestoreTab />
+        </TabsContent>
       </Tabs>
     </div>
   );
@@ -448,5 +468,240 @@ function ExportCard({
         </Button>
       </CardContent>
     </Card>
+  );
+}
+
+function RestoreTab() {
+  const [parsed, setParsed] = useState<{
+    materials: any[];
+    customers: any[];
+    jobs: any[];
+  } | null>(null);
+  const [parseError, setParseError] = useState<string | null>(null);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [progress, setProgress] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const f = e.target.files?.[0] ?? null;
+      setParsed(null);
+      setParseError(null);
+      if (!f) return;
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        try {
+          const json = JSON.parse(ev.target?.result as string);
+          if (
+            !Array.isArray(json.materials) ||
+            !Array.isArray(json.customers) ||
+            !Array.isArray(json.jobs)
+          ) {
+            setParseError(
+              "Invalid backup file: must contain materials, customers, and jobs arrays.",
+            );
+            return;
+          }
+          setParsed({
+            materials: json.materials,
+            customers: json.customers,
+            jobs: json.jobs,
+          });
+        } catch {
+          setParseError(
+            "Could not parse file. Make sure it is a valid JSON backup.",
+          );
+        }
+      };
+      reader.readAsText(f);
+    },
+    [],
+  );
+
+  const handleRestore = async () => {
+    if (!parsed) return;
+    setShowConfirm(false);
+    try {
+      const actor = await getActor();
+      const total =
+        parsed.materials.length + parsed.customers.length + parsed.jobs.length;
+      let done = 0;
+
+      setProgress(`Restoring... 0 of ${total} items`);
+
+      for (const m of parsed.materials) {
+        await actor.addMaterial(
+          m.grade ?? "",
+          m.materialType ?? "",
+          m.size ?? "",
+          m.weightPerMeter ?? 0,
+          m.currentRate ?? 0,
+        );
+        done++;
+        setProgress(`Restoring... ${done} of ${total} items`);
+      }
+
+      for (const c of parsed.customers) {
+        await actor.addCustomer(
+          c.name ?? "",
+          c.phone ?? "",
+          c.email ?? "",
+          c.address ?? "",
+        );
+        done++;
+        setProgress(`Restoring... ${done} of ${total} items`);
+      }
+
+      for (const j of parsed.jobs) {
+        const job = j.job ?? j;
+        await actor.saveJob(
+          job.name ?? "",
+          job.laborRate ?? 0,
+          job.transportIncluded ?? false,
+          job.customerId ?? null,
+          job.transportCost ?? 0,
+          job.dispatchQty ?? 1,
+          j.jobLineItems ?? [],
+          j.weldingLineItems ?? [],
+          j.totalFinalPrice ?? 0,
+          j.totalProductWeight ?? 0,
+          j.ratePerKg ?? 0,
+        );
+        done++;
+        setProgress(`Restoring... ${done} of ${total} items`);
+      }
+
+      toast.success(
+        `Backup restored successfully. ${parsed.materials.length} materials, ${parsed.customers.length} customers, ${parsed.jobs.length} jobs restored.`,
+      );
+      setTimeout(() => window.location.reload(), 1500);
+    } catch (err: any) {
+      setProgress(null);
+      toast.error(`Restore failed: ${err?.message ?? String(err)}`);
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-4">
+      <Card className="border-amber-400/60 border-2">
+        <CardHeader>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
+              <AlertTriangle size={20} className="text-amber-600" />
+            </div>
+            <div>
+              <CardTitle className="text-lg text-amber-700 dark:text-amber-400">
+                Restore from Backup
+              </CardTitle>
+              <CardDescription>
+                Restoring will <strong>add</strong> data from the backup file to
+                your current data. Download a full backup first if you want to
+                preserve what you have.
+              </CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4">
+          <Alert className="border-amber-400/60 bg-amber-50 dark:bg-amber-950/30">
+            <AlertTriangle className="h-4 w-4 text-amber-600" />
+            <AlertDescription className="text-amber-800 dark:text-amber-300 text-sm">
+              This will import all items from the backup JSON file into your
+              app. Download a fresh backup before restoring if you want to keep
+              a copy of your current data.
+            </AlertDescription>
+          </Alert>
+
+          <div className="flex flex-col gap-2">
+            <label
+              htmlFor="restore-file-input"
+              className="text-sm font-medium text-foreground"
+            >
+              Select backup file (.json)
+            </label>
+            <input
+              id="restore-file-input"
+              ref={fileInputRef}
+              type="file"
+              accept=".json"
+              onChange={handleFileChange}
+              className="block text-sm text-muted-foreground file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-primary file:text-primary-foreground hover:file:bg-primary/90 cursor-pointer"
+              data-ocid="export.restore.dropzone"
+            />
+            {parseError && (
+              <p
+                className="text-sm text-destructive"
+                data-ocid="export.restore.error_state"
+              >
+                {parseError}
+              </p>
+            )}
+          </div>
+
+          {parsed && (
+            <div className="grid grid-cols-3 gap-3">
+              <StatBox
+                label="Materials"
+                count={parsed.materials.length}
+                color="bg-blue-50 text-blue-700"
+              />
+              <StatBox
+                label="Customers"
+                count={parsed.customers.length}
+                color="bg-violet-50 text-violet-700"
+              />
+              <StatBox
+                label="Jobs"
+                count={parsed.jobs.length}
+                color="bg-emerald-50 text-emerald-700"
+              />
+            </div>
+          )}
+
+          {progress && (
+            <p
+              className="text-sm text-muted-foreground text-center"
+              data-ocid="export.restore.loading_state"
+            >
+              {progress}
+            </p>
+          )}
+
+          <Button
+            disabled={!parsed || !!progress}
+            onClick={() => setShowConfirm(true)}
+            className="gap-2 w-full"
+            data-ocid="export.restore.primary_button"
+          >
+            <UploadCloud size={16} />
+            Restore Backup
+          </Button>
+        </CardContent>
+      </Card>
+
+      <AlertDialog open={showConfirm} onOpenChange={setShowConfirm}>
+        <AlertDialogContent data-ocid="export.restore.dialog">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Restore from backup?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will import {parsed?.materials.length ?? 0} materials,{" "}
+              {parsed?.customers.length ?? 0} customers, and{" "}
+              {parsed?.jobs.length ?? 0} jobs from the backup file into your
+              app. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-ocid="export.restore.cancel_button">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleRestore}
+              data-ocid="export.restore.confirm_button"
+            >
+              Yes, Restore
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
   );
 }

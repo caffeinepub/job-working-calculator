@@ -172,7 +172,9 @@ export function Dashboard({ onNavigate }: DashboardProps) {
   return (
     <div className="flex flex-col gap-6" data-ocid="dashboard.page">
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
+        <h1 className="text-2xl font-bold text-foreground border-l-4 border-blue-500 pl-3">
+          Dashboard
+        </h1>
         <p className="text-muted-foreground text-sm mt-0.5">
           Overview of your job working business
         </p>

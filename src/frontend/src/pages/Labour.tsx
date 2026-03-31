@@ -556,7 +556,9 @@ export function Labour() {
           <Wrench size={18} className="text-primary-foreground" />
         </div>
         <div>
-          <h1 className="text-xl font-bold text-foreground">Labour Jobs</h1>
+          <h1 className="text-xl font-bold text-foreground border-l-4 border-green-500 pl-3">
+            Labour Jobs
+          </h1>
           <p className="text-sm text-muted-foreground">
             Quick calculator — save only when needed
           </p>

@@ -793,7 +793,7 @@ export function Formulas() {
     <div className="max-w-3xl mx-auto space-y-6">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 className="text-xl font-bold text-foreground">
+          <h2 className="text-xl font-bold text-foreground border-l-4 border-slate-500 pl-3">
             Formulas &amp; Settings
           </h2>
           <p className="text-sm text-muted-foreground mt-1">

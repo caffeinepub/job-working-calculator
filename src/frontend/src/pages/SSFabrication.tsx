@@ -50,7 +50,9 @@ export function SSFabrication({
           <Briefcase size={18} className="text-primary" />
         </div>
         <div>
-          <h1 className="text-2xl font-bold text-foreground">SS Fabrication</h1>
+          <h1 className="text-2xl font-bold text-foreground border-l-4 border-amber-500 pl-3">
+            SS Fabrication
+          </h1>
           <p className="text-muted-foreground text-sm">
             Manage raw materials, calculate job costs, and view history
           </p>

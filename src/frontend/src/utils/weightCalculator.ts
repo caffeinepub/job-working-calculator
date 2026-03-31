@@ -6,29 +6,29 @@
 const STEEL_DENSITY = 7930; // kg/m³ — SS304 density
 
 export type MaterialType =
+  | "Pipe"
+  | "Wire Mesh"
+  | "Sheet"
+  | "Plate"
   | "Round Bar"
   | "Flat Bar"
   | "Square Bar"
-  | "Pipe"
   | "Angle"
   | "Channel (ISMC)"
   | "I-Beam (ISMB)"
-  | "Plate"
-  | "Sheet"
-  | "Wire Mesh"
   | "Machined";
 
 export const MATERIAL_TYPES: MaterialType[] = [
+  "Pipe",
+  "Wire Mesh",
+  "Sheet",
+  "Plate",
   "Round Bar",
   "Flat Bar",
   "Square Bar",
-  "Pipe",
   "Angle",
   "Channel (ISMC)",
   "I-Beam (ISMB)",
-  "Plate",
-  "Sheet",
-  "Wire Mesh",
   "Machined",
 ];
 

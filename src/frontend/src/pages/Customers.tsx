@@ -203,7 +203,9 @@ export function Customers() {
     <div className="flex flex-col gap-6" data-ocid="customers.page">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Customers</h1>
+          <h1 className="text-2xl font-bold text-foreground border-l-4 border-rose-500 pl-3">
+            Customers
+          </h1>
           <p className="text-muted-foreground text-sm mt-0.5">
             Manage your customer list
           </p>

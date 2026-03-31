@@ -1789,7 +1789,9 @@ export function Flexibles() {
           <Layers size={18} className="text-primary-foreground" />
         </div>
         <div>
-          <h1 className="text-xl font-bold text-foreground">Flexibles</h1>
+          <h1 className="text-xl font-bold text-foreground border-l-4 border-violet-500 pl-3">
+            Flexibles
+          </h1>
           <p className="text-sm text-muted-foreground">
             Expansion joints — Aluminium &amp; Copper costing
           </p>
