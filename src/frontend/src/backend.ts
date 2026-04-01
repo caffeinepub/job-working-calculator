@@ -120,11 +120,9 @@ export interface RateHistoryEntry {
 }
 export interface LabourJob {
     id: string;
-    customerName?: string;
     createdAt: bigint;
     totalCost: number;
     description: string;
-    customerId?: string;
     weldLength: number;
     laborRate: number;
     materialType: string;
@@ -158,13 +156,10 @@ export interface FlexibleJob {
     overheadCost: number;
     profitCost: number;
     totalCost: number;
-    discountPct?: number;
-    quotedPrice?: number;
-    customerId?: string;
-    customerName?: string;
+    discountPct: number;
+    quotedPrice: number;
     createdAt: bigint;
 }
-
 export interface AlWeldingJob {
     id: string;
     description: string;
@@ -235,359 +230,119 @@ export interface backendInterface {
     isCallerAdmin(): Promise<boolean>;
     saveCallerUserProfile(profile: UserProfile): Promise<void>;
     saveJob(name: string, laborRate: number, transportIncluded: boolean, customerId: string | null, transportCost: number, dispatchQty: number, jobLineItems: Array<JobLineItem>, weldingLineItems: Array<WeldingLineItem>, totalFinalPrice: number, totalProductWeight: number, ratePerKg: number): Promise<SavedJob>;
-    saveFlexibleJob(description: string, customerId: string | null, materialTab: string, centerLength: number, sheetBunchWidth: number, sheetThickness: number, sheetCount: bigint, barsSupplied: boolean, barLength: number, barWidth: number, barThickness: number, numberOfDrills: bigint, numberOfFolds: bigint, sheetStackWeight: number, stripWeight: number, bar1Weight: number, bar2Weight: number, totalMaterialWeight: number, materialCost: number, cuttingCost: number, foldingCost: number, drillingCost: number, weldingCost: number, chamferingCost: number, totalWeldLength: number, overheadCost: number, profitCost: number, totalCost: number, discountPct: number, quotedPrice: number): Promise<FlexibleJob>;
+    saveLabourJob(description: string, materialType: string, weldLength: number, laborRate: number, totalCost: number): Promise<LabourJob>;
+    saveFlexibleJob(description: string, materialTab: string, centerLength: number, sheetBunchWidth: number, sheetThickness: number, sheetCount: bigint, barsSupplied: boolean, barLength: number, barWidth: number, barThickness: number, numberOfDrills: bigint, numberOfFolds: bigint, sheetStackWeight: number, stripWeight: number, bar1Weight: number, bar2Weight: number, totalMaterialWeight: number, materialCost: number, cuttingCost: number, foldingCost: number, drillingCost: number, weldingCost: number, chamferingCost: number, totalWeldLength: number, overheadCost: number, profitCost: number, totalCost: number, discountPct: number, quotedPrice: number): Promise<FlexibleJob>;
     getFlexibleJobs(): Promise<Array<FlexibleJob>>;
     deleteFlexibleJob(id: string): Promise<boolean>;
     updateFlexibleJob(id: string, description: string, materialTab: string, centerLength: number, sheetBunchWidth: number, sheetThickness: number, sheetCount: bigint, barsSupplied: boolean, barLength: number, barWidth: number, barThickness: number, numberOfDrills: bigint, numberOfFolds: bigint, sheetStackWeight: number, stripWeight: number, bar1Weight: number, bar2Weight: number, totalMaterialWeight: number, materialCost: number, cuttingCost: number, foldingCost: number, drillingCost: number, weldingCost: number, chamferingCost: number, totalWeldLength: number, overheadCost: number, profitCost: number, totalCost: number, discountPct: number, quotedPrice: number): Promise<FlexibleJob>;
     saveAlWeldingJob(description: string, numJoints: bigint, numBrackets: bigint, numDummy: bigint, weldLengthEachMm: number, thickness: number, laborCostPer2mm: number, totalFullLength: number, totalWeldLines: bigint, adjustedLaborCost: number, totalCost: number, costPerFullLength: number): Promise<AlWeldingJob>;
     getAlWeldingJobs(): Promise<Array<AlWeldingJob>>;
     deleteAlWeldingJob(id: string): Promise<boolean>;
-    saveLabourJob(description: string, customerId: string | null, materialType: string, weldLength: number, laborRate: number, totalCost: number): Promise<LabourJob>;
     updateCustomer(id: string, name: string, phone: string, email: string, address: string): Promise<Customer>;
     updateJob(id: string, name: string, laborRate: number, transportIncluded: boolean, customerId: string | null, transportCost: number, dispatchQty: number, jobLineItems: Array<JobLineItem>, weldingLineItems: Array<WeldingLineItem>, totalFinalPrice: number, totalProductWeight: number, ratePerKg: number): Promise<SavedJob>;
     updateMaterial(id: string, grade: string, materialType: string, size: string, weightPerMeter: number, currentRate: number): Promise<RawMaterial>;
 }
-import type { FlexibleJob as _FlexibleJob, Job as _Job, JobLineItem as _JobLineItem, LabourJob as _LabourJob, SavedJob as _SavedJob, UserProfile as _UserProfile, UserRole as _UserRole, WeldingLineItem as _WeldingLineItem } from "./declarations/backend.did.d.ts";
+import type { Job as _Job, JobLineItem as _JobLineItem, SavedJob as _SavedJob, UserProfile as _UserProfile, UserRole as _UserRole, WeldingLineItem as _WeldingLineItem } from "./declarations/backend.did.d.ts";
 export class Backend implements backendInterface {
     constructor(private actor: ActorSubclass<_SERVICE>, private _uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, private _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, private processError?: (error: unknown) => never){}
     async addCustomer(arg0: string, arg1: string, arg2: string, arg3: string): Promise<Customer> {
-        if (this.processError) {
-            try {
-                const result = await this.actor.addCustomer(arg0, arg1, arg2, arg3);
-                return result;
-            } catch (e) {
-                this.processError(e);
-                throw new Error("unreachable");
-            }
-        } else {
-            const result = await this.actor.addCustomer(arg0, arg1, arg2, arg3);
-            return result;
-        }
+        const result = await this.actor.addCustomer(arg0, arg1, arg2, arg3);
+        return result;
     }
     async addMaterial(arg0: string, arg1: string, arg2: string, arg3: number, arg4: number): Promise<RawMaterial> {
-        if (this.processError) {
-            try {
-                const result = await this.actor.addMaterial(arg0, arg1, arg2, arg3, arg4);
-                return result;
-            } catch (e) {
-                this.processError(e);
-                throw new Error("unreachable");
-            }
-        } else {
-            const result = await this.actor.addMaterial(arg0, arg1, arg2, arg3, arg4);
-            return result;
-        }
+        const result = await this.actor.addMaterial(arg0, arg1, arg2, arg3, arg4);
+        return result;
     }
     async deleteCustomer(arg0: string): Promise<boolean> {
-        if (this.processError) {
-            try {
-                const result = await this.actor.deleteCustomer(arg0);
-                return result;
-            } catch (e) {
-                this.processError(e);
-                throw new Error("unreachable");
-            }
-        } else {
-            const result = await this.actor.deleteCustomer(arg0);
-            return result;
-        }
+        const result = await this.actor.deleteCustomer(arg0);
+        return result;
     }
     async deleteJob(arg0: string): Promise<boolean> {
-        if (this.processError) {
-            try {
-                const result = await this.actor.deleteJob(arg0);
-                return result;
-            } catch (e) {
-                this.processError(e);
-                throw new Error("unreachable");
-            }
-        } else {
-            const result = await this.actor.deleteJob(arg0);
-            return result;
-        }
+        const result = await this.actor.deleteJob(arg0);
+        return result;
     }
     async deleteLabourJob(arg0: string): Promise<boolean> {
-        if (this.processError) {
-            try {
-                const result = await this.actor.deleteLabourJob(arg0);
-                return result;
-            } catch (e) {
-                this.processError(e);
-                throw new Error("unreachable");
-            }
-        } else {
-            const result = await this.actor.deleteLabourJob(arg0);
-            return result;
-        }
+        const result = await this.actor.deleteLabourJob(arg0);
+        return result;
     }
     async deleteMaterial(arg0: string): Promise<boolean> {
-        if (this.processError) {
-            try {
-                const result = await this.actor.deleteMaterial(arg0);
-                return result;
-            } catch (e) {
-                this.processError(e);
-                throw new Error("unreachable");
-            }
-        } else {
-            const result = await this.actor.deleteMaterial(arg0);
-            return result;
-        }
+        const result = await this.actor.deleteMaterial(arg0);
+        return result;
     }
     async deleteRateHistoryEntry(arg0: string, arg1: bigint): Promise<RawMaterial> {
-        if (this.processError) {
-            try {
-                const result = await this.actor.deleteRateHistoryEntry(arg0, arg1);
-                return result;
-            } catch (e) {
-                this.processError(e);
-                throw new Error("unreachable");
-            }
-        } else {
-            const result = await this.actor.deleteRateHistoryEntry(arg0, arg1);
-            return result;
-        }
+        const result = await this.actor.deleteRateHistoryEntry(arg0, arg1);
+        return result;
     }
     async getCallerUserProfile(): Promise<UserProfile | null> {
-        if (this.processError) {
-            try {
-                const result = await this.actor.getCallerUserProfile();
-                return from_candid_opt_n3(this._uploadFile, this._downloadFile, result);
-            } catch (e) {
-                this.processError(e);
-                throw new Error("unreachable");
-            }
-        } else {
-            const result = await this.actor.getCallerUserProfile();
-            return from_candid_opt_n3(this._uploadFile, this._downloadFile, result);
-        }
+        const result = await this.actor.getCallerUserProfile();
+        return result.length === 0 ? null : result[0];
     }
     async getCallerUserRole(): Promise<UserRole> {
-        if (this.processError) {
-            try {
-                const result = await this.actor.getCallerUserRole();
-                return from_candid_UserRole_n4(this._uploadFile, this._downloadFile, result);
-            } catch (e) {
-                this.processError(e);
-                throw new Error("unreachable");
-            }
-        } else {
-            const result = await this.actor.getCallerUserRole();
-            return from_candid_UserRole_n4(this._uploadFile, this._downloadFile, result);
-        }
+        const result = await this.actor.getCallerUserRole();
+        return from_candid_variant_n5(this._uploadFile, this._downloadFile, result);
     }
     async getCustomer(arg0: string): Promise<Customer> {
-        if (this.processError) {
-            try {
-                const result = await this.actor.getCustomer(arg0);
-                return result;
-            } catch (e) {
-                this.processError(e);
-                throw new Error("unreachable");
-            }
-        } else {
-            const result = await this.actor.getCustomer(arg0);
-            return result;
-        }
+        const result = await this.actor.getCustomer(arg0);
+        return result;
     }
     async getCustomers(): Promise<Array<Customer>> {
-        if (this.processError) {
-            try {
-                const result = await this.actor.getCustomers();
-                return result;
-            } catch (e) {
-                this.processError(e);
-                throw new Error("unreachable");
-            }
-        } else {
-            const result = await this.actor.getCustomers();
-            return result;
-        }
+        const result = await this.actor.getCustomers();
+        return result;
     }
     async getJob(arg0: string): Promise<SavedJob> {
-        if (this.processError) {
-            try {
-                const result = await this.actor.getJob(arg0);
-                return from_candid_SavedJob_n6(this._uploadFile, this._downloadFile, result);
-            } catch (e) {
-                this.processError(e);
-                throw new Error("unreachable");
-            }
-        } else {
-            const result = await this.actor.getJob(arg0);
-            return from_candid_SavedJob_n6(this._uploadFile, this._downloadFile, result);
-        }
+        const result = await this.actor.getJob(arg0);
+        return from_candid_SavedJob(this._uploadFile, this._downloadFile, result);
     }
     async getJobs(): Promise<Array<SavedJob>> {
-        if (this.processError) {
-            try {
-                const result = await this.actor.getJobs();
-                return from_candid_vec_n11(this._uploadFile, this._downloadFile, result);
-            } catch (e) {
-                this.processError(e);
-                throw new Error("unreachable");
-            }
-        } else {
-            const result = await this.actor.getJobs();
-            return from_candid_vec_n11(this._uploadFile, this._downloadFile, result);
-        }
+        const result = await this.actor.getJobs();
+        return result.map((x) => from_candid_SavedJob(this._uploadFile, this._downloadFile, x));
     }
     async getLabourJobs(): Promise<Array<LabourJob>> {
-        if (this.processError) {
-            try {
-                const result = await this.actor.getLabourJobs();
-                return from_candid_vec_n12(this._uploadFile, this._downloadFile, result);
-            } catch (e) {
-                this.processError(e);
-                throw new Error("unreachable");
-            }
-        } else {
-            const result = await this.actor.getLabourJobs();
-            return from_candid_vec_n12(this._uploadFile, this._downloadFile, result);
-        }
+        const result = await this.actor.getLabourJobs();
+        return result;
     }
     async getMaterial(arg0: string): Promise<RawMaterial> {
-        if (this.processError) {
-            try {
-                const result = await this.actor.getMaterial(arg0);
-                return result;
-            } catch (e) {
-                this.processError(e);
-                throw new Error("unreachable");
-            }
-        } else {
-            const result = await this.actor.getMaterial(arg0);
-            return result;
-        }
+        const result = await this.actor.getMaterial(arg0);
+        return result;
     }
     async getMaterials(): Promise<Array<RawMaterial>> {
-        if (this.processError) {
-            try {
-                const result = await this.actor.getMaterials();
-                return result;
-            } catch (e) {
-                this.processError(e);
-                throw new Error("unreachable");
-            }
-        } else {
-            const result = await this.actor.getMaterials();
-            return result;
-        }
+        const result = await this.actor.getMaterials();
+        return result;
     }
     async getUserProfile(arg0: Principal): Promise<UserProfile | null> {
-        if (this.processError) {
-            try {
-                const result = await this.actor.getUserProfile(arg0);
-                return from_candid_opt_n3(this._uploadFile, this._downloadFile, result);
-            } catch (e) {
-                this.processError(e);
-                throw new Error("unreachable");
-            }
-        } else {
-            const result = await this.actor.getUserProfile(arg0);
-            return from_candid_opt_n3(this._uploadFile, this._downloadFile, result);
-        }
+        const result = await this.actor.getUserProfile(arg0);
+        return result.length === 0 ? null : result[0];
     }
     async isCallerAdmin(): Promise<boolean> {
-        if (this.processError) {
-            try {
-                const result = await this.actor.isCallerAdmin();
-                return result;
-            } catch (e) {
-                this.processError(e);
-                throw new Error("unreachable");
-            }
-        } else {
-            const result = await this.actor.isCallerAdmin();
-            return result;
-        }
+        const result = await this.actor.isCallerAdmin();
+        return result;
     }
     async saveCallerUserProfile(arg0: UserProfile): Promise<void> {
-        if (this.processError) {
-            try {
-                const result = await this.actor.saveCallerUserProfile(arg0);
-                return result;
-            } catch (e) {
-                this.processError(e);
-                throw new Error("unreachable");
-            }
-        } else {
-            const result = await this.actor.saveCallerUserProfile(arg0);
-            return result;
-        }
+        const result = await this.actor.saveCallerUserProfile(arg0);
+        return result;
     }
     async saveJob(arg0: string, arg1: number, arg2: boolean, arg3: string | null, arg4: number, arg5: number, arg6: Array<JobLineItem>, arg7: Array<WeldingLineItem>, arg8: number, arg9: number, arg10: number): Promise<SavedJob> {
-        if (this.processError) {
-            try {
-                const result = await this.actor.saveJob(arg0, arg1, arg2, to_candid_opt_n15(this._uploadFile, this._downloadFile, arg3), arg4, arg5, arg6, arg7, arg8, arg9, arg10);
-                return from_candid_SavedJob_n6(this._uploadFile, this._downloadFile, result);
-            } catch (e) {
-                this.processError(e);
-                throw new Error("unreachable");
-            }
-        } else {
-            const result = await this.actor.saveJob(arg0, arg1, arg2, to_candid_opt_n15(this._uploadFile, this._downloadFile, arg3), arg4, arg5, arg6, arg7, arg8, arg9, arg10);
-            return from_candid_SavedJob_n6(this._uploadFile, this._downloadFile, result);
-        }
+        const result = await this.actor.saveJob(arg0, arg1, arg2, to_candid_opt(arg3), arg4, arg5, arg6, arg7, arg8, arg9, arg10);
+        return from_candid_SavedJob(this._uploadFile, this._downloadFile, result);
     }
-    async saveLabourJob(arg0: string, arg1: string | null, arg2: string, arg3: number, arg4: number, arg5: number): Promise<LabourJob> {
-        if (this.processError) {
-            try {
-                const result = await this.actor.saveLabourJob(arg0, to_candid_opt_n15(this._uploadFile, this._downloadFile, arg1), arg2, arg3, arg4, arg5);
-                return from_candid_LabourJob_n13(this._uploadFile, this._downloadFile, result);
-            } catch (e) {
-                this.processError(e);
-                throw new Error("unreachable");
-            }
-        } else {
-            const result = await this.actor.saveLabourJob(arg0, to_candid_opt_n15(this._uploadFile, this._downloadFile, arg1), arg2, arg3, arg4, arg5);
-            return from_candid_LabourJob_n13(this._uploadFile, this._downloadFile, result);
-        }
+    async saveLabourJob(arg0: string, arg1: string, arg2: number, arg3: number, arg4: number): Promise<LabourJob> {
+        const result = await this.actor.saveLabourJob(arg0, arg1, arg2, arg3, arg4);
+        return result;
     }
     async updateCustomer(arg0: string, arg1: string, arg2: string, arg3: string, arg4: string): Promise<Customer> {
-        if (this.processError) {
-            try {
-                const result = await this.actor.updateCustomer(arg0, arg1, arg2, arg3, arg4);
-                return result;
-            } catch (e) {
-                this.processError(e);
-                throw new Error("unreachable");
-            }
-        } else {
-            const result = await this.actor.updateCustomer(arg0, arg1, arg2, arg3, arg4);
-            return result;
-        }
+        const result = await this.actor.updateCustomer(arg0, arg1, arg2, arg3, arg4);
+        return result;
     }
     async updateJob(arg0: string, arg1: string, arg2: number, arg3: boolean, arg4: string | null, arg5: number, arg6: number, arg7: Array<JobLineItem>, arg8: Array<WeldingLineItem>, arg9: number, arg10: number, arg11: number): Promise<SavedJob> {
-        if (this.processError) {
-            try {
-                const result = await this.actor.updateJob(arg0, arg1, arg2, arg3, to_candid_opt_n15(this._uploadFile, this._downloadFile, arg4), arg5, arg6, arg7, arg8, arg9, arg10, arg11);
-                return from_candid_SavedJob_n6(this._uploadFile, this._downloadFile, result);
-            } catch (e) {
-                this.processError(e);
-                throw new Error("unreachable");
-            }
-        } else {
-            const result = await this.actor.updateJob(arg0, arg1, arg2, arg3, to_candid_opt_n15(this._uploadFile, this._downloadFile, arg4), arg5, arg6, arg7, arg8, arg9, arg10, arg11);
-            return from_candid_SavedJob_n6(this._uploadFile, this._downloadFile, result);
-        }
+        const result = await this.actor.updateJob(arg0, arg1, arg2, arg3, to_candid_opt(arg4), arg5, arg6, arg7, arg8, arg9, arg10, arg11);
+        return from_candid_SavedJob(this._uploadFile, this._downloadFile, result);
     }
     async updateMaterial(arg0: string, arg1: string, arg2: string, arg3: string, arg4: number, arg5: number): Promise<RawMaterial> {
-        if (this.processError) {
-            try {
-                const result = await this.actor.updateMaterial(arg0, arg1, arg2, arg3, arg4, arg5);
-                return result;
-            } catch (e) {
-                this.processError(e);
-                throw new Error("unreachable");
-            }
-        } else {
-            const result = await this.actor.updateMaterial(arg0, arg1, arg2, arg3, arg4, arg5);
-            return result;
-        }
+        const result = await this.actor.updateMaterial(arg0, arg1, arg2, arg3, arg4, arg5);
+        return result;
     }
-    async saveFlexibleJob(arg0: string, arg1: string | null, arg2: string, arg3: number, arg4: number, arg5: number, arg6: bigint, arg7: boolean, arg8: number, arg9: number, arg10: number, arg11: bigint, arg12: bigint, arg13: number, arg14: number, arg15: number, arg16: number, arg17: number, arg18: number, arg19: number, arg20: number, arg21: number, arg22: number, arg23: number, arg24: number, arg25: number, arg26: number, arg27: number, arg28: number, arg29: number): Promise<FlexibleJob> {
-        const result = await this.actor.saveFlexibleJob(arg0, to_candid_opt_n15(this._uploadFile, this._downloadFile, arg1), arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11, arg12, arg13, arg14, arg15, arg16, arg17, arg18, arg19, arg20, arg21, arg22, arg23, arg24, arg25, arg26, arg27, arg28, arg29);
+    async saveFlexibleJob(arg0: string, arg1: string, arg2: number, arg3: number, arg4: number, arg5: bigint, arg6: boolean, arg7: number, arg8: number, arg9: number, arg10: bigint, arg11: bigint, arg12: number, arg13: number, arg14: number, arg15: number, arg16: number, arg17: number, arg18: number, arg19: number, arg20: number, arg21: number, arg22: number, arg23: number, arg24: number, arg25: number, arg26: number, arg27: number, arg28: number): Promise<FlexibleJob> {
+        const result = await this.actor.saveFlexibleJob(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11, arg12, arg13, arg14, arg15, arg16, arg17, arg18, arg19, arg20, arg21, arg22, arg23, arg24, arg25, arg26, arg27, arg28);
         return result;
     }
     async getFlexibleJobs(): Promise<Array<FlexibleJob>> {
@@ -615,103 +370,18 @@ export class Backend implements backendInterface {
         return result;
     }
 }
-function from_candid_Job_n8(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: _Job): Job {
-    return from_candid_record_n9(_uploadFile, _downloadFile, value);
-}
-function from_candid_LabourJob_n13(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: _LabourJob): LabourJob {
-    return from_candid_record_n14(_uploadFile, _downloadFile, value);
-}
-function from_candid_SavedJob_n6(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: _SavedJob): SavedJob {
-    return from_candid_record_n7(_uploadFile, _downloadFile, value);
-}
-function from_candid_UserRole_n4(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: _UserRole): UserRole {
-    return from_candid_variant_n5(_uploadFile, _downloadFile, value);
-}
-function from_candid_opt_n10(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: [] | [string]): string | null {
-    return value.length === 0 ? null : value[0];
-}
-function from_candid_opt_n3(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: [] | [_UserProfile]): UserProfile | null {
-    return value.length === 0 ? null : value[0];
-}
-function from_candid_record_n14(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
-    id: string;
-    customerName: [] | [string];
-    createdAt: bigint;
-    totalCost: number;
-    description: string;
-    customerId: [] | [string];
-    weldLength: number;
-    laborRate: number;
-    materialType: string;
-}): {
-    id: string;
-    customerName?: string;
-    createdAt: bigint;
-    totalCost: number;
-    description: string;
-    customerId?: string;
-    weldLength: number;
-    laborRate: number;
-    materialType: string;
-} {
+function from_candid_SavedJob(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: _SavedJob): SavedJob {
     return {
-        id: value.id,
-        customerName: record_opt_to_undefined(from_candid_opt_n10(_uploadFile, _downloadFile, value.customerName)),
-        createdAt: value.createdAt,
-        totalCost: value.totalCost,
-        description: value.description,
-        customerId: record_opt_to_undefined(from_candid_opt_n10(_uploadFile, _downloadFile, value.customerId)),
-        weldLength: value.weldLength,
-        laborRate: value.laborRate,
-        materialType: value.materialType
-    };
-}
-function from_candid_record_n7(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
-    job: _Job;
-    customerName: [] | [string];
-    weldingLineItems: Array<_WeldingLineItem>;
-    ratePerKg: number;
-    jobLineItems: Array<_JobLineItem>;
-    totalProductWeight: number;
-    totalFinalPrice: number;
-}): {
-    job: Job;
-    customerName?: string;
-    weldingLineItems: Array<WeldingLineItem>;
-    ratePerKg: number;
-    jobLineItems: Array<JobLineItem>;
-    totalProductWeight: number;
-    totalFinalPrice: number;
-} {
-    return {
-        job: from_candid_Job_n8(_uploadFile, _downloadFile, value.job),
-        customerName: record_opt_to_undefined(from_candid_opt_n10(_uploadFile, _downloadFile, value.customerName)),
+        job: from_candid_Job(_uploadFile, _downloadFile, value.job),
+        customerName: value.customerName.length === 0 ? undefined : value.customerName[0],
         weldingLineItems: value.weldingLineItems,
         ratePerKg: value.ratePerKg,
         jobLineItems: value.jobLineItems,
         totalProductWeight: value.totalProductWeight,
-        totalFinalPrice: value.totalFinalPrice
+        totalFinalPrice: value.totalFinalPrice,
     };
 }
-function from_candid_record_n9(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
-    id: string;
-    name: string;
-    createdAt: bigint;
-    dispatchQty: number;
-    transportIncluded: boolean;
-    transportCost: number;
-    customerId: [] | [string];
-    laborRate: number;
-}): {
-    id: string;
-    name: string;
-    createdAt: bigint;
-    dispatchQty: number;
-    transportIncluded: boolean;
-    transportCost: number;
-    customerId?: string;
-    laborRate: number;
-} {
+function from_candid_Job(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: _Job): Job {
     return {
         id: value.id,
         name: value.name,
@@ -719,27 +389,15 @@ function from_candid_record_n9(_uploadFile: (file: ExternalBlob) => Promise<Uint
         dispatchQty: value.dispatchQty,
         transportIncluded: value.transportIncluded,
         transportCost: value.transportCost,
-        customerId: record_opt_to_undefined(from_candid_opt_n10(_uploadFile, _downloadFile, value.customerId)),
-        laborRate: value.laborRate
+        customerId: value.customerId.length === 0 ? undefined : value.customerId[0],
+        laborRate: value.laborRate,
     };
 }
-function from_candid_variant_n5(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
-    admin: null;
-} | {
-    user: null;
-} | {
-    guest: null;
-}): UserRole {
-    return "admin" in value ? UserRole.admin : "user" in value ? UserRole.user : "guest" in value ? UserRole.guest : value;
+function from_candid_variant_n5(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: { admin: null } | { user: null }): UserRole {
+    return "admin" in value ? UserRole.admin : "user" in value ? UserRole.user : UserRole.guest;
 }
-function from_candid_vec_n11(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: Array<_SavedJob>): Array<SavedJob> {
-    return value.map((x)=>from_candid_SavedJob_n6(_uploadFile, _downloadFile, x));
-}
-function from_candid_vec_n12(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: Array<_LabourJob>): Array<LabourJob> {
-    return value.map((x)=>from_candid_LabourJob_n13(_uploadFile, _downloadFile, x));
-}
-function to_candid_opt_n15(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: string | null): [] | [string] {
-    return value === null ? candid_none() : candid_some(value);
+function to_candid_opt(value: string | null): [] | [string] {
+    return value === null ? [] : [value];
 }
 export interface CreateActorOptions {
     agent?: Agent;

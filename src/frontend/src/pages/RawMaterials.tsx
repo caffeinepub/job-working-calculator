@@ -259,7 +259,10 @@ export function RawMaterials() {
 
   const handleDeleteHistory = async (materialId: string, index: number) => {
     try {
-      await deleteHistoryMutation.mutateAsync({ materialId, index });
+      await deleteHistoryMutation.mutateAsync({
+        materialId,
+        index: BigInt(index),
+      });
       toast.success("Rate history entry deleted");
     } catch (err) {
       console.error("Failed to delete history entry:", err);

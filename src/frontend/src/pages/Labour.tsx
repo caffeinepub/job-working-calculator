@@ -4,13 +4,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   Table,
   TableBody,
   TableCell,
@@ -24,7 +17,6 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { useFormulaSettings } from "../hooks/useFormulaSettings";
 import {
-  useCustomers,
   useDeleteLabourJob,
   useLabourJobs,
   useSaveLabourJob,
@@ -138,11 +130,8 @@ function AluminiumTab() {
   const { data: savedJobs = [], isLoading: jobsLoading } = useLabourJobs();
   const saveJob = useSaveLabourJob();
   const deleteJobMut = useDeleteLabourJob();
-  const { data: customers = [] } = useCustomers();
-
   const [alDesc, setAlDesc] = useState("");
   const [weldLength, setWeldLength] = useState<number | "">("");
-  const [customerId, setCustomerId] = useState("none");
   const [alRate, setAlRateState] = useState<number>(getAlRate);
   const [editingRate, setEditingRate] = useState(false);
   const [rateInput, setRateInput] = useState<number | "">(getAlRate());
@@ -164,7 +153,6 @@ function AluminiumTab() {
     try {
       await saveJob.mutateAsync({
         description: alDesc.trim(),
-        customerId: customerId === "none" ? null : customerId,
         materialType: "AL",
         weldLength: weldNum,
         laborRate: alRate,
@@ -265,22 +253,7 @@ function AluminiumTab() {
                 data-ocid="labour.al.input"
               />
             </div>
-            <div className="space-y-1.5">
-              <Label>Customer (optional)</Label>
-              <Select value={customerId} onValueChange={setCustomerId}>
-                <SelectTrigger data-ocid="labour.al.select">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">No Customer</SelectItem>
-                  {customers.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      {c.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+
             <div className="rounded-lg bg-muted/50 border border-border px-3 py-2 text-xs text-muted-foreground">
               Current rate:{" "}
               <span className="font-semibold text-foreground">
@@ -434,7 +407,6 @@ function AluminiumTab() {
 // ── Component ─────────────────────────────────────────────────────────────
 export function Labour() {
   const { settings } = useFormulaSettings();
-  const { data: customers = [] } = useCustomers();
   const { data: savedJobs = [], isLoading: jobsLoading } = useLabourJobs();
   const saveJob = useSaveLabourJob();
   const deleteJobMut = useDeleteLabourJob();
@@ -442,8 +414,6 @@ export function Labour() {
   // ── SS304 state ─────────────────────────────────────────────────────────
   const [ss304Desc, setSs304Desc] = useState("");
   const [ss304WeldLength, setSs304WeldLength] = useState<number | "">("");
-  const [ss304CustomerId, setSs304CustomerId] = useState("none");
-
   const ss304Rate = settings.labourRateSS304;
   const ss304WeldNum =
     typeof ss304WeldLength === "number" ? ss304WeldLength : 0;
@@ -455,7 +425,6 @@ export function Labour() {
     try {
       await saveJob.mutateAsync({
         description: ss304Desc.trim(),
-        customerId: ss304CustomerId === "none" ? null : ss304CustomerId,
         materialType: "SS304",
         weldLength: ss304WeldNum,
         laborRate: ss304Rate,
@@ -633,25 +602,7 @@ export function Labour() {
                     data-ocid="labour.ss304.input"
                   />
                 </div>
-                <div className="space-y-1.5">
-                  <Label>Customer (optional)</Label>
-                  <Select
-                    value={ss304CustomerId}
-                    onValueChange={setSs304CustomerId}
-                  >
-                    <SelectTrigger data-ocid="labour.ss304.select">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">No Customer</SelectItem>
-                      {customers.map((c) => (
-                        <SelectItem key={c.id} value={c.id}>
-                          {c.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+
                 <div className="rounded-lg bg-muted/50 border border-border px-3 py-2 text-xs text-muted-foreground">
                   Current rate:{" "}
                   <span className="font-semibold text-foreground">

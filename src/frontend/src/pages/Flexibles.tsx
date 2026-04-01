@@ -814,7 +814,6 @@ function TabCalculator({
     totalCost,
     discountPct: discountNum,
     quotedPrice,
-    customerId: null as null,
   });
 
   const handleSave = async () => {
@@ -887,7 +886,6 @@ function TabCalculator({
     try {
       const newJob = await saveJob.mutateAsync({
         ...buildJobPayload(),
-        customerId: null,
       });
       if (discountNum > 0) setJobDiscount(newJob.id, discountNum);
       toast.success("Flexible job saved");
