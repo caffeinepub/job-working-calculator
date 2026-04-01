@@ -32,8 +32,8 @@ import {
 } from "lucide-react";
 import { useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
-import { getActor } from "../actorSingleton";
 import { useCustomers, useJobs, useMaterials } from "../hooks/useQueries";
+import { getAllDataForBackup, restoreFromBackup } from "../localStorageDB";
 import { downloadCSV, downloadJSON } from "../utils/exportUtils";
 
 const LS_KEYS = {
@@ -160,12 +160,7 @@ export function ExportData() {
   };
 
   const handleFullBackup = () => {
-    const backup = {
-      materials,
-      customers,
-      jobs,
-      exportedAt: new Date().toISOString(),
-    };
+    const backup = getAllDataForBackup();
     downloadJSON(`full_backup_${dateTag()}.json`, backup);
     setLastExport(LS_KEYS.backup);
     refreshDates();
@@ -476,6 +471,9 @@ function RestoreTab() {
     materials: any[];
     customers: any[];
     jobs: any[];
+    labourJobs?: any[];
+    flexibleJobs?: any[];
+    alWeldingJobs?: any[];
   } | null>(null);
   const [parseError, setParseError] = useState<string | null>(null);
   const [showConfirm, setShowConfirm] = useState(false);
@@ -503,9 +501,12 @@ function RestoreTab() {
             return;
           }
           setParsed({
-            materials: json.materials,
-            customers: json.customers,
-            jobs: json.jobs,
+            materials: json.materials ?? [],
+            customers: json.customers ?? [],
+            jobs: json.jobs ?? [],
+            labourJobs: json.labourJobs ?? [],
+            flexibleJobs: json.flexibleJobs ?? [],
+            alWeldingJobs: json.alWeldingJobs ?? [],
           });
         } catch {
           setParseError(
@@ -522,57 +523,10 @@ function RestoreTab() {
     if (!parsed) return;
     setShowConfirm(false);
     try {
-      const actor = await getActor();
-      const total =
-        parsed.materials.length + parsed.customers.length + parsed.jobs.length;
-      let done = 0;
-
-      setProgress(`Restoring... 0 of ${total} items`);
-
-      for (const m of parsed.materials) {
-        await actor.addMaterial(
-          m.grade ?? "",
-          m.materialType ?? "",
-          m.size ?? "",
-          m.weightPerMeter ?? 0,
-          m.currentRate ?? 0,
-        );
-        done++;
-        setProgress(`Restoring... ${done} of ${total} items`);
-      }
-
-      for (const c of parsed.customers) {
-        await actor.addCustomer(
-          c.name ?? "",
-          c.phone ?? "",
-          c.email ?? "",
-          c.address ?? "",
-        );
-        done++;
-        setProgress(`Restoring... ${done} of ${total} items`);
-      }
-
-      for (const j of parsed.jobs) {
-        const job = j.job ?? j;
-        await actor.saveJob(
-          job.name ?? "",
-          job.laborRate ?? 0,
-          job.transportIncluded ?? false,
-          job.customerId ?? null,
-          job.transportCost ?? 0,
-          job.dispatchQty ?? 1,
-          j.jobLineItems ?? [],
-          j.weldingLineItems ?? [],
-          j.totalFinalPrice ?? 0,
-          j.totalProductWeight ?? 0,
-          j.ratePerKg ?? 0,
-        );
-        done++;
-        setProgress(`Restoring... ${done} of ${total} items`);
-      }
-
+      setProgress("Restoring...");
+      restoreFromBackup(parsed);
       toast.success(
-        `Backup restored successfully. ${parsed.materials.length} materials, ${parsed.customers.length} customers, ${parsed.jobs.length} jobs restored.`,
+        `Backup restored successfully. ${parsed.materials?.length ?? 0} materials, ${parsed.customers?.length ?? 0} customers, ${parsed.jobs?.length ?? 0} jobs restored.`,
       );
       setTimeout(() => window.location.reload(), 1500);
     } catch (err: any) {

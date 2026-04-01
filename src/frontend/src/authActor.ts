@@ -1,11 +1,6 @@
 /**
- * authActor.ts - Safe stub
- *
- * Auth user management was removed from the app. This file is a stub
- * to avoid import errors. All authentication is handled via AuthContext.tsx
- * using local credentials (username/password stored in localStorage).
+ * authActor.ts - Stub only. Auth is handled by AuthContext.tsx via localStorage.
  */
-import { getActor } from "./actorSingleton";
 
 export interface AppUser {
   id: string;
@@ -32,6 +27,6 @@ export interface AuthBackend {
 }
 
 export async function getAuthActor(): Promise<AuthBackend> {
-  const actor = await getActor();
-  return actor as unknown as AuthBackend;
+  // Stub -- user management removed, all auth via localStorage AuthContext
+  throw new Error("User management is not supported in this version.");
 }

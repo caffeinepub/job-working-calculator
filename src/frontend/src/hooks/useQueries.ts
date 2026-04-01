@@ -1,14 +1,33 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { getActor } from "../actorSingleton";
+import {
+  addCustomer,
+  addMaterial,
+  deleteAlWeldingJob,
+  deleteCustomer,
+  deleteFlexibleJob,
+  deleteJob,
+  deleteLabourJob,
+  deleteMaterial,
+  deleteRateHistoryEntry,
+  getAlWeldingJobs,
+  getCustomers,
+  getFlexibleJobs,
+  getJob,
+  getJobs,
+  getLabourJobs,
+  getMaterials,
+  saveAlWeldingJob,
+  saveFlexibleJob,
+  saveJob,
+  saveLabourJob,
+  updateCustomer,
+  updateFlexibleJob,
+  updateJob,
+  updateMaterial,
+} from "../localStorageDB";
 
 export function useMaterials() {
-  return useQuery({
-    queryKey: ["materials"],
-    queryFn: async () => {
-      const actor = await getActor();
-      return actor.getMaterials();
-    },
-  });
+  return useQuery({ queryKey: ["materials"], queryFn: () => getMaterials() });
 }
 
 export function useAddMaterial() {
@@ -20,16 +39,14 @@ export function useAddMaterial() {
       size: string;
       weightPerMeter: number;
       currentRate: number;
-    }) => {
-      const actor = await getActor();
-      return actor.addMaterial(
+    }) =>
+      addMaterial(
         data.grade,
         data.materialType,
         data.size,
         data.weightPerMeter,
         data.currentRate,
-      );
-    },
+      ),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["materials"] }),
   });
 }
@@ -44,17 +61,15 @@ export function useUpdateMaterial() {
       size: string;
       weightPerMeter: number;
       currentRate: number;
-    }) => {
-      const actor = await getActor();
-      return actor.updateMaterial(
+    }) =>
+      updateMaterial(
         data.id,
         data.grade,
         data.materialType,
         data.size,
         data.weightPerMeter,
         data.currentRate,
-      );
-    },
+      ),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["materials"] }),
   });
 }
@@ -62,10 +77,7 @@ export function useUpdateMaterial() {
 export function useDeleteMaterial() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (id: string) => {
-      const actor = await getActor();
-      return actor.deleteMaterial(id);
-    },
+    mutationFn: async (id: string) => deleteMaterial(id),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["materials"] }),
   });
 }
@@ -73,34 +85,20 @@ export function useDeleteMaterial() {
 export function useDeleteRateHistoryEntry() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (data: {
-      materialId: string;
-      index: bigint | number;
-    }) => {
-      const actor = await getActor();
-      return actor.deleteRateHistoryEntry(data.materialId, BigInt(data.index));
-    },
+    mutationFn: async (data: { materialId: string; index: bigint | number }) =>
+      deleteRateHistoryEntry(data.materialId, data.index),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["materials"] }),
   });
 }
 
 export function useJobs() {
-  return useQuery({
-    queryKey: ["jobs"],
-    queryFn: async () => {
-      const actor = await getActor();
-      return actor.getJobs();
-    },
-  });
+  return useQuery({ queryKey: ["jobs"], queryFn: () => getJobs() });
 }
 
 export function useJob(id: string) {
   return useQuery({
     queryKey: ["job", id],
-    queryFn: async () => {
-      const actor = await getActor();
-      return actor.getJob(id);
-    },
+    queryFn: () => getJob(id),
     enabled: !!id,
   });
 }
@@ -131,9 +129,8 @@ export function useSaveJob() {
       totalFinalPrice: number;
       totalProductWeight: number;
       ratePerKg: number;
-    }) => {
-      const actor = await getActor();
-      return actor.saveJob(
+    }) =>
+      saveJob(
         data.name,
         data.laborRate,
         data.transportIncluded,
@@ -145,8 +142,7 @@ export function useSaveJob() {
         data.totalFinalPrice,
         data.totalProductWeight,
         data.ratePerKg,
-      );
-    },
+      ),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["jobs"] }),
   });
 }
@@ -178,9 +174,8 @@ export function useUpdateJob() {
       totalFinalPrice: number;
       totalProductWeight: number;
       ratePerKg: number;
-    }) => {
-      const actor = await getActor();
-      return actor.updateJob(
+    }) =>
+      updateJob(
         data.id,
         data.name,
         data.laborRate,
@@ -193,8 +188,7 @@ export function useUpdateJob() {
         data.totalFinalPrice,
         data.totalProductWeight,
         data.ratePerKg,
-      );
-    },
+      ),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["jobs"] }),
   });
 }
@@ -202,22 +196,13 @@ export function useUpdateJob() {
 export function useDeleteJob() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (id: string) => {
-      const actor = await getActor();
-      return actor.deleteJob(id);
-    },
+    mutationFn: async (id: string) => deleteJob(id),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["jobs"] }),
   });
 }
 
 export function useCustomers() {
-  return useQuery({
-    queryKey: ["customers"],
-    queryFn: async () => {
-      const actor = await getActor();
-      return actor.getCustomers();
-    },
-  });
+  return useQuery({ queryKey: ["customers"], queryFn: () => getCustomers() });
 }
 
 export function useAddCustomer() {
@@ -228,10 +213,7 @@ export function useAddCustomer() {
       phone: string;
       email: string;
       address: string;
-    }) => {
-      const actor = await getActor();
-      return actor.addCustomer(data.name, data.phone, data.email, data.address);
-    },
+    }) => addCustomer(data.name, data.phone, data.email, data.address),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["customers"] }),
   });
 }
@@ -245,16 +227,8 @@ export function useUpdateCustomer() {
       phone: string;
       email: string;
       address: string;
-    }) => {
-      const actor = await getActor();
-      return actor.updateCustomer(
-        data.id,
-        data.name,
-        data.phone,
-        data.email,
-        data.address,
-      );
-    },
+    }) =>
+      updateCustomer(data.id, data.name, data.phone, data.email, data.address),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["customers"] }),
   });
 }
@@ -262,22 +236,13 @@ export function useUpdateCustomer() {
 export function useDeleteCustomer() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (id: string) => {
-      const actor = await getActor();
-      return actor.deleteCustomer(id);
-    },
+    mutationFn: async (id: string) => deleteCustomer(id),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["customers"] }),
   });
 }
 
 export function useLabourJobs() {
-  return useQuery({
-    queryKey: ["labourJobs"],
-    queryFn: async () => {
-      const actor = await getActor();
-      return actor.getLabourJobs();
-    },
-  });
+  return useQuery({ queryKey: ["labourJobs"], queryFn: () => getLabourJobs() });
 }
 
 export function useSaveLabourJob() {
@@ -290,17 +255,15 @@ export function useSaveLabourJob() {
       weldLength: number;
       laborRate: number;
       totalCost: number;
-    }) => {
-      const actor = await getActor();
-      return actor.saveLabourJob(
+    }) =>
+      saveLabourJob(
         data.description,
         data.customerId,
         data.materialType,
         data.weldLength,
         data.laborRate,
         data.totalCost,
-      );
-    },
+      ),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["labourJobs"] }),
   });
 }
@@ -308,10 +271,7 @@ export function useSaveLabourJob() {
 export function useDeleteLabourJob() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (id: string) => {
-      const actor = await getActor();
-      return actor.deleteLabourJob(id);
-    },
+    mutationFn: async (id: string) => deleteLabourJob(id),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["labourJobs"] }),
   });
 }
@@ -319,10 +279,7 @@ export function useDeleteLabourJob() {
 export function useFlexibleJobs() {
   return useQuery({
     queryKey: ["flexibleJobs"],
-    queryFn: async () => {
-      const actor = await getActor();
-      return actor.getFlexibleJobs();
-    },
+    queryFn: () => getFlexibleJobs(),
   });
 }
 
@@ -360,9 +317,8 @@ export function useSaveFlexibleJob() {
       totalCost: number;
       discountPct: number;
       quotedPrice: number;
-    }) => {
-      const actor = await getActor();
-      return actor.saveFlexibleJob(
+    }) =>
+      saveFlexibleJob(
         data.description,
         data.customerId,
         data.materialTab,
@@ -393,19 +349,7 @@ export function useSaveFlexibleJob() {
         data.totalCost,
         data.discountPct,
         data.quotedPrice,
-      );
-    },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["flexibleJobs"] }),
-  });
-}
-
-export function useDeleteFlexibleJob() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async (id: string) => {
-      const actor = await getActor();
-      return actor.deleteFlexibleJob(id);
-    },
+      ),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["flexibleJobs"] }),
   });
 }
@@ -444,9 +388,8 @@ export function useUpdateFlexibleJob() {
       totalCost: number;
       discountPct: number;
       quotedPrice: number;
-    }) => {
-      const actor = await getActor();
-      return actor.updateFlexibleJob(
+    }) =>
+      updateFlexibleJob(
         data.oldId,
         data.description,
         data.materialTab,
@@ -477,8 +420,15 @@ export function useUpdateFlexibleJob() {
         data.totalCost,
         data.discountPct,
         data.quotedPrice,
-      );
-    },
+      ),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["flexibleJobs"] }),
+  });
+}
+
+export function useDeleteFlexibleJob() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => deleteFlexibleJob(id),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["flexibleJobs"] }),
   });
 }
@@ -486,10 +436,7 @@ export function useUpdateFlexibleJob() {
 export function useAlWeldingJobs() {
   return useQuery({
     queryKey: ["alWeldingJobs"],
-    queryFn: async () => {
-      const actor = await getActor();
-      return actor.getAlWeldingJobs();
-    },
+    queryFn: () => getAlWeldingJobs(),
   });
 }
 
@@ -509,9 +456,8 @@ export function useSaveAlWeldingJob() {
       adjustedLaborCost: number;
       totalCost: number;
       costPerFullLength: number;
-    }) => {
-      const actor = await getActor();
-      return actor.saveAlWeldingJob(
+    }) =>
+      saveAlWeldingJob(
         data.description,
         BigInt(data.numJoints),
         BigInt(data.numBrackets),
@@ -524,8 +470,7 @@ export function useSaveAlWeldingJob() {
         data.adjustedLaborCost,
         data.totalCost,
         data.costPerFullLength,
-      );
-    },
+      ),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["alWeldingJobs"] }),
   });
 }
@@ -533,10 +478,7 @@ export function useSaveAlWeldingJob() {
 export function useDeleteAlWeldingJob() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (id: string) => {
-      const actor = await getActor();
-      return actor.deleteAlWeldingJob(id);
-    },
+    mutationFn: async (id: string) => deleteAlWeldingJob(id),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["alWeldingJobs"] }),
   });
 }
