@@ -60,6 +60,7 @@ export interface FormulaSettings {
   tappingRateM20: number; // default 50
   counterSinkRate: number; // default 20 (Rs per hole)
   millingRatePerMm: number; // default 2 (Rs per mm of slot length)
+  rollingRatePerMeter: number; // default 5 (Rs per mm of length)
 }
 
 const DEFAULTS: FormulaSettings = {
@@ -103,6 +104,7 @@ const DEFAULTS: FormulaSettings = {
   tappingRateM20: 50,
   counterSinkRate: 20,
   millingRatePerMm: 2,
+  rollingRatePerMeter: 5,
 };
 
 const STORAGE_KEY = "jobcalc_formula_settings";
