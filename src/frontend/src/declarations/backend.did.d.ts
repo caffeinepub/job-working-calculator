@@ -129,15 +129,14 @@ export interface WeldingLineItem {
   'grade' : string,
 }
 export interface _SERVICE {
-  '_initializeAccessControlWithSecret' : ActorMethod<[string], undefined>,
   'addCustomer' : ActorMethod<[string, string, string, string], Customer>,
   'addMaterial' : ActorMethod<
     [string, string, string, number, number],
     RawMaterial
   >,
-  'assignCallerUserRole' : ActorMethod<[Principal, UserRole], undefined>,
   'deleteCustomer' : ActorMethod<[string], boolean>,
   'deleteFlexibleJob' : ActorMethod<[string], boolean>,
+  'updateFlexibleJob' : ActorMethod<[string, string, string, number, number, number, bigint, boolean, number, number, number, bigint, bigint, number, number, number, number, number, number, number, number, number, number, number, number, number, number, number, number, number], FlexibleJob>,
   'deleteJob' : ActorMethod<[string], boolean>,
   'deleteLabourJob' : ActorMethod<[string], boolean>,
   'deleteAlWeldingJob' : ActorMethod<[string], boolean>,

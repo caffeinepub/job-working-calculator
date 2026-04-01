@@ -134,7 +134,6 @@ export const AlWeldingJob = IDL.Record({
 });
 
 export const idlService = IDL.Service({
-  '_initializeAccessControlWithSecret' : IDL.Func([IDL.Text], [], []),
   'addCustomer' : IDL.Func(
       [IDL.Text, IDL.Text, IDL.Text, IDL.Text],
       [Customer],
@@ -145,9 +144,23 @@ export const idlService = IDL.Service({
       [RawMaterial],
       [],
     ),
-  'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
   'deleteCustomer' : IDL.Func([IDL.Text], [IDL.Bool], []),
   'deleteFlexibleJob' : IDL.Func([IDL.Text], [IDL.Bool], []),
+  'updateFlexibleJob' : IDL.Func(
+    [
+      IDL.Text, IDL.Text, IDL.Text,
+      IDL.Float64, IDL.Float64, IDL.Float64,
+      IDL.Nat, IDL.Bool,
+      IDL.Float64, IDL.Float64, IDL.Float64,
+      IDL.Nat, IDL.Nat,
+      IDL.Float64, IDL.Float64, IDL.Float64, IDL.Float64, IDL.Float64,
+      IDL.Float64, IDL.Float64, IDL.Float64, IDL.Float64, IDL.Float64,
+      IDL.Float64, IDL.Float64, IDL.Float64, IDL.Float64, IDL.Float64,
+      IDL.Float64, IDL.Float64,
+    ],
+    [FlexibleJob],
+    [],
+  ),
   'deleteJob' : IDL.Func([IDL.Text], [IDL.Bool], []),
   'deleteLabourJob' : IDL.Func([IDL.Text], [IDL.Bool], []),
   'deleteMaterial' : IDL.Func([IDL.Text], [IDL.Bool], []),
@@ -412,7 +425,6 @@ export const idlFactory = ({ IDL }) => {
   });
 
   return IDL.Service({
-    '_initializeAccessControlWithSecret' : IDL.Func([IDL.Text], [], []),
     'addCustomer' : IDL.Func(
         [IDL.Text, IDL.Text, IDL.Text, IDL.Text],
         [Customer],
@@ -423,9 +435,23 @@ export const idlFactory = ({ IDL }) => {
         [RawMaterial],
         [],
       ),
-    'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
     'deleteCustomer' : IDL.Func([IDL.Text], [IDL.Bool], []),
     'deleteFlexibleJob' : IDL.Func([IDL.Text], [IDL.Bool], []),
+    'updateFlexibleJob' : IDL.Func(
+      [
+        IDL.Text, IDL.Text, IDL.Text,
+        IDL.Float64, IDL.Float64, IDL.Float64,
+        IDL.Nat, IDL.Bool,
+        IDL.Float64, IDL.Float64, IDL.Float64,
+        IDL.Nat, IDL.Nat,
+        IDL.Float64, IDL.Float64, IDL.Float64, IDL.Float64, IDL.Float64,
+        IDL.Float64, IDL.Float64, IDL.Float64, IDL.Float64, IDL.Float64,
+        IDL.Float64, IDL.Float64, IDL.Float64, IDL.Float64, IDL.Float64,
+        IDL.Float64, IDL.Float64,
+      ],
+      [FlexibleJob],
+      [],
+    ),
     'deleteJob' : IDL.Func([IDL.Text], [IDL.Bool], []),
     'deleteLabourJob' : IDL.Func([IDL.Text], [IDL.Bool], []),
     'deleteMaterial' : IDL.Func([IDL.Text], [IDL.Bool], []),

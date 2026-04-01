@@ -215,10 +215,8 @@ export enum UserRole {
     guest = "guest"
 }
 export interface backendInterface {
-    _initializeAccessControlWithSecret(userSecret: string): Promise<void>;
     addCustomer(name: string, phone: string, email: string, address: string): Promise<Customer>;
     addMaterial(grade: string, materialType: string, size: string, weightPerMeter: number, currentRate: number): Promise<RawMaterial>;
-    assignCallerUserRole(user: Principal, role: UserRole): Promise<void>;
     deleteCustomer(id: string): Promise<boolean>;
     deleteJob(id: string): Promise<boolean>;
     deleteLabourJob(id: string): Promise<boolean>;
@@ -252,20 +250,6 @@ export interface backendInterface {
 import type { FlexibleJob as _FlexibleJob, Job as _Job, JobLineItem as _JobLineItem, LabourJob as _LabourJob, SavedJob as _SavedJob, UserProfile as _UserProfile, UserRole as _UserRole, WeldingLineItem as _WeldingLineItem } from "./declarations/backend.did.d.ts";
 export class Backend implements backendInterface {
     constructor(private actor: ActorSubclass<_SERVICE>, private _uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, private _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, private processError?: (error: unknown) => never){}
-    async _initializeAccessControlWithSecret(arg0: string): Promise<void> {
-        if (this.processError) {
-            try {
-                const result = await this.actor._initializeAccessControlWithSecret(arg0);
-                return result;
-            } catch (e) {
-                this.processError(e);
-                throw new Error("unreachable");
-            }
-        } else {
-            const result = await this.actor._initializeAccessControlWithSecret(arg0);
-            return result;
-        }
-    }
     async addCustomer(arg0: string, arg1: string, arg2: string, arg3: string): Promise<Customer> {
         if (this.processError) {
             try {
@@ -291,20 +275,6 @@ export class Backend implements backendInterface {
             }
         } else {
             const result = await this.actor.addMaterial(arg0, arg1, arg2, arg3, arg4);
-            return result;
-        }
-    }
-    async assignCallerUserRole(arg0: Principal, arg1: UserRole): Promise<void> {
-        if (this.processError) {
-            try {
-                const result = await this.actor.assignCallerUserRole(arg0, to_candid_UserRole_n1(this._uploadFile, this._downloadFile, arg1));
-                return result;
-            } catch (e) {
-                this.processError(e);
-                throw new Error("unreachable");
-            }
-        } else {
-            const result = await this.actor.assignCallerUserRole(arg0, to_candid_UserRole_n1(this._uploadFile, this._downloadFile, arg1));
             return result;
         }
     }
@@ -768,26 +738,8 @@ function from_candid_vec_n11(_uploadFile: (file: ExternalBlob) => Promise<Uint8A
 function from_candid_vec_n12(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: Array<_LabourJob>): Array<LabourJob> {
     return value.map((x)=>from_candid_LabourJob_n13(_uploadFile, _downloadFile, x));
 }
-function to_candid_UserRole_n1(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: UserRole): _UserRole {
-    return to_candid_variant_n2(_uploadFile, _downloadFile, value);
-}
 function to_candid_opt_n15(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: string | null): [] | [string] {
     return value === null ? candid_none() : candid_some(value);
-}
-function to_candid_variant_n2(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: UserRole): {
-    admin: null;
-} | {
-    user: null;
-} | {
-    guest: null;
-} {
-    return value == UserRole.admin ? {
-        admin: null
-    } : value == UserRole.user ? {
-        user: null
-    } : value == UserRole.guest ? {
-        guest: null
-    } : value;
 }
 export interface CreateActorOptions {
     agent?: Agent;

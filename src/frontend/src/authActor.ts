@@ -1,9 +1,9 @@
 /**
- * Auth Actor Helper
+ * authActor.ts - Safe stub
  *
- * Extends the base backendInterface with auth methods that exist in
- * the Motoko backend but are not yet in the generated backend.ts wrapper.
- * Uses type casting since we cannot modify the read-only backend.ts.
+ * Auth user management was removed from the app. This file is a stub
+ * to avoid import errors. All authentication is handled via AuthContext.tsx
+ * using local credentials (username/password stored in localStorage).
  */
 import { getActor } from "./actorSingleton";
 
