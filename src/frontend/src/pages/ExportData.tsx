@@ -25,6 +25,7 @@ import {
   Download,
   FileJson,
   FileSpreadsheet,
+  Loader2,
   Package,
   ShieldCheck,
   UploadCloud,
@@ -32,8 +33,22 @@ import {
 } from "lucide-react";
 import { useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
-import { useCustomers, useJobs, useMaterials } from "../hooks/useQueries";
-import { getAllDataForBackup, restoreFromBackup } from "../localStorageDB";
+import {
+  useAlWeldingJobs,
+  useCustomers,
+  useFlexibleJobs,
+  useJobs,
+  useLabourJobs,
+  useMaterials,
+} from "../hooks/useQueries";
+import {
+  addCustomer,
+  addMaterial,
+  saveAlWeldingJob,
+  saveFlexibleJob,
+  saveJob,
+  saveLabourJob,
+} from "../icpDB";
 import { downloadCSV, downloadJSON } from "../utils/exportUtils";
 
 const LS_KEYS = {
@@ -105,6 +120,9 @@ export function ExportData() {
   const { data: materials = [] } = useMaterials();
   const { data: customers = [] } = useCustomers();
   const { data: jobs = [] } = useJobs();
+  const { data: labourJobs = [] } = useLabourJobs();
+  const { data: flexibleJobs = [] } = useFlexibleJobs();
+  const { data: alWeldingJobs = [] } = useAlWeldingJobs();
 
   const [tab, setTab] = useState("materials");
   const [lastExportDates, setLastExportDates] = useState({
@@ -160,7 +178,15 @@ export function ExportData() {
   };
 
   const handleFullBackup = () => {
-    const backup = getAllDataForBackup();
+    const backup = {
+      materials,
+      customers,
+      jobs,
+      labourJobs,
+      flexibleJobs,
+      alWeldingJobs,
+      exportedAt: new Date().toISOString(),
+    };
     downloadJSON(`full_backup_${dateTag()}.json`, backup);
     setLastExport(LS_KEYS.backup);
     refreshDates();
@@ -171,6 +197,14 @@ export function ExportData() {
     setTab("backup");
     setTimeout(() => backupTabRef.current?.click(), 50);
   };
+
+  const totalItems =
+    materials.length +
+    customers.length +
+    jobs.length +
+    labourJobs.length +
+    flexibleJobs.length +
+    alWeldingJobs.length;
 
   return (
     <div className="flex flex-col gap-6">
@@ -279,8 +313,8 @@ export function ExportData() {
                 <div>
                   <CardTitle className="text-lg">Full Backup</CardTitle>
                   <CardDescription>
-                    Download everything — materials, customers, and jobs — in
-                    one JSON file.
+                    Download everything — materials, customers, jobs, labour
+                    jobs, flexible jobs — in one JSON file.
                   </CardDescription>
                 </div>
               </div>
@@ -299,8 +333,8 @@ export function ExportData() {
                   color="bg-violet-50 text-violet-700"
                 />
                 <StatBox
-                  label="Jobs"
-                  count={jobs.length}
+                  label="Total Items"
+                  count={totalItems}
                   color="bg-emerald-50 text-emerald-700"
                 />
               </div>
@@ -477,6 +511,7 @@ function RestoreTab() {
   } | null>(null);
   const [parseError, setParseError] = useState<string | null>(null);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [restoring, setRestoring] = useState(false);
   const [progress, setProgress] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -522,15 +557,152 @@ function RestoreTab() {
   const handleRestore = async () => {
     if (!parsed) return;
     setShowConfirm(false);
+    setRestoring(true);
+
     try {
-      setProgress("Restoring...");
-      restoreFromBackup(parsed);
+      let count = 0;
+      const total =
+        parsed.materials.length +
+        parsed.customers.length +
+        parsed.jobs.length +
+        (parsed.labourJobs?.length ?? 0) +
+        (parsed.flexibleJobs?.length ?? 0) +
+        (parsed.alWeldingJobs?.length ?? 0);
+
+      // Materials
+      setProgress(`Restoring materials (0/${parsed.materials.length})...`);
+      for (const m of parsed.materials) {
+        await addMaterial(
+          m.grade ?? "",
+          m.materialType ?? "",
+          m.size ?? "",
+          Number(m.weightPerMeter ?? 0),
+          Number(m.currentRate ?? 0),
+        );
+        count++;
+        setProgress(`Restoring materials (${count}/${total})...`);
+      }
+
+      // Customers
+      for (const c of parsed.customers) {
+        await addCustomer(
+          c.name ?? "",
+          c.phone ?? "",
+          c.email ?? "",
+          c.address ?? "",
+        );
+        count++;
+        setProgress(`Restoring customers (${count}/${total})...`);
+      }
+
+      // SS Fabrication Jobs
+      for (const j of parsed.jobs) {
+        await saveJob(
+          j.name ?? "",
+          Number(j.laborRate ?? 0),
+          Boolean(j.transportIncluded ?? false),
+          j.customerId ?? null,
+          Number(j.transportCost ?? 0),
+          Number(j.dispatchQty ?? 1),
+          (j.jobLineItems ?? []).map((li: any) => ({
+            materialId: li.materialId ?? "",
+            lengthMeters: Number(li.lengthMeters ?? 0),
+            rawWeight: Number(li.rawWeight ?? 0),
+            totalWeight: Number(li.totalWeight ?? 0),
+            finalPrice: Number(li.finalPrice ?? 0),
+          })),
+          (j.weldingLineItems ?? []).map((wi: any) => ({
+            grade: wi.grade ?? "",
+            ratePerKg: Number(wi.ratePerKg ?? 0),
+            weightKg: Number(wi.weightKg ?? 0),
+            finalPrice: Number(wi.finalPrice ?? 0),
+          })),
+          Number(j.totalFinalPrice ?? 0),
+          Number(j.totalProductWeight ?? 0),
+          Number(j.ratePerKg ?? 0),
+        );
+        count++;
+        setProgress(`Restoring jobs (${count}/${total})...`);
+      }
+
+      // Labour Jobs
+      for (const lj of parsed.labourJobs ?? []) {
+        await saveLabourJob(
+          lj.description ?? "",
+          lj.materialType ?? "",
+          Number(lj.weldLength ?? 0),
+          Number(lj.laborRate ?? 0),
+          Number(lj.totalCost ?? 0),
+        );
+        count++;
+        setProgress(`Restoring labour jobs (${count}/${total})...`);
+      }
+
+      // Flexible Jobs
+      for (const fj of parsed.flexibleJobs ?? []) {
+        await saveFlexibleJob(
+          fj.description ?? "",
+          fj.materialTab ?? "AL",
+          Number(fj.centerLength ?? 0),
+          Number(fj.sheetBunchWidth ?? 0),
+          Number(fj.sheetThickness ?? 0.3),
+          BigInt(Math.round(Number(fj.sheetCount ?? 0))),
+          Boolean(fj.barsSupplied ?? false),
+          Number(fj.barLength ?? 0),
+          Number(fj.barWidth ?? 0),
+          Number(fj.barThickness ?? 0),
+          BigInt(Math.round(Number(fj.numberOfDrills ?? 0))),
+          BigInt(Math.round(Number(fj.numberOfFolds ?? 1))),
+          Number(fj.sheetStackWeight ?? 0),
+          Number(fj.stripWeight ?? 0),
+          Number(fj.bar1Weight ?? 0),
+          Number(fj.bar2Weight ?? 0),
+          Number(fj.totalMaterialWeight ?? 0),
+          Number(fj.materialCost ?? 0),
+          Number(fj.cuttingCost ?? 0),
+          Number(fj.foldingCost ?? 0),
+          Number(fj.drillingCost ?? 0),
+          Number(fj.weldingCost ?? 0),
+          Number(fj.chamferingCost ?? 0),
+          Number(fj.totalWeldLength ?? 0),
+          Number(fj.overheadCost ?? 0),
+          Number(fj.profitCost ?? 0),
+          Number(fj.totalCost ?? 0),
+          Number(fj.discountPct ?? 0),
+          Number(fj.quotedPrice ?? 0),
+        );
+        count++;
+        setProgress(`Restoring flexible jobs (${count}/${total})...`);
+      }
+
+      // AL Welding Jobs
+      for (const aw of parsed.alWeldingJobs ?? []) {
+        await saveAlWeldingJob(
+          aw.description ?? "",
+          BigInt(Math.round(Number(aw.numJoints ?? 0))),
+          BigInt(Math.round(Number(aw.numBrackets ?? 0))),
+          BigInt(Math.round(Number(aw.numDummy ?? 0))),
+          Number(aw.weldLengthEachMm ?? 0),
+          Number(aw.thickness ?? 0),
+          Number(aw.laborCostPer2mm ?? 0),
+          Number(aw.totalFullLength ?? 0),
+          BigInt(Math.round(Number(aw.totalWeldLines ?? 0))),
+          Number(aw.adjustedLaborCost ?? 0),
+          Number(aw.totalCost ?? 0),
+          Number(aw.costPerFullLength ?? 0),
+        );
+        count++;
+        setProgress(`Restoring AL welding jobs (${count}/${total})...`);
+      }
+
       toast.success(
-        `Backup restored successfully. ${parsed.materials?.length ?? 0} materials, ${parsed.customers?.length ?? 0} customers, ${parsed.jobs?.length ?? 0} jobs restored.`,
+        `Backup restored successfully. ${total} items imported into ICP.`,
       );
+      setProgress(null);
       setTimeout(() => window.location.reload(), 1500);
     } catch (err: any) {
       setProgress(null);
+      setRestoring(false);
       toast.error(`Restore failed: ${err?.message ?? String(err)}`);
     }
   };
@@ -549,8 +721,8 @@ function RestoreTab() {
               </CardTitle>
               <CardDescription>
                 Restoring will <strong>add</strong> data from the backup file to
-                your current data. Download a full backup first if you want to
-                preserve what you have.
+                your current ICP data. Download a full backup first if you want
+                to preserve what you have.
               </CardDescription>
             </div>
           </div>
@@ -559,9 +731,9 @@ function RestoreTab() {
           <Alert className="border-amber-400/60 bg-amber-50 dark:bg-amber-950/30">
             <AlertTriangle className="h-4 w-4 text-amber-600" />
             <AlertDescription className="text-amber-800 dark:text-amber-300 text-sm">
-              This will import all items from the backup JSON file into your
-              app. Download a fresh backup before restoring if you want to keep
-              a copy of your current data.
+              This will import all items from the backup JSON file into your ICP
+              backend. Each item will be saved individually — this may take a
+              moment for large backups.
             </AlertDescription>
           </Alert>
 
@@ -605,29 +777,39 @@ function RestoreTab() {
               />
               <StatBox
                 label="Jobs"
-                count={parsed.jobs.length}
+                count={
+                  parsed.jobs.length +
+                  (parsed.labourJobs?.length ?? 0) +
+                  (parsed.flexibleJobs?.length ?? 0) +
+                  (parsed.alWeldingJobs?.length ?? 0)
+                }
                 color="bg-emerald-50 text-emerald-700"
               />
             </div>
           )}
 
           {progress && (
-            <p
-              className="text-sm text-muted-foreground text-center"
+            <div
+              className="flex items-center gap-2 text-sm text-muted-foreground"
               data-ocid="export.restore.loading_state"
             >
+              <Loader2 size={14} className="animate-spin" />
               {progress}
-            </p>
+            </div>
           )}
 
           <Button
-            disabled={!parsed || !!progress}
+            disabled={!parsed || restoring}
             onClick={() => setShowConfirm(true)}
             className="gap-2 w-full"
             data-ocid="export.restore.primary_button"
           >
-            <UploadCloud size={16} />
-            Restore Backup
+            {restoring ? (
+              <Loader2 size={16} className="animate-spin" />
+            ) : (
+              <UploadCloud size={16} />
+            )}
+            {restoring ? "Restoring to ICP..." : "Restore Backup"}
           </Button>
         </CardContent>
       </Card>
@@ -639,8 +821,12 @@ function RestoreTab() {
             <AlertDialogDescription>
               This will import {parsed?.materials.length ?? 0} materials,{" "}
               {parsed?.customers.length ?? 0} customers, and{" "}
-              {parsed?.jobs.length ?? 0} jobs from the backup file into your
-              app. This action cannot be undone.
+              {(parsed?.jobs.length ?? 0) +
+                (parsed?.labourJobs?.length ?? 0) +
+                (parsed?.flexibleJobs?.length ?? 0) +
+                (parsed?.alWeldingJobs?.length ?? 0)}{" "}
+              jobs from the backup file into your ICP backend. This action
+              cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

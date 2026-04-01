@@ -12,8 +12,6 @@ import AccessControl "authorization/access-control";
 actor {
 
   // ===== Legacy stable vars kept for upgrade compatibility =====
-  // These existed in prior deployments. They cannot be dropped without
-  // an explicit migration, so we keep them as unused stubs.
 
   let accessControlState = AccessControl.initState();
   let userProfiles = Map.empty<Principal, { name : Text }>();
@@ -31,111 +29,47 @@ actor {
   let appUsers = Map.empty<Text, AppUser>();
   var userNextId = 0;
 
-  // Legacy V1 flexible job type
   type FlexibleJobV1 = {
-    id : Text;
-    description : Text;
-    materialTab : Text;
-    sheetBunchWidth : Float;
-    thickness : Float;
-    numBars : Nat;
-    weldingCost : Float;
-    chamferingCost : Float;
-    overheadCost : Float;
-    profitCost : Float;
-    totalCost : Float;
-    customerId : ?Text;
-    customerName : ?Text;
-    createdAt : Int;
+    id : Text; description : Text; materialTab : Text;
+    sheetBunchWidth : Float; thickness : Float; numBars : Nat;
+    weldingCost : Float; chamferingCost : Float; overheadCost : Float;
+    profitCost : Float; totalCost : Float; customerId : ?Text;
+    customerName : ?Text; createdAt : Int;
   };
 
-  // Legacy V2 flexible job type
   type FlexibleJobV2 = {
-    id : Text;
-    description : Text;
-    materialTab : Text;
-    centerLength : Float;
-    sheetBunchWidth : Float;
-    sheetThickness : Float;
-    sheetCount : Nat;
-    barsSupplied : Bool;
-    barLength : Float;
-    barWidth : Float;
-    barThickness : Float;
-    numberOfDrills : Nat;
-    numberOfFolds : Nat;
-    sheetStackWeight : Float;
-    stripWeight : Float;
-    bar1Weight : Float;
-    bar2Weight : Float;
-    totalMaterialWeight : Float;
-    materialCost : Float;
-    cuttingCost : Float;
-    foldingCost : Float;
-    drillingCost : Float;
-    weldingCost : Float;
-    chamferingCost : Float;
-    totalWeldLength : Float;
-    overheadCost : Float;
-    profitCost : Float;
-    totalCost : Float;
-    customerId : ?Text;
-    customerName : ?Text;
-    createdAt : Int;
+    id : Text; description : Text; materialTab : Text;
+    centerLength : Float; sheetBunchWidth : Float; sheetThickness : Float;
+    sheetCount : Nat; barsSupplied : Bool; barLength : Float;
+    barWidth : Float; barThickness : Float; numberOfDrills : Nat;
+    numberOfFolds : Nat; sheetStackWeight : Float; stripWeight : Float;
+    bar1Weight : Float; bar2Weight : Float; totalMaterialWeight : Float;
+    materialCost : Float; cuttingCost : Float; foldingCost : Float;
+    drillingCost : Float; weldingCost : Float; chamferingCost : Float;
+    totalWeldLength : Float; overheadCost : Float; profitCost : Float;
+    totalCost : Float; customerId : ?Text; customerName : ?Text; createdAt : Int;
   };
 
-  // Legacy V3 flexible job type (had customerId)
   type FlexibleJobV3 = {
-    id : Text;
-    description : Text;
-    materialTab : Text;
-    centerLength : Float;
-    sheetBunchWidth : Float;
-    sheetThickness : Float;
-    sheetCount : Nat;
-    barsSupplied : Bool;
-    barLength : Float;
-    barWidth : Float;
-    barThickness : Float;
-    numberOfDrills : Nat;
-    numberOfFolds : Nat;
-    sheetStackWeight : Float;
-    stripWeight : Float;
-    bar1Weight : Float;
-    bar2Weight : Float;
-    totalMaterialWeight : Float;
-    materialCost : Float;
-    cuttingCost : Float;
-    foldingCost : Float;
-    drillingCost : Float;
-    weldingCost : Float;
-    chamferingCost : Float;
-    totalWeldLength : Float;
-    overheadCost : Float;
-    profitCost : Float;
-    totalCost : Float;
-    discountPct : Float;
-    quotedPrice : Float;
-    customerId : ?Text;
-    customerName : ?Text;
-    createdAt : Int;
+    id : Text; description : Text; materialTab : Text;
+    centerLength : Float; sheetBunchWidth : Float; sheetThickness : Float;
+    sheetCount : Nat; barsSupplied : Bool; barLength : Float;
+    barWidth : Float; barThickness : Float; numberOfDrills : Nat;
+    numberOfFolds : Nat; sheetStackWeight : Float; stripWeight : Float;
+    bar1Weight : Float; bar2Weight : Float; totalMaterialWeight : Float;
+    materialCost : Float; cuttingCost : Float; foldingCost : Float;
+    drillingCost : Float; weldingCost : Float; chamferingCost : Float;
+    totalWeldLength : Float; overheadCost : Float; profitCost : Float;
+    totalCost : Float; discountPct : Float; quotedPrice : Float;
+    customerId : ?Text; customerName : ?Text; createdAt : Int;
   };
 
-  // Legacy LabourJob type (had customerId)
   type LabourJobLegacy = {
-    id : Text;
-    description : Text;
-    customerId : ?Text;
-    customerName : ?Text;
-    materialType : Text;
-    weldLength : Float;
-    laborRate : Float;
-    totalCost : Float;
-    createdAt : Int;
+    id : Text; description : Text; customerId : ?Text;
+    customerName : ?Text; materialType : Text; weldLength : Float;
+    laborRate : Float; totalCost : Float; createdAt : Int;
   };
 
-  // These are the legacy stable maps -- kept under the SAME names as the
-  // previous deployment to avoid M0169/M0170 upgrade compatibility errors.
   let flexibleJobs = Map.empty<Text, FlexibleJobV1>();
   let flexibleJobsV2 = Map.empty<Text, FlexibleJobV2>();
   let flexibleJobsV3 = Map.empty<Text, FlexibleJobV3>();
@@ -143,7 +77,7 @@ actor {
 
   // ===== ID generator =====
 
-  var nextId = 0;
+  stable var nextId = 0;
 
   func generateId() : Text {
     let id = nextId;
@@ -153,29 +87,34 @@ actor {
 
   // ===== Raw Materials =====
 
-  type RateHistoryEntry = {
-    rate : Float;
-    changedAt : Int;
-  };
+  type RateHistoryEntry = { rate : Float; changedAt : Int; };
 
   type RawMaterial = {
-    id : Text;
-    grade : Text;
-    materialType : Text;
-    size : Text;
-    weightPerMeter : Float;
-    currentRate : Float;
-    rateHistory : [RateHistoryEntry];
-    createdAt : Int;
-  };
-
-  module RawMaterial {
-    public func compare(a : RawMaterial, b : RawMaterial) : Order.Order {
-      Text.compare(a.id, b.id);
-    };
+    id : Text; grade : Text; materialType : Text; size : Text;
+    weightPerMeter : Float; currentRate : Float;
+    rateHistory : [RateHistoryEntry]; createdAt : Int;
   };
 
   let rawMaterials = Map.empty<Text, RawMaterial>();
+  stable var rawMaterials_stable : [RawMaterial] = [];
+
+  system func preupgrade() {
+    rawMaterials_stable := rawMaterials.values().toArray();
+    customers_stable := customers.values().toArray();
+    jobs_stable := jobs.values().toArray();
+    labourJobsV2_stable := labourJobsV2.values().toArray();
+    flexibleJobsV4_stable := flexibleJobsV4.values().toArray();
+    alWeldingJobs_stable := alWeldingJobs.values().toArray();
+  };
+
+  system func postupgrade() {
+    for (m in rawMaterials_stable.vals()) { rawMaterials.add(m.id, m); };
+    for (c in customers_stable.vals()) { customers.add(c.id, c); };
+    for (j in jobs_stable.vals()) { jobs.add(j.job.id, j); };
+    for (lj in labourJobsV2_stable.vals()) { labourJobsV2.add(lj.id, lj); };
+    for (fj in flexibleJobsV4_stable.vals()) { flexibleJobsV4.add(fj.id, fj); };
+    for (aj in alWeldingJobs_stable.vals()) { alWeldingJobs.add(aj.id, aj); };
+  };
 
   func getRawMaterialInternal(id : Text) : RawMaterial {
     switch (rawMaterials.get(id)) {
@@ -185,40 +124,29 @@ actor {
   };
 
   public shared func addMaterial(
-    grade : Text,
-    materialType : Text,
-    size : Text,
-    weightPerMeter : Float,
-    currentRate : Float,
+    grade : Text, materialType : Text, size : Text,
+    weightPerMeter : Float, currentRate : Float,
   ) : async RawMaterial {
     let id = generateId();
     let m : RawMaterial = {
       id; grade; materialType; size; weightPerMeter; currentRate;
-      rateHistory = [];
-      createdAt = Time.now();
+      rateHistory = []; createdAt = Time.now();
     };
     rawMaterials.add(id, m);
     m;
   };
 
   public shared func updateMaterial(
-    id : Text,
-    grade : Text,
-    materialType : Text,
-    size : Text,
-    weightPerMeter : Float,
-    currentRate : Float,
+    id : Text, grade : Text, materialType : Text, size : Text,
+    weightPerMeter : Float, currentRate : Float,
   ) : async RawMaterial {
     let old = getRawMaterialInternal(id);
     let newHistory = if (old.currentRate != currentRate) {
       old.rateHistory.concat([{ rate = old.currentRate; changedAt = Time.now() }]);
-    } else {
-      old.rateHistory;
-    };
+    } else { old.rateHistory };
     let updated : RawMaterial = {
       id; grade; materialType; size; weightPerMeter; currentRate;
-      rateHistory = newHistory;
-      createdAt = old.createdAt;
+      rateHistory = newHistory; createdAt = old.createdAt;
     };
     rawMaterials.add(id, updated);
     updated;
@@ -232,13 +160,9 @@ actor {
       func(i) { if (i < index) { history[i] } else { history[i + 1] } },
     );
     let updated : RawMaterial = {
-      id = mat.id;
-      grade = mat.grade;
-      materialType = mat.materialType;
-      size = mat.size;
-      weightPerMeter = mat.weightPerMeter;
-      currentRate = mat.currentRate;
-      rateHistory = newHistory;
+      id = mat.id; grade = mat.grade; materialType = mat.materialType;
+      size = mat.size; weightPerMeter = mat.weightPerMeter;
+      currentRate = mat.currentRate; rateHistory = newHistory;
       createdAt = mat.createdAt;
     };
     rawMaterials.add(mat.id, updated);
@@ -252,7 +176,7 @@ actor {
   };
 
   public query func getMaterials() : async [RawMaterial] {
-    rawMaterials.values().toArray().sort();
+    rawMaterials.values().toArray();
   };
 
   public query func getMaterial(id : Text) : async RawMaterial {
@@ -262,21 +186,12 @@ actor {
   // ===== Customers =====
 
   type Customer = {
-    id : Text;
-    name : Text;
-    phone : Text;
-    email : Text;
-    address : Text;
-    createdAt : Int;
-  };
-
-  module Customer {
-    public func compare(a : Customer, b : Customer) : Order.Order {
-      Text.compare(a.id, b.id);
-    };
+    id : Text; name : Text; phone : Text; email : Text;
+    address : Text; createdAt : Int;
   };
 
   let customers = Map.empty<Text, Customer>();
+  stable var customers_stable : [Customer] = [];
 
   func getCustomerInternal(id : Text) : Customer {
     switch (customers.get(id)) {
@@ -306,7 +221,7 @@ actor {
   };
 
   public query func getCustomers() : async [Customer] {
-    customers.values().toArray().sort();
+    customers.values().toArray();
   };
 
   public query func getCustomer(id : Text) : async Customer {
@@ -316,61 +231,33 @@ actor {
   // ===== SS Fabrication Jobs =====
 
   type Job = {
-    id : Text;
-    name : Text;
-    laborRate : Float;
-    transportIncluded : Bool;
-    customerId : ?Text;
-    transportCost : Float;
-    dispatchQty : Float;
-    createdAt : Int;
-  };
-
-  module Job {
-    public func compare(a : Job, b : Job) : Order.Order {
-      Text.compare(a.id, b.id);
-    };
+    id : Text; name : Text; laborRate : Float; transportIncluded : Bool;
+    customerId : ?Text; transportCost : Float; dispatchQty : Float; createdAt : Int;
   };
 
   type JobLineItem = {
-    materialId : Text;
-    lengthMeters : Float;
-    rawWeight : Float;
-    totalWeight : Float;
-    finalPrice : Float;
+    materialId : Text; lengthMeters : Float; rawWeight : Float;
+    totalWeight : Float; finalPrice : Float;
   };
 
   type WeldingLineItem = {
-    grade : Text;
-    ratePerKg : Float;
-    weightKg : Float;
-    finalPrice : Float;
+    grade : Text; ratePerKg : Float; weightKg : Float; finalPrice : Float;
   };
 
   type SavedJob = {
-    job : Job;
-    jobLineItems : [JobLineItem];
-    weldingLineItems : [WeldingLineItem];
-    totalFinalPrice : Float;
-    totalProductWeight : Float;
-    ratePerKg : Float;
-    customerName : ?Text;
+    job : Job; jobLineItems : [JobLineItem]; weldingLineItems : [WeldingLineItem];
+    totalFinalPrice : Float; totalProductWeight : Float;
+    ratePerKg : Float; customerName : ?Text;
   };
 
   let jobs = Map.empty<Text, SavedJob>();
+  stable var jobs_stable : [SavedJob] = [];
 
   public shared func saveJob(
-    name : Text,
-    laborRate : Float,
-    transportIncluded : Bool,
-    customerId : ?Text,
-    transportCost : Float,
-    dispatchQty : Float,
-    jobLineItems : [JobLineItem],
-    weldingLineItems : [WeldingLineItem],
-    totalFinalPrice : Float,
-    totalProductWeight : Float,
-    ratePerKg : Float,
+    name : Text, laborRate : Float, transportIncluded : Bool,
+    customerId : ?Text, transportCost : Float, dispatchQty : Float,
+    jobLineItems : [JobLineItem], weldingLineItems : [WeldingLineItem],
+    totalFinalPrice : Float, totalProductWeight : Float, ratePerKg : Float,
   ) : async SavedJob {
     let id = generateId();
     let job : Job = { id; name; laborRate; transportIncluded; customerId; transportCost; dispatchQty; createdAt = Time.now() };
@@ -389,18 +276,10 @@ actor {
   };
 
   public shared func updateJob(
-    id : Text,
-    name : Text,
-    laborRate : Float,
-    transportIncluded : Bool,
-    customerId : ?Text,
-    transportCost : Float,
-    dispatchQty : Float,
-    jobLineItems : [JobLineItem],
-    weldingLineItems : [WeldingLineItem],
-    totalFinalPrice : Float,
-    totalProductWeight : Float,
-    ratePerKg : Float,
+    id : Text, name : Text, laborRate : Float, transportIncluded : Bool,
+    customerId : ?Text, transportCost : Float, dispatchQty : Float,
+    jobLineItems : [JobLineItem], weldingLineItems : [WeldingLineItem],
+    totalFinalPrice : Float, totalProductWeight : Float, ratePerKg : Float,
   ) : async SavedJob {
     let existing = switch (jobs.get(id)) {
       case (null) { Runtime.trap("Job with id " # id # " does not exist") };
@@ -439,45 +318,28 @@ actor {
     };
   };
 
-  // ===== Labour Jobs (new -- no customerId) =====
+  // ===== Labour Jobs =====
 
   type LabourJob = {
-    id : Text;
-    description : Text;
-    materialType : Text;
-    weldLength : Float;
-    laborRate : Float;
-    totalCost : Float;
-    createdAt : Int;
+    id : Text; description : Text; materialType : Text;
+    weldLength : Float; laborRate : Float; totalCost : Float; createdAt : Int;
   };
 
-  module LabourJob {
-    public func compare(a : LabourJob, b : LabourJob) : Order.Order {
-      Text.compare(a.id, b.id);
-    };
-  };
-
-  // Uses a new map name to avoid conflict with legacy labourJobs
   let labourJobsV2 = Map.empty<Text, LabourJob>();
+  stable var labourJobsV2_stable : [LabourJob] = [];
 
   public shared func saveLabourJob(
-    description : Text,
-    materialType : Text,
-    weldLength : Float,
-    laborRate : Float,
-    totalCost : Float,
+    description : Text, materialType : Text, weldLength : Float,
+    laborRate : Float, totalCost : Float,
   ) : async LabourJob {
     let id = generateId();
-    let lj : LabourJob = {
-      id; description; materialType; weldLength; laborRate; totalCost;
-      createdAt = Time.now();
-    };
+    let lj : LabourJob = { id; description; materialType; weldLength; laborRate; totalCost; createdAt = Time.now() };
     labourJobsV2.add(id, lj);
     lj;
   };
 
   public query func getLabourJobs() : async [LabourJob] {
-    labourJobsV2.values().toArray().sort();
+    labourJobsV2.values().toArray();
   };
 
   public shared func deleteLabourJob(id : Text) : async Bool {
@@ -487,81 +349,34 @@ actor {
     };
   };
 
-  // ===== Flexible Jobs (new -- no customerId) =====
+  // ===== Flexible Jobs =====
 
   type FlexibleJob = {
-    id : Text;
-    description : Text;
-    materialTab : Text;
-    centerLength : Float;
-    sheetBunchWidth : Float;
-    sheetThickness : Float;
-    sheetCount : Nat;
-    barsSupplied : Bool;
-    barLength : Float;
-    barWidth : Float;
-    barThickness : Float;
-    numberOfDrills : Nat;
-    numberOfFolds : Nat;
-    sheetStackWeight : Float;
-    stripWeight : Float;
-    bar1Weight : Float;
-    bar2Weight : Float;
-    totalMaterialWeight : Float;
-    materialCost : Float;
-    cuttingCost : Float;
-    foldingCost : Float;
-    drillingCost : Float;
-    weldingCost : Float;
-    chamferingCost : Float;
-    totalWeldLength : Float;
-    overheadCost : Float;
-    profitCost : Float;
-    totalCost : Float;
-    discountPct : Float;
-    quotedPrice : Float;
-    createdAt : Int;
+    id : Text; description : Text; materialTab : Text;
+    centerLength : Float; sheetBunchWidth : Float; sheetThickness : Float;
+    sheetCount : Nat; barsSupplied : Bool; barLength : Float;
+    barWidth : Float; barThickness : Float; numberOfDrills : Nat;
+    numberOfFolds : Nat; sheetStackWeight : Float; stripWeight : Float;
+    bar1Weight : Float; bar2Weight : Float; totalMaterialWeight : Float;
+    materialCost : Float; cuttingCost : Float; foldingCost : Float;
+    drillingCost : Float; weldingCost : Float; chamferingCost : Float;
+    totalWeldLength : Float; overheadCost : Float; profitCost : Float;
+    totalCost : Float; discountPct : Float; quotedPrice : Float; createdAt : Int;
   };
 
-  module FlexibleJob {
-    public func compare(a : FlexibleJob, b : FlexibleJob) : Order.Order {
-      Text.compare(a.id, b.id);
-    };
-  };
-
-  // Uses a new map name to avoid conflict with legacy flexibleJobs/V2/V3
   let flexibleJobsV4 = Map.empty<Text, FlexibleJob>();
+  stable var flexibleJobsV4_stable : [FlexibleJob] = [];
 
   public shared func saveFlexibleJob(
-    description : Text,
-    materialTab : Text,
-    centerLength : Float,
-    sheetBunchWidth : Float,
-    sheetThickness : Float,
-    sheetCount : Nat,
-    barsSupplied : Bool,
-    barLength : Float,
-    barWidth : Float,
-    barThickness : Float,
-    numberOfDrills : Nat,
-    numberOfFolds : Nat,
-    sheetStackWeight : Float,
-    stripWeight : Float,
-    bar1Weight : Float,
-    bar2Weight : Float,
-    totalMaterialWeight : Float,
-    materialCost : Float,
-    cuttingCost : Float,
-    foldingCost : Float,
-    drillingCost : Float,
-    weldingCost : Float,
-    chamferingCost : Float,
-    totalWeldLength : Float,
-    overheadCost : Float,
-    profitCost : Float,
-    totalCost : Float,
-    discountPct : Float,
-    quotedPrice : Float,
+    description : Text, materialTab : Text, centerLength : Float,
+    sheetBunchWidth : Float, sheetThickness : Float, sheetCount : Nat,
+    barsSupplied : Bool, barLength : Float, barWidth : Float, barThickness : Float,
+    numberOfDrills : Nat, numberOfFolds : Nat, sheetStackWeight : Float,
+    stripWeight : Float, bar1Weight : Float, bar2Weight : Float,
+    totalMaterialWeight : Float, materialCost : Float, cuttingCost : Float,
+    foldingCost : Float, drillingCost : Float, weldingCost : Float,
+    chamferingCost : Float, totalWeldLength : Float, overheadCost : Float,
+    profitCost : Float, totalCost : Float, discountPct : Float, quotedPrice : Float,
   ) : async FlexibleJob {
     let id = generateId();
     let fj : FlexibleJob = {
@@ -570,44 +385,22 @@ actor {
       numberOfFolds; sheetStackWeight; stripWeight; bar1Weight; bar2Weight;
       totalMaterialWeight; materialCost; cuttingCost; foldingCost; drillingCost;
       weldingCost; chamferingCost; totalWeldLength; overheadCost; profitCost;
-      totalCost; discountPct; quotedPrice;
-      createdAt = Time.now();
+      totalCost; discountPct; quotedPrice; createdAt = Time.now();
     };
     flexibleJobsV4.add(id, fj);
     fj;
   };
 
   public shared func updateFlexibleJob(
-    id : Text,
-    description : Text,
-    materialTab : Text,
-    centerLength : Float,
-    sheetBunchWidth : Float,
-    sheetThickness : Float,
-    sheetCount : Nat,
-    barsSupplied : Bool,
-    barLength : Float,
-    barWidth : Float,
-    barThickness : Float,
-    numberOfDrills : Nat,
-    numberOfFolds : Nat,
-    sheetStackWeight : Float,
-    stripWeight : Float,
-    bar1Weight : Float,
-    bar2Weight : Float,
-    totalMaterialWeight : Float,
-    materialCost : Float,
-    cuttingCost : Float,
-    foldingCost : Float,
-    drillingCost : Float,
-    weldingCost : Float,
-    chamferingCost : Float,
-    totalWeldLength : Float,
-    overheadCost : Float,
-    profitCost : Float,
-    totalCost : Float,
-    discountPct : Float,
-    quotedPrice : Float,
+    id : Text, description : Text, materialTab : Text, centerLength : Float,
+    sheetBunchWidth : Float, sheetThickness : Float, sheetCount : Nat,
+    barsSupplied : Bool, barLength : Float, barWidth : Float, barThickness : Float,
+    numberOfDrills : Nat, numberOfFolds : Nat, sheetStackWeight : Float,
+    stripWeight : Float, bar1Weight : Float, bar2Weight : Float,
+    totalMaterialWeight : Float, materialCost : Float, cuttingCost : Float,
+    foldingCost : Float, drillingCost : Float, weldingCost : Float,
+    chamferingCost : Float, totalWeldLength : Float, overheadCost : Float,
+    profitCost : Float, totalCost : Float, discountPct : Float, quotedPrice : Float,
   ) : async FlexibleJob {
     let existing = switch (flexibleJobsV4.get(id)) {
       case (null) { Runtime.trap("Flexible job with id " # id # " does not exist") };
@@ -619,15 +412,14 @@ actor {
       numberOfFolds; sheetStackWeight; stripWeight; bar1Weight; bar2Weight;
       totalMaterialWeight; materialCost; cuttingCost; foldingCost; drillingCost;
       weldingCost; chamferingCost; totalWeldLength; overheadCost; profitCost;
-      totalCost; discountPct; quotedPrice;
-      createdAt = existing.createdAt;
+      totalCost; discountPct; quotedPrice; createdAt = existing.createdAt;
     };
     flexibleJobsV4.add(id, fj);
     fj;
   };
 
   public query func getFlexibleJobs() : async [FlexibleJob] {
-    flexibleJobsV4.values().toArray().sort();
+    flexibleJobsV4.values().toArray();
   };
 
   public shared func deleteFlexibleJob(id : Text) : async Bool {
@@ -640,57 +432,34 @@ actor {
   // ===== Aluminium Welding Jobs =====
 
   type AlWeldingJob = {
-    id : Text;
-    description : Text;
-    numJoints : Nat;
-    numBrackets : Nat;
-    numDummy : Nat;
-    weldLengthEachMm : Float;
-    thickness : Float;
-    laborCostPer2mm : Float;
-    totalFullLength : Float;
-    totalWeldLines : Nat;
-    adjustedLaborCost : Float;
-    totalCost : Float;
-    costPerFullLength : Float;
+    id : Text; description : Text; numJoints : Nat; numBrackets : Nat;
+    numDummy : Nat; weldLengthEachMm : Float; thickness : Float;
+    laborCostPer2mm : Float; totalFullLength : Float; totalWeldLines : Nat;
+    adjustedLaborCost : Float; totalCost : Float; costPerFullLength : Float;
     createdAt : Int;
   };
 
-  module AlWeldingJob {
-    public func compare(a : AlWeldingJob, b : AlWeldingJob) : Order.Order {
-      Text.compare(a.id, b.id);
-    };
-  };
-
   let alWeldingJobs = Map.empty<Text, AlWeldingJob>();
+  stable var alWeldingJobs_stable : [AlWeldingJob] = [];
 
   public shared func saveAlWeldingJob(
-    description : Text,
-    numJoints : Nat,
-    numBrackets : Nat,
-    numDummy : Nat,
-    weldLengthEachMm : Float,
-    thickness : Float,
-    laborCostPer2mm : Float,
-    totalFullLength : Float,
-    totalWeldLines : Nat,
-    adjustedLaborCost : Float,
-    totalCost : Float,
-    costPerFullLength : Float,
+    description : Text, numJoints : Nat, numBrackets : Nat, numDummy : Nat,
+    weldLengthEachMm : Float, thickness : Float, laborCostPer2mm : Float,
+    totalFullLength : Float, totalWeldLines : Nat, adjustedLaborCost : Float,
+    totalCost : Float, costPerFullLength : Float,
   ) : async AlWeldingJob {
     let id = generateId();
     let job : AlWeldingJob = {
       id; description; numJoints; numBrackets; numDummy; weldLengthEachMm;
       thickness; laborCostPer2mm; totalFullLength; totalWeldLines;
-      adjustedLaborCost; totalCost; costPerFullLength;
-      createdAt = Time.now();
+      adjustedLaborCost; totalCost; costPerFullLength; createdAt = Time.now();
     };
     alWeldingJobs.add(id, job);
     job;
   };
 
   public query func getAlWeldingJobs() : async [AlWeldingJob] {
-    alWeldingJobs.values().toArray().sort();
+    alWeldingJobs.values().toArray();
   };
 
   public shared func deleteAlWeldingJob(id : Text) : async Bool {
@@ -700,7 +469,7 @@ actor {
     };
   };
 
-  // ===== Legacy stubs for interface compatibility =====
+  // ===== Legacy stubs =====
   type UserProfile = { name : Text };
   type UserRole = { #admin; #user };
   public shared func saveCallerUserProfile(_profile : UserProfile) : async () {};

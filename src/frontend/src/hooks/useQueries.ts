@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import {
   addCustomer,
   addMaterial,
@@ -26,6 +27,12 @@ import {
   updateMaterial,
 } from "../icpDB";
 
+function onError(err: unknown, context?: string) {
+  const msg = err instanceof Error ? err.message : String(err);
+  toast.error(`${context ?? "Save"} failed: ${msg}`);
+  console.error(context ?? "Save", err);
+}
+
 export function useMaterials() {
   return useQuery({ queryKey: ["materials"], queryFn: () => getMaterials() });
 }
@@ -48,6 +55,7 @@ export function useAddMaterial() {
         data.currentRate,
       ),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["materials"] }),
+    onError: (err) => onError(err, "Add material"),
   });
 }
 
@@ -71,6 +79,7 @@ export function useUpdateMaterial() {
         data.currentRate,
       ),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["materials"] }),
+    onError: (err) => onError(err, "Update material"),
   });
 }
 
@@ -79,6 +88,7 @@ export function useDeleteMaterial() {
   return useMutation({
     mutationFn: async (id: string) => deleteMaterial(id),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["materials"] }),
+    onError: (err) => onError(err, "Delete material"),
   });
 }
 
@@ -88,6 +98,7 @@ export function useDeleteRateHistoryEntry() {
     mutationFn: async (data: { materialId: string; index: bigint }) =>
       deleteRateHistoryEntry(data.materialId, data.index),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["materials"] }),
+    onError: (err) => onError(err, "Delete rate history"),
   });
 }
 
@@ -105,6 +116,7 @@ export function useAddCustomer() {
       address: string;
     }) => addCustomer(data.name, data.phone, data.email, data.address),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["customers"] }),
+    onError: (err) => onError(err, "Add customer"),
   });
 }
 
@@ -120,6 +132,7 @@ export function useUpdateCustomer() {
     }) =>
       updateCustomer(data.id, data.name, data.phone, data.email, data.address),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["customers"] }),
+    onError: (err) => onError(err, "Update customer"),
   });
 }
 
@@ -128,6 +141,7 @@ export function useDeleteCustomer() {
   return useMutation({
     mutationFn: async (id: string) => deleteCustomer(id),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["customers"] }),
+    onError: (err) => onError(err, "Delete customer"),
   });
 }
 
@@ -184,6 +198,7 @@ export function useSaveJob() {
         data.ratePerKg,
       ),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["jobs"] }),
+    onError: (err) => onError(err, "Save job"),
   });
 }
 
@@ -230,6 +245,7 @@ export function useUpdateJob() {
         data.ratePerKg,
       ),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["jobs"] }),
+    onError: (err) => onError(err, "Update job"),
   });
 }
 
@@ -238,6 +254,7 @@ export function useDeleteJob() {
   return useMutation({
     mutationFn: async (id: string) => deleteJob(id),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["jobs"] }),
+    onError: (err) => onError(err, "Delete job"),
   });
 }
 
@@ -263,6 +280,7 @@ export function useSaveLabourJob() {
         data.totalCost,
       ),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["labourJobs"] }),
+    onError: (err) => onError(err, "Save labour job"),
   });
 }
 
@@ -271,6 +289,7 @@ export function useDeleteLabourJob() {
   return useMutation({
     mutationFn: async (id: string) => deleteLabourJob(id),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["labourJobs"] }),
+    onError: (err) => onError(err, "Delete labour job"),
   });
 }
 
@@ -347,6 +366,7 @@ export function useSaveFlexibleJob() {
         data.quotedPrice,
       ),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["flexibleJobs"] }),
+    onError: (err) => onError(err, "Save flexible job"),
   });
 }
 
@@ -418,6 +438,7 @@ export function useUpdateFlexibleJob() {
         data.quotedPrice,
       ),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["flexibleJobs"] }),
+    onError: (err) => onError(err, "Update flexible job"),
   });
 }
 
@@ -426,6 +447,7 @@ export function useDeleteFlexibleJob() {
   return useMutation({
     mutationFn: async (id: string) => deleteFlexibleJob(id),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["flexibleJobs"] }),
+    onError: (err) => onError(err, "Delete flexible job"),
   });
 }
 
@@ -468,6 +490,7 @@ export function useSaveAlWeldingJob() {
         data.costPerFullLength,
       ),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["alWeldingJobs"] }),
+    onError: (err) => onError(err, "Save aluminium welding job"),
   });
 }
 
@@ -476,5 +499,6 @@ export function useDeleteAlWeldingJob() {
   return useMutation({
     mutationFn: async (id: string) => deleteAlWeldingJob(id),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["alWeldingJobs"] }),
+    onError: (err) => onError(err, "Delete aluminium welding job"),
   });
 }
