@@ -171,7 +171,7 @@ function JobDetailDialog({
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent
-        className="max-w-2xl max-h-[90vh] overflow-y-auto print-dialog"
+        className="w-[95vw] max-w-2xl max-h-[88dvh] overflow-y-auto print-dialog p-4 sm:p-6"
         data-ocid="jobhistory.dialog"
       >
         <DialogHeader>
@@ -217,48 +217,52 @@ function JobDetailDialog({
               <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
                 Materials
               </h3>
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-muted/50 hover:bg-muted/50">
-                    <TableHead className="text-xs">Material</TableHead>
-                    <TableHead className="text-xs">Length (m)</TableHead>
-                    <TableHead className="text-xs">Raw Wt (kg)</TableHead>
-                    <TableHead className="text-xs">Total Wt (kg)</TableHead>
-                    <TableHead className="text-xs text-right">
-                      Mat. Cost
-                    </TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {job.jobLineItems.map((item) => {
-                    const mat = materials.find((m) => m.id === item.materialId);
-                    return (
-                      <TableRow
-                        key={item.materialId}
-                        className="border-b border-border/60"
-                      >
-                        <TableCell className="text-xs">
-                          {mat
-                            ? `${mat.grade} · ${mat.materialType} · ${mat.size}`
-                            : item.materialId}
-                        </TableCell>
-                        <TableCell className="text-xs font-mono">
-                          {item.lengthMeters}
-                        </TableCell>
-                        <TableCell className="text-xs font-mono">
-                          {fmt(item.rawWeight)}
-                        </TableCell>
-                        <TableCell className="text-xs font-mono">
-                          {fmt(item.totalWeight)}
-                        </TableCell>
-                        <TableCell className="text-xs font-mono text-right">
-                          ₹{fmt(item.finalPrice)}
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
+              <div className="overflow-x-auto -mx-1">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-muted/50 hover:bg-muted/50">
+                      <TableHead className="text-xs">Material</TableHead>
+                      <TableHead className="text-xs">Length (m)</TableHead>
+                      <TableHead className="text-xs">Raw Wt (kg)</TableHead>
+                      <TableHead className="text-xs">Total Wt (kg)</TableHead>
+                      <TableHead className="text-xs text-right">
+                        Mat. Cost
+                      </TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {job.jobLineItems.map((item) => {
+                      const mat = materials.find(
+                        (m) => m.id === item.materialId,
+                      );
+                      return (
+                        <TableRow
+                          key={item.materialId}
+                          className="border-b border-border/60"
+                        >
+                          <TableCell className="text-xs">
+                            {mat
+                              ? `${mat.grade} · ${mat.materialType} · ${mat.size}`
+                              : item.materialId}
+                          </TableCell>
+                          <TableCell className="text-xs font-mono">
+                            {item.lengthMeters}
+                          </TableCell>
+                          <TableCell className="text-xs font-mono">
+                            {fmt(item.rawWeight)}
+                          </TableCell>
+                          <TableCell className="text-xs font-mono">
+                            {fmt(item.totalWeight)}
+                          </TableCell>
+                          <TableCell className="text-xs font-mono text-right">
+                            ₹{fmt(item.finalPrice)}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
             </div>
           )}
 
@@ -267,39 +271,41 @@ function JobDetailDialog({
               <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
                 Welding Materials
               </h3>
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-muted/50 hover:bg-muted/50">
-                    <TableHead className="text-xs">Grade</TableHead>
-                    <TableHead className="text-xs">Weight (kg)</TableHead>
-                    <TableHead className="text-xs">Rate (₹/kg)</TableHead>
-                    <TableHead className="text-xs text-right">
-                      Welding Cost
-                    </TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {job.weldingLineItems.map((item) => (
-                    <TableRow
-                      key={`${item.grade}-${item.weightKg}`}
-                      className="border-b border-border/60"
-                    >
-                      <TableCell className="text-xs font-medium">
-                        {item.grade}
-                      </TableCell>
-                      <TableCell className="text-xs font-mono">
-                        {fmt(item.weightKg)}
-                      </TableCell>
-                      <TableCell className="text-xs font-mono">
-                        ₹{fmt(item.ratePerKg)}
-                      </TableCell>
-                      <TableCell className="text-xs font-mono text-right">
-                        ₹{fmt(item.finalPrice)}
-                      </TableCell>
+              <div className="overflow-x-auto -mx-1">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-muted/50 hover:bg-muted/50">
+                      <TableHead className="text-xs">Grade</TableHead>
+                      <TableHead className="text-xs">Weight (kg)</TableHead>
+                      <TableHead className="text-xs">Rate (₹/kg)</TableHead>
+                      <TableHead className="text-xs text-right">
+                        Welding Cost
+                      </TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {job.weldingLineItems.map((item) => (
+                      <TableRow
+                        key={`${item.grade}-${item.weightKg}`}
+                        className="border-b border-border/60"
+                      >
+                        <TableCell className="text-xs font-medium">
+                          {item.grade}
+                        </TableCell>
+                        <TableCell className="text-xs font-mono">
+                          {fmt(item.weightKg)}
+                        </TableCell>
+                        <TableCell className="text-xs font-mono">
+                          ₹{fmt(item.ratePerKg)}
+                        </TableCell>
+                        <TableCell className="text-xs font-mono text-right">
+                          ₹{fmt(item.finalPrice)}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
             </div>
           )}
 
@@ -456,7 +462,7 @@ function JobDetailDialog({
           </div>
         )}
 
-        <div className="flex justify-end gap-2 pt-2 print:hidden">
+        <div className="flex flex-wrap justify-end gap-2 pt-2 print:hidden">
           <Button
             variant="outline"
             onClick={onClose}
@@ -606,7 +612,7 @@ export function JobHistory({ onEditJob }: JobHistoryProps) {
       </Card>
 
       <Card className="shadow-card border-border">
-        <CardContent className="pt-4 px-0">
+        <CardContent className="pt-4 px-0 overflow-x-auto">
           {isLoading ? (
             <div
               className="px-6 space-y-3"
@@ -771,9 +777,19 @@ export function JobHistory({ onEditJob }: JobHistoryProps) {
 
       <style>{`
         @media print {
-          body > * { display: none !important; }
-          .print-dialog { display: block !important; position: fixed; top: 0; left: 0; width: 100%; }
+          body > *:not([data-radix-portal]) { display: none !important; }
           [data-radix-dialog-overlay] { display: none !important; }
+          [data-radix-dialog-content] {
+            box-shadow: none !important;
+            border: none !important;
+            max-height: none !important;
+            overflow: visible !important;
+            position: static !important;
+            transform: none !important;
+            width: 100% !important;
+            max-width: 100% !important;
+          }
+          .print\:hidden { display: none !important; }
         }
       `}</style>
     </div>

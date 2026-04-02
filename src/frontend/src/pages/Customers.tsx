@@ -221,7 +221,7 @@ export function Customers() {
       </div>
 
       <Card className="shadow-card border-border">
-        <CardContent className="pt-4 px-0">
+        <CardContent className="pt-4 px-0 overflow-x-auto">
           {isLoading ? (
             <div className="px-6 space-y-3" data-ocid="customers.loading_state">
               {[1, 2, 3].map((i) => (

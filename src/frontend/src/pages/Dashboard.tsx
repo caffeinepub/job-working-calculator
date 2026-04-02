@@ -250,7 +250,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
                 Recent Activity
               </CardTitle>
             </CardHeader>
-            <CardContent className="px-0 pb-2">
+            <CardContent className="px-0 pb-2 overflow-x-auto">
               {stats.recentActivity.length === 0 ? (
                 <div
                   className="flex flex-col items-center justify-center py-10 text-center"

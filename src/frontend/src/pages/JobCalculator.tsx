@@ -1020,7 +1020,7 @@ export function JobCalculator({
                                     >
                                       <SelectValue />
                                     </SelectTrigger>
-                                    <SelectContent>
+                                    <SelectContent className="max-h-72 overflow-y-auto">
                                       {materialsLoading ? (
                                         <SelectItem value="loading" disabled>
                                           Loading…

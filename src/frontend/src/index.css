@@ -128,3 +128,31 @@
     font-family: "Plus Jakarta Sans", sans-serif;
   }
 }
+
+/* ── Print Styles ─────────────────────────────────────────────────── */
+@media print {
+  body > *:not([data-radix-portal]) {
+    display: none !important;
+  }
+  [data-radix-dialog-overlay] {
+    display: none !important;
+  }
+  [data-radix-dialog-content] {
+    box-shadow: none !important;
+    border: none !important;
+    max-height: none !important;
+    overflow: visible !important;
+    position: static !important;
+    transform: none !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    padding: 1rem !important;
+  }
+  .print\:hidden {
+    display: none !important;
+  }
+  #print-area * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}
