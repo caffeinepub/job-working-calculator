@@ -275,7 +275,7 @@ export function RawMaterials() {
       {/* Page header */}
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">
+          <h1 className="text-2xl font-bold text-foreground border-l-4 border-amber-500 pl-3">
             Raw Material Manager
           </h1>
           <nav className="flex items-center gap-1.5 mt-1 text-sm text-muted-foreground">
@@ -326,7 +326,7 @@ export function RawMaterials() {
         {/* Card header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-border">
           <div>
-            <h2 className="text-base font-semibold text-foreground">
+            <h2 className="text-base font-semibold text-foreground border-l-4 border-amber-400 pl-2">
               Material Inventory
             </h2>
             <p className="text-xs text-muted-foreground mt-0.5">

@@ -336,7 +336,7 @@ function AluminiumTab() {
             </div>
           ) : alJobs.length === 0 ? (
             <div
-              className="text-center py-12 text-muted-foreground"
+              className="flex flex-col items-center justify-center py-10 text-center rounded-lg border border-dashed border-border text-muted-foreground"
               data-ocid="labour.al.empty_state"
             >
               <Wrench size={32} className="mx-auto mb-3 opacity-30" />
@@ -538,7 +538,7 @@ export function Labour() {
         <TabsList className="w-full">
           <TabsTrigger
             value="ss304"
-            className="flex-1 data-[state=active]:border-b-2 data-[state=active]:border-blue-500"
+            className="flex-1 rounded-none data-[state=active]:border-b-2 data-[state=active]:border-blue-500"
             data-ocid="labour.ss304.tab"
           >
             <span className="flex items-center gap-1.5">
@@ -548,7 +548,7 @@ export function Labour() {
           </TabsTrigger>
           <TabsTrigger
             value="aluminium"
-            className="flex-1 data-[state=active]:border-b-2 data-[state=active]:border-amber-500"
+            className="flex-1 rounded-none data-[state=active]:border-b-2 data-[state=active]:border-amber-500"
             data-ocid="labour.aluminium.tab"
           >
             <span className="flex items-center gap-1.5">
@@ -558,7 +558,7 @@ export function Labour() {
           </TabsTrigger>
           <TabsTrigger
             value="gutter"
-            className="flex-1 data-[state=active]:border-b-2 data-[state=active]:border-green-500"
+            className="flex-1 rounded-none data-[state=active]:border-b-2 data-[state=active]:border-green-500"
             data-ocid="labour.gutter.tab"
           >
             <span className="flex items-center gap-1.5">
@@ -687,7 +687,7 @@ export function Labour() {
                 </div>
               ) : ss304Jobs.length === 0 ? (
                 <div
-                  className="text-center py-12 text-muted-foreground"
+                  className="flex flex-col items-center justify-center py-10 text-center rounded-lg border border-dashed border-border text-muted-foreground"
                   data-ocid="labour.ss304.empty_state"
                 >
                   <Wrench size={32} className="mx-auto mb-3 opacity-30" />
@@ -1054,7 +1054,7 @@ export function Labour() {
             <CardContent className="p-0">
               {gutterJobs.length === 0 ? (
                 <div
-                  className="text-center py-12 text-muted-foreground"
+                  className="flex flex-col items-center justify-center py-10 text-center rounded-lg border border-dashed border-border text-muted-foreground"
                   data-ocid="labour.gutter.empty_state"
                 >
                   <Wrench size={32} className="mx-auto mb-3 opacity-30" />

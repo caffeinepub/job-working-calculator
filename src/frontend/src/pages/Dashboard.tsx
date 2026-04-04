@@ -183,7 +183,10 @@ export function Dashboard({ onNavigate }: DashboardProps) {
       {/* Stat cards — 2x2 on mobile, 4-col on desktop */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
         {statCards.map((card) => (
-          <Card key={card.key} className="shadow-card border-border">
+          <Card
+            key={card.key}
+            className="shadow-card border-border border-t-2 border-t-blue-200"
+          >
             <CardContent className="pt-4 pb-3 px-4">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
@@ -243,7 +246,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
         {/* Recent Activity */}
         <div className="xl:col-span-2">
-          <Card className="shadow-card border-border">
+          <Card className="shadow-card border-border border-t-2 border-t-blue-200">
             <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center gap-2">
                 <Calculator size={16} className="text-primary" />
@@ -328,7 +331,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
 
         {/* Top Materials */}
         <div>
-          <Card className="shadow-card border-border">
+          <Card className="shadow-card border-border border-t-2 border-t-blue-200">
             <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center gap-2">
                 <Package size={16} className="text-primary" />

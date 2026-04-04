@@ -708,7 +708,7 @@ export function JobCalculator({
       <div className="flex flex-col gap-6">
         <div className="flex items-start justify-between" ref={formTopRef}>
           <div>
-            <h1 className="text-2xl font-bold text-foreground">
+            <h1 className="text-2xl font-bold text-foreground border-l-4 border-amber-500 pl-3">
               SS Fabrication — Job Calculator
             </h1>
             <nav className="flex items-center gap-1.5 mt-1 text-sm text-muted-foreground">
@@ -1284,7 +1284,7 @@ export function JobCalculator({
             </Card>
 
             {/* Machining Operations */}
-            <Card className="shadow-card border-border">
+            <Card className="shadow-card border-border border-l-4 border-l-violet-400">
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-base flex items-center gap-2">
@@ -1827,7 +1827,7 @@ export function JobCalculator({
             </Card>
 
             {/* Welding Line Items */}
-            <Card className="shadow-card border-border">
+            <Card className="shadow-card border-border border-l-4 border-l-amber-400">
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-base flex items-center gap-2">
@@ -2138,7 +2138,7 @@ export function JobCalculator({
 
                         <div className="flex justify-between text-sm font-bold">
                           <span>Total</span>
-                          <span className="font-mono text-primary">
+                          <span className="font-mono text-primary text-base">
                             ₹{fmt(summary.totalFinalPrice)}
                           </span>
                         </div>

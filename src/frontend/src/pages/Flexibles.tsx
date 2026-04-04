@@ -320,7 +320,7 @@ function SavedJobsTab({
             </div>
           ) : tabJobs.length === 0 ? (
             <div
-              className="text-center py-12 text-muted-foreground"
+              className="flex flex-col items-center justify-center py-10 text-center rounded-lg border border-dashed border-border text-muted-foreground"
               data-ocid="flexibles.empty_state"
             >
               <Layers size={32} className="mx-auto mb-3 opacity-30" />

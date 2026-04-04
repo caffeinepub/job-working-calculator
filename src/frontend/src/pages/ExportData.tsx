@@ -209,7 +209,9 @@ export function ExportData() {
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Export & Backup</h1>
+        <h1 className="text-2xl font-bold text-foreground border-l-4 border-teal-500 pl-3">
+          Export & Backup
+        </h1>
         <p className="text-muted-foreground text-sm mt-1">
           Download your data as CSV or JSON for offline backup or analysis.
         </p>

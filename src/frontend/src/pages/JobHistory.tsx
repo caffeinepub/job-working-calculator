@@ -538,7 +538,9 @@ export function JobHistory({ onEditJob }: JobHistoryProps) {
   return (
     <div className="flex flex-col gap-6" data-ocid="jobhistory.page">
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Job History</h1>
+        <h1 className="text-2xl font-bold text-foreground border-l-4 border-orange-500 pl-3">
+          Job History
+        </h1>
         <p className="text-muted-foreground text-sm mt-0.5">
           Browse, search, and manage all saved jobs
         </p>
