@@ -1091,7 +1091,7 @@ function TabCalculator({
                   </span>
                   <Input
                     type="number"
-                    min={1}
+                    min={0}
                     className="h-8 w-28 text-sm"
                     value={rateInputVal}
                     onChange={(e) => setRateInputVal(e.target.value)}
@@ -1523,12 +1523,12 @@ function TabCalculator({
                 <Input
                   id={`flex-drills-${materialTab}`}
                   type="number"
-                  min={1}
+                  min={0}
                   step={1}
                   value={numberOfDrills}
                   onChange={(e) =>
                     setNumberOfDrills(
-                      Math.max(1, Math.round(Number(e.target.value))),
+                      Math.max(0, Math.round(Number(e.target.value))),
                     )
                   }
                   data-ocid="flexibles.input"

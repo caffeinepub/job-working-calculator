@@ -48,7 +48,7 @@ import {
   Truck,
   X,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import type { RawMaterial, SavedJob } from "../backend";
 import {
@@ -99,7 +99,29 @@ function JobDetailDialog({
   const [showRateChecker, setShowRateChecker] = useState(false);
   const [newRates, setNewRates] = useState<Record<string, string>>({});
 
-  const handlePrint = () => window.print();
+  const printAreaRef = useRef<HTMLDivElement>(null);
+
+  const handlePrint = () => {
+    const printArea = printAreaRef.current;
+    if (!printArea) {
+      window.print();
+      return;
+    }
+    const printWindow = window.open("", "_blank", "width=900,height=700");
+    if (!printWindow) {
+      window.print();
+      return;
+    }
+    printWindow.document.write(
+      `<!DOCTYPE html><html><head><title>Job Working</title><style>body{font-family:sans-serif;padding:24px;color:#111;}table{width:100%;border-collapse:collapse;}th,td{border:1px solid #ccc;padding:6px 10px;font-size:12px;}th{background:#f5f5f5;}@media print{.print\\:hidden{display:none!important;}}</style></head><body>${printArea.innerHTML}</body></html>`,
+    );
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => {
+      printWindow.print();
+      printWindow.close();
+    }, 400);
+  };
 
   const totalMaterial = job.jobLineItems.reduce(
     (s, item) => s + item.finalPrice,
@@ -186,7 +208,7 @@ function JobDetailDialog({
           </DialogTitle>
         </DialogHeader>
 
-        <div id="print-area">
+        <div id="print-area" ref={printAreaRef}>
           <div className="grid grid-cols-2 gap-4 text-sm mb-4">
             <div>
               <span className="text-muted-foreground">Customer:</span>{" "}
@@ -776,24 +798,6 @@ export function JobHistory({ onEditJob }: JobHistoryProps) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-      <style>{`
-        @media print {
-          body > *:not([data-radix-portal]) { display: none !important; }
-          [data-radix-dialog-overlay] { display: none !important; }
-          [data-radix-dialog-content] {
-            box-shadow: none !important;
-            border: none !important;
-            max-height: none !important;
-            overflow: visible !important;
-            position: static !important;
-            transform: none !important;
-            width: 100% !important;
-            max-width: 100% !important;
-          }
-          .print\:hidden { display: none !important; }
-        }
-      `}</style>
     </div>
   );
 }

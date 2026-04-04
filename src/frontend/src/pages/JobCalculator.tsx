@@ -1505,7 +1505,7 @@ export function JobCalculator({
                                     </Label>
                                     <Input
                                       type="number"
-                                      min={1}
+                                      min={0}
                                       value={row.drillDia ?? ""}
                                       onChange={(e) =>
                                         updateMachiningRow(row.rowId, {
@@ -1522,7 +1522,7 @@ export function JobCalculator({
                                     </Label>
                                     <Input
                                       type="number"
-                                      min={1}
+                                      min={0}
                                       value={row.matThickness ?? ""}
                                       onChange={(e) =>
                                         updateMachiningRow(row.rowId, {
@@ -1580,7 +1580,7 @@ export function JobCalculator({
                                   </Label>
                                   <Input
                                     type="number"
-                                    min={1}
+                                    min={0}
                                     value={row.csDia ?? ""}
                                     onChange={(e) =>
                                       updateMachiningRow(row.rowId, {
@@ -1601,7 +1601,7 @@ export function JobCalculator({
                                     </Label>
                                     <Input
                                       type="number"
-                                      min={1}
+                                      min={0}
                                       value={row.slotLength ?? ""}
                                       onChange={(e) =>
                                         updateMachiningRow(row.rowId, {
@@ -1618,7 +1618,7 @@ export function JobCalculator({
                                     </Label>
                                     <Input
                                       type="number"
-                                      min={1}
+                                      min={0}
                                       value={row.slotWidth ?? ""}
                                       onChange={(e) =>
                                         updateMachiningRow(row.rowId, {
@@ -1775,11 +1775,11 @@ export function JobCalculator({
                                 </Label>
                                 <Input
                                   type="number"
-                                  min={1}
+                                  min={0}
                                   value={row.qty}
                                   onChange={(e) =>
                                     updateMachiningRow(row.rowId, {
-                                      qty: Math.max(1, Number(e.target.value)),
+                                      qty: Math.max(0, Number(e.target.value)),
                                     })
                                   }
                                   className="h-8 text-xs w-16"
