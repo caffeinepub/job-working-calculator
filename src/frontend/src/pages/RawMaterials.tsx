@@ -1,5 +1,16 @@
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -36,6 +47,7 @@ import { DeleteConfirmDialog } from "../components/DeleteConfirmDialog";
 import { MaterialModal } from "../components/MaterialModal";
 import {
   useAddMaterial,
+  useBulkDeleteMaterials,
   useDeleteMaterial,
   useDeleteRateHistoryEntry,
   useMaterials,
@@ -137,6 +149,7 @@ export function RawMaterials() {
   const updateMutation = useUpdateMaterial();
   const deleteMutation = useDeleteMaterial();
   const deleteHistoryMutation = useDeleteRateHistoryEntry();
+  const bulkDeleteMutation = useBulkDeleteMaterials();
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editItem, setEditItem] = useState<RawMaterial | null>(null);
@@ -149,6 +162,8 @@ export function RawMaterials() {
   const [expandedHistoryIds, setExpandedHistoryIds] = useState<Set<string>>(
     new Set(),
   );
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
 
   const isSampleData = materials.length === 0;
   const displayData = !isSampleData ? materials : SAMPLE_WITH_IDS;
@@ -185,6 +200,39 @@ export function RawMaterials() {
     });
     return data;
   }, [displayData, search, filterGrade, filterType, sortKey, sortDir]);
+
+  const allFilteredSelected =
+    filtered.length > 0 && filtered.every((m) => selectedIds.has(m.id));
+  const someFilteredSelected =
+    filtered.some((m) => selectedIds.has(m.id)) && !allFilteredSelected;
+
+  const handleSelectAll = () => {
+    if (allFilteredSelected) {
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        for (const m of filtered) next.delete(m.id);
+        return next;
+      });
+    } else {
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        for (const m of filtered) next.add(m.id);
+        return next;
+      });
+    }
+  };
+
+  const handleToggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
 
   const handleSort = (key: SortKey) => {
     if (sortKey === key) {
@@ -270,6 +318,21 @@ export function RawMaterials() {
     }
   };
 
+  const handleBulkDelete = async () => {
+    const ids = Array.from(selectedIds);
+    try {
+      await bulkDeleteMutation.mutateAsync(ids);
+      toast.success(
+        `${ids.length} material${ids.length === 1 ? "" : "s"} deleted`,
+      );
+      setSelectedIds(new Set());
+      setBulkDeleteOpen(false);
+    } catch (err) {
+      console.error("Failed to bulk delete materials:", err);
+      toast.error("Failed to delete selected materials");
+    }
+  };
+
   return (
     <div className="flex flex-col gap-6">
       {/* Page header */}
@@ -333,6 +396,19 @@ export function RawMaterials() {
               {filtered.length} {filtered.length === 1 ? "entry" : "entries"}
             </p>
           </div>
+          {selectedIds.size > 0 && (
+            <Button
+              variant="destructive"
+              size="sm"
+              className="gap-2"
+              onClick={() => setBulkDeleteOpen(true)}
+              disabled={bulkDeleteMutation.isPending}
+              data-ocid="material.bulk.delete_button"
+            >
+              <Trash2 size={14} />
+              Delete Selected ({selectedIds.size})
+            </Button>
+          )}
         </div>
 
         {/* Filters */}
@@ -408,6 +484,20 @@ export function RawMaterials() {
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/50 hover:bg-muted/50">
+                  <TableHead className="w-10 px-4">
+                    <Checkbox
+                      checked={
+                        allFilteredSelected
+                          ? true
+                          : someFilteredSelected
+                            ? "indeterminate"
+                            : false
+                      }
+                      onCheckedChange={handleSelectAll}
+                      aria-label="Select all"
+                      data-ocid="material.bulk.checkbox"
+                    />
+                  </TableHead>
                   {(
                     [
                       ["grade", "Grade"],
@@ -438,7 +528,7 @@ export function RawMaterials() {
                 <AnimatePresence mode="popLayout">
                   {filtered.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={6}>
+                      <TableCell colSpan={7}>
                         <div
                           className="flex flex-col items-center justify-center py-14"
                           data-ocid="material.empty_state"
@@ -465,9 +555,19 @@ export function RawMaterials() {
                           animate={{ opacity: 1, y: 0 }}
                           exit={{ opacity: 0 }}
                           transition={{ duration: 0.15, delay: idx * 0.02 }}
-                          className="border-b border-border/60 hover:bg-muted/30 transition-colors"
+                          className={`border-b border-border/60 hover:bg-muted/30 transition-colors ${
+                            selectedIds.has(m.id) ? "bg-primary/5" : ""
+                          }`}
                           data-ocid={`material.item.${idx + 1}`}
                         >
+                          <TableCell className="w-10 px-4">
+                            <Checkbox
+                              checked={selectedIds.has(m.id)}
+                              onCheckedChange={() => handleToggleSelect(m.id)}
+                              aria-label={`Select ${m.grade} ${m.materialType}`}
+                              data-ocid={`material.checkbox.${idx + 1}`}
+                            />
+                          </TableCell>
                           <TableCell className="text-sm font-medium">
                             {m.grade}
                           </TableCell>
@@ -541,7 +641,7 @@ export function RawMaterials() {
                             key={`history-${m.id}`}
                             className="bg-muted/20 border-b border-border/40"
                           >
-                            <td colSpan={6} className="px-6 py-3">
+                            <td colSpan={7} className="px-6 py-3">
                               <div className="flex items-center gap-2 mb-2">
                                 <Clock
                                   size={13}
@@ -624,6 +724,39 @@ export function RawMaterials() {
             : undefined
         }
       />
+
+      {/* Bulk delete confirmation */}
+      <AlertDialog open={bulkDeleteOpen} onOpenChange={setBulkDeleteOpen}>
+        <AlertDialogContent data-ocid="material.bulk.dialog">
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Delete {selectedIds.size} material
+              {selectedIds.size === 1 ? "" : "s"}?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete {selectedIds.size} selected material
+              {selectedIds.size === 1 ? "" : "s"} and all their rate history.
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel
+              onClick={() => setBulkDeleteOpen(false)}
+              data-ocid="material.bulk.cancel_button"
+            >
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleBulkDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              data-ocid="material.bulk.confirm_button"
+            >
+              Delete {selectedIds.size} Material
+              {selectedIds.size === 1 ? "" : "s"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

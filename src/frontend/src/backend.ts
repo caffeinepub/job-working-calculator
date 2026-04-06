@@ -95,10 +95,24 @@ export interface WeldingLineItem {
     weightKg: number;
     grade: string;
 }
+export interface MachinedLineItem {
+    opType: string;
+    drillDia: number;
+    matThickness: number;
+    grade: string;
+    numberOfDrills: bigint;
+    costPerDrill: number;
+    weightRemoved: number;
+    description: string;
+    qty: bigint;
+    costPerUnit: number;
+    totalCost: number;
+}
 export interface SavedJob {
     job: Job;
     customerName?: string;
     weldingLineItems: Array<WeldingLineItem>;
+    machinedLineItems: Array<MachinedLineItem>;
     ratePerKg: number;
     jobLineItems: Array<JobLineItem>;
     totalProductWeight: number;
@@ -229,7 +243,7 @@ export interface backendInterface {
     getUserProfile(user: Principal): Promise<UserProfile | null>;
     isCallerAdmin(): Promise<boolean>;
     saveCallerUserProfile(profile: UserProfile): Promise<void>;
-    saveJob(name: string, laborRate: number, transportIncluded: boolean, customerId: string | null, transportCost: number, dispatchQty: number, jobLineItems: Array<JobLineItem>, weldingLineItems: Array<WeldingLineItem>, totalFinalPrice: number, totalProductWeight: number, ratePerKg: number): Promise<SavedJob>;
+    saveJob(name: string, laborRate: number, transportIncluded: boolean, customerId: string | null, transportCost: number, dispatchQty: number, jobLineItems: Array<JobLineItem>, weldingLineItems: Array<WeldingLineItem>, machinedLineItems: Array<MachinedLineItem>, totalFinalPrice: number, totalProductWeight: number, ratePerKg: number): Promise<SavedJob>;
     saveLabourJob(description: string, materialType: string, weldLength: number, laborRate: number, totalCost: number): Promise<LabourJob>;
     saveFlexibleJob(description: string, materialTab: string, centerLength: number, sheetBunchWidth: number, sheetThickness: number, sheetCount: bigint, barsSupplied: boolean, barLength: number, barWidth: number, barThickness: number, numberOfDrills: bigint, numberOfFolds: bigint, sheetStackWeight: number, stripWeight: number, bar1Weight: number, bar2Weight: number, totalMaterialWeight: number, materialCost: number, cuttingCost: number, foldingCost: number, drillingCost: number, weldingCost: number, chamferingCost: number, totalWeldLength: number, overheadCost: number, profitCost: number, totalCost: number, discountPct: number, quotedPrice: number): Promise<FlexibleJob>;
     getFlexibleJobs(): Promise<Array<FlexibleJob>>;
@@ -239,10 +253,10 @@ export interface backendInterface {
     getAlWeldingJobs(): Promise<Array<AlWeldingJob>>;
     deleteAlWeldingJob(id: string): Promise<boolean>;
     updateCustomer(id: string, name: string, phone: string, email: string, address: string): Promise<Customer>;
-    updateJob(id: string, name: string, laborRate: number, transportIncluded: boolean, customerId: string | null, transportCost: number, dispatchQty: number, jobLineItems: Array<JobLineItem>, weldingLineItems: Array<WeldingLineItem>, totalFinalPrice: number, totalProductWeight: number, ratePerKg: number): Promise<SavedJob>;
+    updateJob(id: string, name: string, laborRate: number, transportIncluded: boolean, customerId: string | null, transportCost: number, dispatchQty: number, jobLineItems: Array<JobLineItem>, weldingLineItems: Array<WeldingLineItem>, machinedLineItems: Array<MachinedLineItem>, totalFinalPrice: number, totalProductWeight: number, ratePerKg: number): Promise<SavedJob>;
     updateMaterial(id: string, grade: string, materialType: string, size: string, weightPerMeter: number, currentRate: number): Promise<RawMaterial>;
 }
-import type { Job as _Job, JobLineItem as _JobLineItem, SavedJob as _SavedJob, UserProfile as _UserProfile, UserRole as _UserRole, WeldingLineItem as _WeldingLineItem } from "./declarations/backend.did.d.ts";
+import type { Job as _Job, JobLineItem as _JobLineItem, MachinedLineItem as _MachinedLineItem, SavedJob as _SavedJob, UserProfile as _UserProfile, UserRole as _UserRole, WeldingLineItem as _WeldingLineItem } from "./declarations/backend.did.d.ts";
 export class Backend implements backendInterface {
     constructor(private actor: ActorSubclass<_SERVICE>, private _uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, private _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, private processError?: (error: unknown) => never){}
     async addCustomer(arg0: string, arg1: string, arg2: string, arg3: string): Promise<Customer> {
@@ -321,8 +335,8 @@ export class Backend implements backendInterface {
         const result = await this.actor.saveCallerUserProfile(arg0);
         return result;
     }
-    async saveJob(arg0: string, arg1: number, arg2: boolean, arg3: string | null, arg4: number, arg5: number, arg6: Array<JobLineItem>, arg7: Array<WeldingLineItem>, arg8: number, arg9: number, arg10: number): Promise<SavedJob> {
-        const result = await this.actor.saveJob(arg0, arg1, arg2, to_candid_opt(arg3), arg4, arg5, arg6, arg7, arg8, arg9, arg10);
+    async saveJob(arg0: string, arg1: number, arg2: boolean, arg3: string | null, arg4: number, arg5: number, arg6: Array<JobLineItem>, arg7: Array<WeldingLineItem>, arg8: Array<MachinedLineItem>, arg9: number, arg10: number, arg11: number): Promise<SavedJob> {
+        const result = await this.actor.saveJob(arg0, arg1, arg2, to_candid_opt(arg3), arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11);
         return from_candid_SavedJob(this._uploadFile, this._downloadFile, result);
     }
     async saveLabourJob(arg0: string, arg1: string, arg2: number, arg3: number, arg4: number): Promise<LabourJob> {
@@ -333,8 +347,8 @@ export class Backend implements backendInterface {
         const result = await this.actor.updateCustomer(arg0, arg1, arg2, arg3, arg4);
         return result;
     }
-    async updateJob(arg0: string, arg1: string, arg2: number, arg3: boolean, arg4: string | null, arg5: number, arg6: number, arg7: Array<JobLineItem>, arg8: Array<WeldingLineItem>, arg9: number, arg10: number, arg11: number): Promise<SavedJob> {
-        const result = await this.actor.updateJob(arg0, arg1, arg2, arg3, to_candid_opt(arg4), arg5, arg6, arg7, arg8, arg9, arg10, arg11);
+    async updateJob(arg0: string, arg1: string, arg2: number, arg3: boolean, arg4: string | null, arg5: number, arg6: number, arg7: Array<JobLineItem>, arg8: Array<WeldingLineItem>, arg9: Array<MachinedLineItem>, arg10: number, arg11: number, arg12: number): Promise<SavedJob> {
+        const result = await this.actor.updateJob(arg0, arg1, arg2, arg3, to_candid_opt(arg4), arg5, arg6, arg7, arg8, arg9, arg10, arg11, arg12);
         return from_candid_SavedJob(this._uploadFile, this._downloadFile, result);
     }
     async updateMaterial(arg0: string, arg1: string, arg2: string, arg3: string, arg4: number, arg5: number): Promise<RawMaterial> {
@@ -375,6 +389,19 @@ function from_candid_SavedJob(_uploadFile: (file: ExternalBlob) => Promise<Uint8
         job: from_candid_Job(_uploadFile, _downloadFile, value.job),
         customerName: value.customerName.length === 0 ? undefined : value.customerName[0],
         weldingLineItems: value.weldingLineItems,
+        machinedLineItems: (value.machinedLineItems ?? []).map((m: _MachinedLineItem) => ({
+            opType: m.opType,
+            drillDia: m.drillDia,
+            matThickness: m.matThickness,
+            grade: m.grade,
+            numberOfDrills: m.numberOfDrills,
+            costPerDrill: m.costPerDrill,
+            weightRemoved: m.weightRemoved,
+            description: m.description,
+            qty: m.qty,
+            costPerUnit: m.costPerUnit,
+            totalCost: m.totalCost,
+        })),
         ratePerKg: value.ratePerKg,
         jobLineItems: value.jobLineItems,
         totalProductWeight: value.totalProductWeight,

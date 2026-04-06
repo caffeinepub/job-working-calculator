@@ -3,6 +3,12 @@ import { toast } from "sonner";
 import {
   addCustomer,
   addMaterial,
+  clearAlWeldingJobs,
+  clearCustomers,
+  clearFlexibleJobs,
+  clearJobs,
+  clearLabourJobs,
+  clearMaterials,
   deleteAlWeldingJob,
   deleteCustomer,
   deleteFlexibleJob,
@@ -102,6 +108,15 @@ export function useDeleteRateHistoryEntry() {
   });
 }
 
+export function useClearMaterials() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async () => clearMaterials(),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["materials"] }),
+    onError: (err) => onError(err, "Clear materials"),
+  });
+}
+
 export function useCustomers() {
   return useQuery({ queryKey: ["customers"], queryFn: () => getCustomers() });
 }
@@ -145,6 +160,15 @@ export function useDeleteCustomer() {
   });
 }
 
+export function useClearCustomers() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async () => clearCustomers(),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["customers"] }),
+    onError: (err) => onError(err, "Clear customers"),
+  });
+}
+
 export function useJobs() {
   return useQuery({ queryKey: ["jobs"], queryFn: () => getJobs() });
 }
@@ -180,6 +204,19 @@ export function useSaveJob() {
         weightKg: number;
         finalPrice: number;
       }>;
+      machinedLineItems: Array<{
+        opType: string;
+        drillDia: number;
+        matThickness: number;
+        grade: string;
+        numberOfDrills: number;
+        costPerDrill: number;
+        weightRemoved: number;
+        description: string;
+        qty: number;
+        costPerUnit: number;
+        totalCost: number;
+      }>;
       totalFinalPrice: number;
       totalProductWeight: number;
       ratePerKg: number;
@@ -193,6 +230,7 @@ export function useSaveJob() {
         data.dispatchQty,
         data.jobLineItems,
         data.weldingLineItems,
+        data.machinedLineItems,
         data.totalFinalPrice,
         data.totalProductWeight,
         data.ratePerKg,
@@ -226,6 +264,19 @@ export function useUpdateJob() {
         weightKg: number;
         finalPrice: number;
       }>;
+      machinedLineItems: Array<{
+        opType: string;
+        drillDia: number;
+        matThickness: number;
+        grade: string;
+        numberOfDrills: number;
+        costPerDrill: number;
+        weightRemoved: number;
+        description: string;
+        qty: number;
+        costPerUnit: number;
+        totalCost: number;
+      }>;
       totalFinalPrice: number;
       totalProductWeight: number;
       ratePerKg: number;
@@ -240,6 +291,7 @@ export function useUpdateJob() {
         data.dispatchQty,
         data.jobLineItems,
         data.weldingLineItems,
+        data.machinedLineItems,
         data.totalFinalPrice,
         data.totalProductWeight,
         data.ratePerKg,
@@ -255,6 +307,15 @@ export function useDeleteJob() {
     mutationFn: async (id: string) => deleteJob(id),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["jobs"] }),
     onError: (err) => onError(err, "Delete job"),
+  });
+}
+
+export function useClearJobs() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async () => clearJobs(),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["jobs"] }),
+    onError: (err) => onError(err, "Clear jobs"),
   });
 }
 
@@ -290,6 +351,15 @@ export function useDeleteLabourJob() {
     mutationFn: async (id: string) => deleteLabourJob(id),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["labourJobs"] }),
     onError: (err) => onError(err, "Delete labour job"),
+  });
+}
+
+export function useClearLabourJobs() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async () => clearLabourJobs(),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["labourJobs"] }),
+    onError: (err) => onError(err, "Clear labour jobs"),
   });
 }
 
@@ -451,6 +521,15 @@ export function useDeleteFlexibleJob() {
   });
 }
 
+export function useClearFlexibleJobs() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async () => clearFlexibleJobs(),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["flexibleJobs"] }),
+    onError: (err) => onError(err, "Clear flexible jobs"),
+  });
+}
+
 export function useAlWeldingJobs() {
   return useQuery({
     queryKey: ["alWeldingJobs"],
@@ -500,5 +579,26 @@ export function useDeleteAlWeldingJob() {
     mutationFn: async (id: string) => deleteAlWeldingJob(id),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["alWeldingJobs"] }),
     onError: (err) => onError(err, "Delete aluminium welding job"),
+  });
+}
+
+export function useClearAlWeldingJobs() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async () => clearAlWeldingJobs(),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["alWeldingJobs"] }),
+    onError: (err) => onError(err, "Clear aluminium welding jobs"),
+  });
+}
+
+export function useBulkDeleteMaterials() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (ids: string[]) => {
+      const { deleteMaterial: del } = await import("../icpDB");
+      await Promise.all(ids.map((id) => del(id)));
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["materials"] }),
+    onError: (err) => onError(err, "Bulk delete materials"),
   });
 }

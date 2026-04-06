@@ -18,6 +18,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   AlertTriangle,
@@ -28,6 +29,7 @@ import {
   Loader2,
   Package,
   ShieldCheck,
+  Trash2,
   UploadCloud,
   Users,
 } from "lucide-react";
@@ -35,6 +37,12 @@ import { useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
   useAlWeldingJobs,
+  useClearAlWeldingJobs,
+  useClearCustomers,
+  useClearFlexibleJobs,
+  useClearJobs,
+  useClearLabourJobs,
+  useClearMaterials,
   useCustomers,
   useFlexibleJobs,
   useJobs,
@@ -48,6 +56,8 @@ import {
   saveFlexibleJob,
   saveJob,
   saveLabourJob,
+  updateCustomer,
+  updateMaterial,
 } from "../icpDB";
 import { downloadCSV, downloadJSON } from "../utils/exportUtils";
 
@@ -187,7 +197,25 @@ export function ExportData() {
       alWeldingJobs,
       exportedAt: new Date().toISOString(),
     };
-    downloadJSON(`full_backup_${dateTag()}.json`, backup);
+    // Use a BigInt-safe replacer so the JSON doesn't throw on bigint fields
+    const blob = new Blob(
+      [
+        JSON.stringify(
+          backup,
+          (_key, val) => (typeof val === "bigint" ? Number(val) : val),
+          2,
+        ),
+      ],
+      { type: "application/json;charset=utf-8;" },
+    );
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `full_backup_${dateTag()}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
     setLastExport(LS_KEYS.backup);
     refreshDates();
     toast.success("Full backup downloaded!");
@@ -220,27 +248,32 @@ export function ExportData() {
       <BackupReminderBanner onTabSwitch={switchToBackup} />
 
       <Tabs value={tab} onValueChange={setTab} data-ocid="export.tab">
-        <TabsList className="grid w-full grid-cols-5">
-          <TabsTrigger value="materials" data-ocid="export.materials.tab">
-            Materials
-          </TabsTrigger>
-          <TabsTrigger value="customers" data-ocid="export.customers.tab">
-            Customers
-          </TabsTrigger>
-          <TabsTrigger value="jobs" data-ocid="export.jobs.tab">
-            Jobs
-          </TabsTrigger>
-          <TabsTrigger
-            ref={backupTabRef}
-            value="backup"
-            data-ocid="export.backup.tab"
-          >
-            Full Backup
-          </TabsTrigger>
-          <TabsTrigger value="restore" data-ocid="export.restore.tab">
-            Restore
-          </TabsTrigger>
-        </TabsList>
+        <div className="overflow-x-auto">
+          <TabsList className="grid w-full min-w-max grid-cols-6">
+            <TabsTrigger value="materials" data-ocid="export.materials.tab">
+              Materials
+            </TabsTrigger>
+            <TabsTrigger value="customers" data-ocid="export.customers.tab">
+              Customers
+            </TabsTrigger>
+            <TabsTrigger value="jobs" data-ocid="export.jobs.tab">
+              Jobs
+            </TabsTrigger>
+            <TabsTrigger
+              ref={backupTabRef}
+              value="backup"
+              data-ocid="export.backup.tab"
+            >
+              Full Backup
+            </TabsTrigger>
+            <TabsTrigger value="restore" data-ocid="export.restore.tab">
+              Restore
+            </TabsTrigger>
+            <TabsTrigger value="erase" data-ocid="export.erase.tab">
+              Erase Data
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         {/* Materials */}
         <TabsContent value="materials" className="mt-6">
@@ -371,7 +404,19 @@ export function ExportData() {
 
         {/* Restore */}
         <TabsContent value="restore" className="mt-6">
-          <RestoreTab />
+          <RestoreTab
+            materials={materials}
+            customers={customers}
+            jobs={jobs}
+            labourJobs={labourJobs}
+            flexibleJobs={flexibleJobs}
+            alWeldingJobs={alWeldingJobs}
+          />
+        </TabsContent>
+
+        {/* Erase Data */}
+        <TabsContent value="erase" className="mt-6">
+          <EraseDataTab />
         </TabsContent>
       </Tabs>
     </div>
@@ -502,7 +547,23 @@ function ExportCard({
   );
 }
 
-function RestoreTab() {
+interface RestoreTabProps {
+  materials: any[];
+  customers: any[];
+  jobs: any[];
+  labourJobs: any[];
+  flexibleJobs: any[];
+  alWeldingJobs: any[];
+}
+
+function RestoreTab({
+  materials: existingMaterials,
+  customers: existingCustomers,
+  jobs: existingJobs,
+  labourJobs: existingLabourJobs,
+  flexibleJobs: existingFlexibleJobs,
+  alWeldingJobs: existingAlWeldingJobs,
+}: RestoreTabProps) {
   const [parsed, setParsed] = useState<{
     materials: any[];
     customers: any[];
@@ -571,135 +632,202 @@ function RestoreTab() {
         (parsed.flexibleJobs?.length ?? 0) +
         (parsed.alWeldingJobs?.length ?? 0);
 
-      // Materials
+      // Materials — overwrite if same grade+type+size exists
       setProgress(`Restoring materials (0/${parsed.materials.length})...`);
       for (const m of parsed.materials) {
-        await addMaterial(
-          m.grade ?? "",
-          m.materialType ?? "",
-          m.size ?? "",
-          Number(m.weightPerMeter ?? 0),
-          Number(m.currentRate ?? 0),
+        const existing = existingMaterials.find(
+          (em) =>
+            em.grade === (m.grade ?? "") &&
+            em.materialType === (m.materialType ?? "") &&
+            em.size === (m.size ?? ""),
         );
+        if (existing) {
+          await updateMaterial(
+            existing.id,
+            m.grade ?? "",
+            m.materialType ?? "",
+            m.size ?? "",
+            Number(m.weightPerMeter ?? 0),
+            Number(m.currentRate ?? 0),
+          );
+        } else {
+          await addMaterial(
+            m.grade ?? "",
+            m.materialType ?? "",
+            m.size ?? "",
+            Number(m.weightPerMeter ?? 0),
+            Number(m.currentRate ?? 0),
+          );
+        }
         count++;
         setProgress(`Restoring materials (${count}/${total})...`);
       }
 
-      // Customers
+      // Customers — overwrite if same name exists
       for (const c of parsed.customers) {
-        await addCustomer(
-          c.name ?? "",
-          c.phone ?? "",
-          c.email ?? "",
-          c.address ?? "",
+        const existing = existingCustomers.find(
+          (ec) => ec.name === (c.name ?? ""),
         );
+        if (existing) {
+          await updateCustomer(
+            existing.id,
+            c.name ?? "",
+            c.phone ?? "",
+            c.email ?? "",
+            c.address ?? "",
+          );
+        } else {
+          await addCustomer(
+            c.name ?? "",
+            c.phone ?? "",
+            c.email ?? "",
+            c.address ?? "",
+          );
+        }
         count++;
         setProgress(`Restoring customers (${count}/${total})...`);
       }
 
-      // SS Fabrication Jobs
+      // SS Fabrication Jobs — overwrite if same name exists
       for (const j of parsed.jobs) {
+        const jobName = j.name ?? j.job?.name ?? "";
+        const existing = existingJobs.find(
+          (ej) => (ej.job?.name ?? ej.name ?? "") === jobName,
+        );
+        const jobData = j.job ?? j;
+        if (existing) {
+          // skip update for jobs (complex nested structure, safer to skip)
+          count++;
+          setProgress(`Restoring jobs (${count}/${total})...`);
+          continue;
+        }
         await saveJob(
-          j.name ?? "",
-          Number(j.laborRate ?? 0),
-          Boolean(j.transportIncluded ?? false),
-          j.customerId ?? null,
-          Number(j.transportCost ?? 0),
-          Number(j.dispatchQty ?? 1),
-          (j.jobLineItems ?? []).map((li: any) => ({
+          jobData.name ?? "",
+          Number(jobData.laborRate ?? 0),
+          Boolean(jobData.transportIncluded ?? false),
+          jobData.customerId ?? null,
+          Number(jobData.transportCost ?? 0),
+          Number(jobData.dispatchQty ?? 1),
+          (jobData.jobLineItems ?? []).map((li: any) => ({
             materialId: li.materialId ?? "",
             lengthMeters: Number(li.lengthMeters ?? 0),
             rawWeight: Number(li.rawWeight ?? 0),
             totalWeight: Number(li.totalWeight ?? 0),
             finalPrice: Number(li.finalPrice ?? 0),
           })),
-          (j.weldingLineItems ?? []).map((wi: any) => ({
+          (jobData.weldingLineItems ?? []).map((wi: any) => ({
             grade: wi.grade ?? "",
             ratePerKg: Number(wi.ratePerKg ?? 0),
             weightKg: Number(wi.weightKg ?? 0),
             finalPrice: Number(wi.finalPrice ?? 0),
           })),
-          Number(j.totalFinalPrice ?? 0),
-          Number(j.totalProductWeight ?? 0),
-          Number(j.ratePerKg ?? 0),
+          (jobData.machinedLineItems ?? []).map((mi: any) => ({
+            opType: mi.opType ?? "other",
+            drillDia: Number(mi.drillDia ?? 0),
+            matThickness: Number(mi.matThickness ?? 0),
+            grade: mi.grade ?? "SS304",
+            numberOfDrills: Number(mi.numberOfDrills ?? 0),
+            costPerDrill: Number(mi.costPerDrill ?? 0),
+            weightRemoved: Number(mi.weightRemoved ?? 0),
+            description: mi.description ?? "",
+            qty: Number(mi.qty ?? 0),
+            costPerUnit: Number(mi.costPerUnit ?? 0),
+            totalCost: Number(mi.totalCost ?? 0),
+          })),
+          Number(jobData.totalFinalPrice ?? 0),
+          Number(jobData.totalProductWeight ?? 0),
+          Number(jobData.ratePerKg ?? 0),
         );
         count++;
         setProgress(`Restoring jobs (${count}/${total})...`);
       }
 
-      // Labour Jobs
+      // Labour Jobs — skip if same description exists
       for (const lj of parsed.labourJobs ?? []) {
-        await saveLabourJob(
-          lj.description ?? "",
-          lj.materialType ?? "",
-          Number(lj.weldLength ?? 0),
-          Number(lj.laborRate ?? 0),
-          Number(lj.totalCost ?? 0),
+        const existing = existingLabourJobs.find(
+          (elj: any) => (elj.description ?? "") === (lj.description ?? ""),
         );
+        if (!existing) {
+          await saveLabourJob(
+            lj.description ?? "",
+            lj.materialType ?? "",
+            Number(lj.weldLength ?? 0),
+            Number(lj.laborRate ?? 0),
+            Number(lj.totalCost ?? 0),
+          );
+        }
         count++;
         setProgress(`Restoring labour jobs (${count}/${total})...`);
       }
 
-      // Flexible Jobs
+      // Flexible Jobs — skip if same description exists
       for (const fj of parsed.flexibleJobs ?? []) {
-        await saveFlexibleJob(
-          fj.description ?? "",
-          fj.materialTab ?? "AL",
-          Number(fj.centerLength ?? 0),
-          Number(fj.sheetBunchWidth ?? 0),
-          Number(fj.sheetThickness ?? 0.3),
-          BigInt(Math.round(Number(fj.sheetCount ?? 0))),
-          Boolean(fj.barsSupplied ?? false),
-          Number(fj.barLength ?? 0),
-          Number(fj.barWidth ?? 0),
-          Number(fj.barThickness ?? 0),
-          BigInt(Math.round(Number(fj.numberOfDrills ?? 0))),
-          BigInt(Math.round(Number(fj.numberOfFolds ?? 1))),
-          Number(fj.sheetStackWeight ?? 0),
-          Number(fj.stripWeight ?? 0),
-          Number(fj.bar1Weight ?? 0),
-          Number(fj.bar2Weight ?? 0),
-          Number(fj.totalMaterialWeight ?? 0),
-          Number(fj.materialCost ?? 0),
-          Number(fj.cuttingCost ?? 0),
-          Number(fj.foldingCost ?? 0),
-          Number(fj.drillingCost ?? 0),
-          Number(fj.weldingCost ?? 0),
-          Number(fj.chamferingCost ?? 0),
-          Number(fj.totalWeldLength ?? 0),
-          Number(fj.overheadCost ?? 0),
-          Number(fj.profitCost ?? 0),
-          Number(fj.totalCost ?? 0),
-          Number(fj.discountPct ?? 0),
-          Number(fj.quotedPrice ?? 0),
+        const existing = existingFlexibleJobs.find(
+          (efj: any) => (efj.description ?? "") === (fj.description ?? ""),
         );
+        if (!existing) {
+          await saveFlexibleJob(
+            fj.description ?? "",
+            fj.materialTab ?? "AL",
+            Number(fj.centerLength ?? 0),
+            Number(fj.sheetBunchWidth ?? 0),
+            Number(fj.sheetThickness ?? 0.3),
+            BigInt(Math.round(Number(fj.sheetCount ?? 0))),
+            Boolean(fj.barsSupplied ?? false),
+            Number(fj.barLength ?? 0),
+            Number(fj.barWidth ?? 0),
+            Number(fj.barThickness ?? 0),
+            BigInt(Math.round(Number(fj.numberOfDrills ?? 0))),
+            BigInt(Math.round(Number(fj.numberOfFolds ?? 1))),
+            Number(fj.sheetStackWeight ?? 0),
+            Number(fj.stripWeight ?? 0),
+            Number(fj.bar1Weight ?? 0),
+            Number(fj.bar2Weight ?? 0),
+            Number(fj.totalMaterialWeight ?? 0),
+            Number(fj.materialCost ?? 0),
+            Number(fj.cuttingCost ?? 0),
+            Number(fj.foldingCost ?? 0),
+            Number(fj.drillingCost ?? 0),
+            Number(fj.weldingCost ?? 0),
+            Number(fj.chamferingCost ?? 0),
+            Number(fj.totalWeldLength ?? 0),
+            Number(fj.overheadCost ?? 0),
+            Number(fj.profitCost ?? 0),
+            Number(fj.totalCost ?? 0),
+            Number(fj.discountPct ?? 0),
+            Number(fj.quotedPrice ?? 0),
+          );
+        }
         count++;
         setProgress(`Restoring flexible jobs (${count}/${total})...`);
       }
 
-      // AL Welding Jobs
+      // AL Welding Jobs — skip if same description exists
       for (const aw of parsed.alWeldingJobs ?? []) {
-        await saveAlWeldingJob(
-          aw.description ?? "",
-          BigInt(Math.round(Number(aw.numJoints ?? 0))),
-          BigInt(Math.round(Number(aw.numBrackets ?? 0))),
-          BigInt(Math.round(Number(aw.numDummy ?? 0))),
-          Number(aw.weldLengthEachMm ?? 0),
-          Number(aw.thickness ?? 0),
-          Number(aw.laborCostPer2mm ?? 0),
-          Number(aw.totalFullLength ?? 0),
-          BigInt(Math.round(Number(aw.totalWeldLines ?? 0))),
-          Number(aw.adjustedLaborCost ?? 0),
-          Number(aw.totalCost ?? 0),
-          Number(aw.costPerFullLength ?? 0),
+        const existing = existingAlWeldingJobs.find(
+          (eaw: any) => (eaw.description ?? "") === (aw.description ?? ""),
         );
+        if (!existing) {
+          await saveAlWeldingJob(
+            aw.description ?? "",
+            BigInt(Math.round(Number(aw.numJoints ?? 0))),
+            BigInt(Math.round(Number(aw.numBrackets ?? 0))),
+            BigInt(Math.round(Number(aw.numDummy ?? 0))),
+            Number(aw.weldLengthEachMm ?? 0),
+            Number(aw.thickness ?? 0),
+            Number(aw.laborCostPer2mm ?? 0),
+            Number(aw.totalFullLength ?? 0),
+            BigInt(Math.round(Number(aw.totalWeldLines ?? 0))),
+            Number(aw.adjustedLaborCost ?? 0),
+            Number(aw.totalCost ?? 0),
+            Number(aw.costPerFullLength ?? 0),
+          );
+        }
         count++;
         setProgress(`Restoring AL welding jobs (${count}/${total})...`);
       }
 
-      toast.success(
-        `Backup restored successfully. ${total} items imported into ICP.`,
-      );
+      toast.success(`Backup restored successfully. ${total} items processed.`);
       setProgress(null);
       setTimeout(() => window.location.reload(), 1500);
     } catch (err: any) {
@@ -722,9 +850,9 @@ function RestoreTab() {
                 Restore from Backup
               </CardTitle>
               <CardDescription>
-                Restoring will <strong>add</strong> data from the backup file to
-                your current ICP data. Download a full backup first if you want
-                to preserve what you have.
+                Restoring will <strong>overwrite</strong> existing records with
+                matching names and <strong>add</strong> new records from the
+                backup file.
               </CardDescription>
             </div>
           </div>
@@ -733,9 +861,9 @@ function RestoreTab() {
           <Alert className="border-amber-400/60 bg-amber-50 dark:bg-amber-950/30">
             <AlertTriangle className="h-4 w-4 text-amber-600" />
             <AlertDescription className="text-amber-800 dark:text-amber-300 text-sm">
-              This will import all items from the backup JSON file into your ICP
-              backend. Each item will be saved individually — this may take a
-              moment for large backups.
+              Materials and customers with the same name will be overwritten.
+              Jobs, labour jobs, flexible jobs, and AL welding jobs with
+              matching descriptions will be skipped to avoid duplicates.
             </AlertDescription>
           </Alert>
 
@@ -821,14 +949,14 @@ function RestoreTab() {
           <AlertDialogHeader>
             <AlertDialogTitle>Restore from backup?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will import {parsed?.materials.length ?? 0} materials,{" "}
+              This will process {parsed?.materials.length ?? 0} materials,{" "}
               {parsed?.customers.length ?? 0} customers, and{" "}
               {(parsed?.jobs.length ?? 0) +
                 (parsed?.labourJobs?.length ?? 0) +
                 (parsed?.flexibleJobs?.length ?? 0) +
                 (parsed?.alWeldingJobs?.length ?? 0)}{" "}
-              jobs from the backup file into your ICP backend. This action
-              cannot be undone.
+              jobs from the backup file. Existing records with matching names
+              will be overwritten; new records will be added.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -840,6 +968,264 @@ function RestoreTab() {
               data-ocid="export.restore.confirm_button"
             >
               Yes, Restore
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+}
+
+type EraseCategory =
+  | "materials"
+  | "jobs"
+  | "flexibleJobs"
+  | "labourJobs"
+  | "customers"
+  | "alWeldingJobs";
+
+const ERASE_CATEGORIES: { key: EraseCategory; label: string; color: string }[] =
+  [
+    {
+      key: "materials",
+      label: "Raw Materials",
+      color: "text-amber-700 bg-amber-50 border-amber-200",
+    },
+    {
+      key: "jobs",
+      label: "SS Fabrication Jobs",
+      color: "text-blue-700 bg-blue-50 border-blue-200",
+    },
+    {
+      key: "flexibleJobs",
+      label: "Flexible Jobs",
+      color: "text-violet-700 bg-violet-50 border-violet-200",
+    },
+    {
+      key: "labourJobs",
+      label: "Labour Jobs",
+      color: "text-green-700 bg-green-50 border-green-200",
+    },
+    {
+      key: "customers",
+      label: "Customers",
+      color: "text-pink-700 bg-pink-50 border-pink-200",
+    },
+    {
+      key: "alWeldingJobs",
+      label: "AL Welding Jobs",
+      color: "text-cyan-700 bg-cyan-50 border-cyan-200",
+    },
+  ];
+
+function EraseDataTab() {
+  const { data: materials = [] } = useMaterials();
+  const { data: customers = [] } = useCustomers();
+  const { data: jobs = [] } = useJobs();
+  const { data: labourJobs = [] } = useLabourJobs();
+  const { data: flexibleJobs = [] } = useFlexibleJobs();
+  const { data: alWeldingJobs = [] } = useAlWeldingJobs();
+
+  const clearMaterialsMut = useClearMaterials();
+  const clearCustomersMut = useClearCustomers();
+  const clearJobsMut = useClearJobs();
+  const clearLabourJobsMut = useClearLabourJobs();
+  const clearFlexibleJobsMut = useClearFlexibleJobs();
+  const clearAlWeldingJobsMut = useClearAlWeldingJobs();
+
+  const counts: Record<EraseCategory, number> = {
+    materials: materials.length,
+    customers: customers.length,
+    jobs: jobs.length,
+    labourJobs: labourJobs.length,
+    flexibleJobs: flexibleJobs.length,
+    alWeldingJobs: alWeldingJobs.length,
+  };
+
+  const [selected, setSelected] = useState<Set<EraseCategory>>(new Set());
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [erasing, setErasing] = useState(false);
+
+  const allSelected = ERASE_CATEGORIES.every((c) => selected.has(c.key));
+  const someSelected = selected.size > 0 && !allSelected;
+
+  const handleToggleAll = () => {
+    if (allSelected) {
+      setSelected(new Set());
+    } else {
+      setSelected(new Set(ERASE_CATEGORIES.map((c) => c.key)));
+    }
+  };
+
+  const handleToggle = (key: EraseCategory) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      return next;
+    });
+  };
+
+  const handleErase = async () => {
+    setShowConfirm(false);
+    setErasing(true);
+    try {
+      const ops: Promise<any>[] = [];
+      if (selected.has("materials")) ops.push(clearMaterialsMut.mutateAsync());
+      if (selected.has("customers")) ops.push(clearCustomersMut.mutateAsync());
+      if (selected.has("jobs")) ops.push(clearJobsMut.mutateAsync());
+      if (selected.has("labourJobs"))
+        ops.push(clearLabourJobsMut.mutateAsync());
+      if (selected.has("flexibleJobs"))
+        ops.push(clearFlexibleJobsMut.mutateAsync());
+      if (selected.has("alWeldingJobs"))
+        ops.push(clearAlWeldingJobsMut.mutateAsync());
+      await Promise.all(ops);
+      toast.success(
+        `Erased: ${Array.from(selected)
+          .map((k) => ERASE_CATEGORIES.find((c) => c.key === k)?.label)
+          .filter(Boolean)
+          .join(", ")}`,
+      );
+      setSelected(new Set());
+    } catch (err: any) {
+      toast.error(`Erase failed: ${err?.message ?? String(err)}`);
+    } finally {
+      setErasing(false);
+    }
+  };
+
+  const selectedLabels = Array.from(selected)
+    .map((k) => ERASE_CATEGORIES.find((c) => c.key === k)?.label)
+    .filter(Boolean);
+
+  return (
+    <div className="flex flex-col gap-4">
+      <Card className="border-destructive/30 border-2">
+        <CardHeader>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-destructive/10 flex items-center justify-center">
+              <Trash2 size={20} className="text-destructive" />
+            </div>
+            <div>
+              <CardTitle className="text-lg text-destructive">
+                Erase Data
+              </CardTitle>
+              <CardDescription>
+                Permanently delete selected categories of data from ICP. This
+                cannot be undone — download a full backup first.
+              </CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4">
+          <Alert className="border-destructive/40 bg-destructive/5">
+            <AlertTriangle className="h-4 w-4 text-destructive" />
+            <AlertDescription className="text-destructive text-sm">
+              ⚠️ Erased data cannot be recovered. Download a full backup before
+              proceeding.
+            </AlertDescription>
+          </Alert>
+
+          {/* Select All row */}
+          <div className="flex items-center gap-3 p-3 rounded-lg border border-border bg-muted/30">
+            <Checkbox
+              id="erase-select-all"
+              checked={
+                allSelected ? true : someSelected ? "indeterminate" : false
+              }
+              onCheckedChange={handleToggleAll}
+              data-ocid="export.erase.checkbox"
+            />
+            <label
+              htmlFor="erase-select-all"
+              className="text-sm font-semibold cursor-pointer select-none"
+            >
+              Select All Categories
+            </label>
+          </div>
+
+          {/* Category rows */}
+          <div className="flex flex-col gap-2">
+            {ERASE_CATEGORIES.map((cat) => (
+              <label
+                key={cat.key}
+                htmlFor={`erase-${cat.key}`}
+                className={`flex items-center gap-3 p-3 rounded-lg border transition-colors cursor-pointer ${
+                  selected.has(cat.key)
+                    ? `${cat.color} border-current/40`
+                    : "border-border bg-muted/10 hover:bg-muted/30"
+                }`}
+                data-ocid={`export.erase.${cat.key}.toggle`}
+              >
+                <Checkbox
+                  id={`erase-${cat.key}`}
+                  checked={selected.has(cat.key)}
+                  onCheckedChange={() => handleToggle(cat.key)}
+                />
+                <span className="flex-1 text-sm font-medium select-none">
+                  {cat.label}
+                </span>
+                <Badge variant="secondary" className="shrink-0 text-xs">
+                  {counts[cat.key]} item{counts[cat.key] === 1 ? "" : "s"}
+                </Badge>
+              </label>
+            ))}
+          </div>
+
+          <Button
+            variant="destructive"
+            disabled={selected.size === 0 || erasing}
+            onClick={() => setShowConfirm(true)}
+            className="gap-2 w-full"
+            data-ocid="export.erase.delete_button"
+          >
+            {erasing ? (
+              <Loader2 size={16} className="animate-spin" />
+            ) : (
+              <Trash2 size={16} />
+            )}
+            {erasing
+              ? "Erasing…"
+              : selected.size === 0
+                ? "Select categories to erase"
+                : `Erase ${selected.size} categor${selected.size === 1 ? "y" : "ies"}`}
+          </Button>
+        </CardContent>
+      </Card>
+
+      <AlertDialog open={showConfirm} onOpenChange={setShowConfirm}>
+        <AlertDialogContent data-ocid="export.erase.dialog">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-destructive">
+              Permanently erase data?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              The following categories will be permanently deleted from ICP and
+              cannot be recovered:
+              <ul className="mt-2 list-disc list-inside space-y-1">
+                {selectedLabels.map((label) => (
+                  <li key={label} className="font-medium">
+                    {label}
+                  </li>
+                ))}
+              </ul>
+              Make sure you have a backup before proceeding.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-ocid="export.erase.cancel_button">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleErase}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              data-ocid="export.erase.confirm_button"
+            >
+              Yes, Erase Permanently
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

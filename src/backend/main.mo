@@ -469,6 +469,44 @@ actor {
     };
   };
 
+  // ===== Clear All Functions =====
+
+  public shared func clearMaterials() : async Nat {
+    let keys = rawMaterials.keys().toArray();
+    for (k in keys.vals()) { rawMaterials.remove(k); };
+    keys.size();
+  };
+
+  public shared func clearCustomers() : async Nat {
+    let keys = customers.keys().toArray();
+    for (k in keys.vals()) { customers.remove(k); };
+    keys.size();
+  };
+
+  public shared func clearJobs() : async Nat {
+    let keys = jobs.keys().toArray();
+    for (k in keys.vals()) { jobs.remove(k); };
+    keys.size();
+  };
+
+  public shared func clearLabourJobs() : async Nat {
+    let keys = labourJobsV2.keys().toArray();
+    for (k in keys.vals()) { labourJobsV2.remove(k); };
+    keys.size();
+  };
+
+  public shared func clearFlexibleJobs() : async Nat {
+    let keys = flexibleJobsV4.keys().toArray();
+    for (k in keys.vals()) { flexibleJobsV4.remove(k); };
+    keys.size();
+  };
+
+  public shared func clearAlWeldingJobs() : async Nat {
+    let keys = alWeldingJobs.keys().toArray();
+    for (k in keys.vals()) { alWeldingJobs.remove(k); };
+    keys.size();
+  };
+
   // ===== Legacy stubs =====
   type UserProfile = { name : Text };
   type UserRole = { #admin; #user };

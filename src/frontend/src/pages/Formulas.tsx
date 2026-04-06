@@ -330,9 +330,7 @@ function DrillCalculator({
 // ── Predefined Operations Tab ────────────────────────────────────────
 const OP_TYPE_LABELS: Record<MachiningOpType, string> = {
   drilling: "Drilling",
-  tapping: "Tapping",
-  countersink: "Counter-sinking",
-  milling: "Milling / Slotting",
+  machining: "Machining",
   other: "Other",
 };
 
@@ -577,62 +575,7 @@ function OperationsTab() {
                   </div>
                 </>
               )}
-              {form.opType === "tapping" && (
-                <div className="space-y-1">
-                  <Label className="text-xs">Tap Size</Label>
-                  <Select
-                    value={form.tapSize ?? "M6"}
-                    onValueChange={(v) =>
-                      setForm((p) => ({ ...p, tapSize: v }))
-                    }
-                  >
-                    <SelectTrigger
-                      className="h-8 text-sm"
-                      data-ocid="formulas.ops.select"
-                    >
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {["M6", "M8", "M10", "M12", "M16", "M20"].map((s) => (
-                        <SelectItem key={s} value={s}>
-                          {s}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
-              {form.opType === "countersink" && (
-                <div className="space-y-1">
-                  <Label className="text-xs">Countersink Diameter (mm)</Label>
-                  <Input
-                    type="number"
-                    className="h-8 text-sm"
-                    value={form.csDia ?? ""}
-                    onChange={(e) =>
-                      setForm((p) => ({ ...p, csDia: Number(e.target.value) }))
-                    }
-                    data-ocid="formulas.ops.input"
-                  />
-                </div>
-              )}
-              {form.opType === "milling" && (
-                <div className="space-y-1">
-                  <Label className="text-xs">Slot Length (mm)</Label>
-                  <Input
-                    type="number"
-                    className="h-8 text-sm"
-                    value={form.slotLength ?? ""}
-                    onChange={(e) =>
-                      setForm((p) => ({
-                        ...p,
-                        slotLength: Number(e.target.value),
-                      }))
-                    }
-                    data-ocid="formulas.ops.input"
-                  />
-                </div>
-              )}
+
               {form.opType === "other" && (
                 <div className="space-y-1">
                   <Label className="text-xs">Cost Per Unit (₹)</Label>

@@ -14,6 +14,7 @@ export type {
   Job,
   JobLineItem,
   WeldingLineItem,
+  MachinedLineItem,
   LabourJob,
   FlexibleJob,
   AlWeldingJob,
@@ -80,6 +81,11 @@ export async function deleteRateHistoryEntry(
   return actor.deleteRateHistoryEntry(materialId, BigInt(index));
 }
 
+export async function clearMaterials() {
+  const actor = await getActor();
+  return (actor as any).clearMaterials();
+}
+
 // ===== Customers =====
 export async function getCustomers() {
   const actor = await getActor();
@@ -117,6 +123,11 @@ export async function deleteCustomer(id: string) {
   return actor.deleteCustomer(id);
 }
 
+export async function clearCustomers() {
+  const actor = await getActor();
+  return (actor as any).clearCustomers();
+}
+
 // ===== SS Fabrication Jobs =====
 export async function getJobs() {
   const actor = await getActor();
@@ -127,6 +138,20 @@ export async function getJob(id: string) {
   const actor = await getActor();
   return actor.getJob(id);
 }
+
+export type MachinedLineItemInput = {
+  opType: string;
+  drillDia: number;
+  matThickness: number;
+  grade: string;
+  numberOfDrills: number;
+  costPerDrill: number;
+  weightRemoved: number;
+  description: string;
+  qty: number;
+  costPerUnit: number;
+  totalCost: number;
+};
 
 export async function saveJob(
   name: string,
@@ -148,6 +173,7 @@ export async function saveJob(
     weightKg: number;
     finalPrice: number;
   }>,
+  machinedLineItems: Array<MachinedLineItemInput>,
   totalFinalPrice: number,
   totalProductWeight: number,
   ratePerKg: number,
@@ -162,6 +188,11 @@ export async function saveJob(
     dispatchQty,
     jobLineItems,
     weldingLineItems,
+    machinedLineItems.map((m) => ({
+      ...m,
+      numberOfDrills: BigInt(m.numberOfDrills),
+      qty: BigInt(m.qty),
+    })),
     totalFinalPrice,
     totalProductWeight,
     ratePerKg,
@@ -189,6 +220,7 @@ export async function updateJob(
     weightKg: number;
     finalPrice: number;
   }>,
+  machinedLineItems: Array<MachinedLineItemInput>,
   totalFinalPrice: number,
   totalProductWeight: number,
   ratePerKg: number,
@@ -204,6 +236,11 @@ export async function updateJob(
     dispatchQty,
     jobLineItems,
     weldingLineItems,
+    machinedLineItems.map((m) => ({
+      ...m,
+      numberOfDrills: BigInt(m.numberOfDrills),
+      qty: BigInt(m.qty),
+    })),
     totalFinalPrice,
     totalProductWeight,
     ratePerKg,
@@ -213,6 +250,11 @@ export async function updateJob(
 export async function deleteJob(id: string) {
   const actor = await getActor();
   return actor.deleteJob(id);
+}
+
+export async function clearJobs() {
+  const actor = await getActor();
+  return (actor as any).clearJobs();
 }
 
 // ===== Labour Jobs =====
@@ -241,6 +283,11 @@ export async function saveLabourJob(
 export async function deleteLabourJob(id: string) {
   const actor = await getActor();
   return actor.deleteLabourJob(id);
+}
+
+export async function clearLabourJobs() {
+  const actor = await getActor();
+  return (actor as any).clearLabourJobs();
 }
 
 // ===== Flexible Jobs =====
@@ -386,6 +433,11 @@ export async function deleteFlexibleJob(id: string) {
   return actor.deleteFlexibleJob(id);
 }
 
+export async function clearFlexibleJobs() {
+  const actor = await getActor();
+  return (actor as any).clearFlexibleJobs();
+}
+
 // ===== Aluminium Welding Jobs =====
 export async function getAlWeldingJobs() {
   const actor = await getActor();
@@ -426,4 +478,9 @@ export async function saveAlWeldingJob(
 export async function deleteAlWeldingJob(id: string) {
   const actor = await getActor();
   return actor.deleteAlWeldingJob(id);
+}
+
+export async function clearAlWeldingJobs() {
+  const actor = await getActor();
+  return (actor as any).clearAlWeldingJobs();
 }

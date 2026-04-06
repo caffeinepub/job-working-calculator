@@ -95,32 +95,16 @@ interface WeldingRow {
 
 interface MachiningRow {
   rowId: string;
-  opType:
-    | "drilling"
-    | "tapping"
-    | "countersink"
-    | "milling"
-    | "rolling"
-    | "machining"
-    | "other";
+  opType: "drilling" | "machining" | "other";
   // Drilling
   drillDia?: number;
   matThickness?: number;
-  // Tapping
-  tapSize?: "M6" | "M8" | "M10" | "M12" | "M16" | "M20";
-  // Countersink
-  csDia?: number;
-  // Milling
-  slotLength?: number;
-  slotWidth?: number;
+  // Machining (free-form)
+  machiningDesc?: string;
+  machiningCostPerUnit?: number;
   // Other
   otherDesc?: string;
   otherCostPerUnit?: number;
-  // Rolling
-  rollingLength?: number;
-  // Machining
-  machiningDesc?: string;
-  machiningCostPerUnit?: number;
   // Common
   grade: "SS304" | "SS310";
   qty: number;
@@ -221,46 +205,8 @@ function calcMachiningRow(
     };
   }
 
-  if (row.opType === "tapping") {
-    const rateMap: Record<string, number> = {
-      M6: fs.tappingRateM6,
-      M8: fs.tappingRateM8,
-      M10: fs.tappingRateM10,
-      M12: fs.tappingRateM12,
-      M16: fs.tappingRateM16,
-      M20: fs.tappingRateM20,
-    };
-    const rate = rateMap[row.tapSize ?? "M6"] ?? fs.tappingRateM6;
-    return { cost: rate * gradeMultiplier * row.qty, weightRemovedKg: 0 };
-  }
-
-  if (row.opType === "countersink") {
-    return {
-      cost: fs.counterSinkRate * gradeMultiplier * row.qty,
-      weightRemovedKg: 0,
-    };
-  }
-
-  if (row.opType === "milling") {
-    const length = row.slotLength ?? 0;
-    if (length <= 0) return { cost: 0, weightRemovedKg: 0 };
-    return {
-      cost: fs.millingRatePerMm * length * gradeMultiplier * row.qty,
-      weightRemovedKg: 0,
-    };
-  }
-
   if (row.opType === "other") {
     return { cost: (row.otherCostPerUnit ?? 0) * row.qty, weightRemovedKg: 0 };
-  }
-
-  if (row.opType === "rolling") {
-    const length = row.rollingLength ?? 0;
-    if (length <= 0) return { cost: 0, weightRemovedKg: 0 };
-    return {
-      cost: (fs.rollingRatePerMeter ?? 5) * length * gradeMultiplier * row.qty,
-      weightRemovedKg: 0,
-    };
   }
 
   if (row.opType === "machining") {
@@ -346,6 +292,39 @@ export function JobCalculator({
         grade: item.grade as "SS304" | "SS310",
         weightKg: item.weightKg,
       })),
+    );
+    setMachiningRows(
+      (sj.machinedLineItems ?? []).map((item) => {
+        const opType = item.opType as "drilling" | "machining" | "other";
+        if (opType === "drilling") {
+          return {
+            rowId: nextId(),
+            opType,
+            drillDia: item.drillDia,
+            matThickness: item.matThickness,
+            grade: item.grade as "SS304" | "SS310",
+            qty: Number(item.numberOfDrills),
+          } as MachiningRow;
+        }
+        if (opType === "machining") {
+          return {
+            rowId: nextId(),
+            opType,
+            machiningDesc: item.description,
+            machiningCostPerUnit: item.costPerUnit,
+            grade: item.grade as "SS304" | "SS310",
+            qty: Number(item.qty),
+          } as MachiningRow;
+        }
+        return {
+          rowId: nextId(),
+          opType: "other" as const,
+          otherDesc: item.description,
+          otherCostPerUnit: item.costPerUnit,
+          grade: item.grade as "SS304" | "SS310",
+          qty: Number(item.qty),
+        } as MachiningRow;
+      }),
     );
     setEditingJobId(sj.job.id);
     formTopRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -568,6 +547,44 @@ export function JobCalculator({
       finalPrice: weldCalcs[i]?.weldingCost ?? 0,
     }));
 
+    const machinedLineItems = machiningRows.map((row, i) => {
+      const calc = machiningCalcs[i];
+      if (row.opType === "drilling") {
+        return {
+          opType: row.opType,
+          drillDia: row.drillDia ?? 0,
+          matThickness: row.matThickness ?? 0,
+          grade: row.grade,
+          numberOfDrills: row.qty,
+          costPerDrill: row.qty > 0 ? (calc?.cost ?? 0) / row.qty : 0,
+          weightRemoved: calc?.weightRemovedKg ?? 0,
+          description: "",
+          qty: row.qty,
+          costPerUnit: row.qty > 0 ? (calc?.cost ?? 0) / row.qty : 0,
+          totalCost: calc?.cost ?? 0,
+        };
+      }
+      return {
+        opType: row.opType,
+        drillDia: 0,
+        matThickness: 0,
+        grade: row.grade,
+        numberOfDrills: 0,
+        costPerDrill: 0,
+        weightRemoved: 0,
+        description:
+          row.opType === "other"
+            ? (row.otherDesc ?? "")
+            : (row.machiningDesc ?? ""),
+        qty: row.qty,
+        costPerUnit:
+          row.opType === "other"
+            ? (row.otherCostPerUnit ?? 0)
+            : (row.machiningCostPerUnit ?? 0),
+        totalCost: calc?.cost ?? 0,
+      };
+    });
+
     return {
       name: jobName.trim(),
       laborRate,
@@ -579,6 +596,7 @@ export function JobCalculator({
       customerId: customerId === "none" ? null : customerId,
       jobLineItems,
       weldingLineItems,
+      machinedLineItems,
       totalFinalPrice: summary.totalFinalPrice,
       totalProductWeight: summary.totalProductWeight,
       ratePerKg: summary.ratePerKg,
@@ -1297,27 +1315,26 @@ export function JobCalculator({
                         onValueChange={(opId) => {
                           const op = predefinedOps.find((o) => o.id === opId);
                           if (!op) return;
+                          const safeOpType =
+                            op.opType === "drilling" ||
+                            op.opType === "machining" ||
+                            op.opType === "other"
+                              ? (op.opType as
+                                  | "drilling"
+                                  | "machining"
+                                  | "other")
+                              : "other";
                           setMachiningRows((prev) => [
                             ...prev,
                             {
                               rowId: `row_${Date.now()}`,
-                              opType: op.opType,
+                              opType: safeOpType,
                               drillDia: op.drillDia ?? 10,
                               matThickness: op.matThickness ?? 10,
-                              tapSize:
-                                (op.tapSize as
-                                  | "M6"
-                                  | "M8"
-                                  | "M10"
-                                  | "M12"
-                                  | "M16"
-                                  | "M20") ?? "M6",
-                              csDia: op.csDia,
-                              slotLength: op.slotLength,
                               otherCostPerUnit: op.otherCostPerUnit,
                               grade: op.defaultGrade,
                               qty: 1,
-                            },
+                            } as MachiningRow,
                           ]);
                         }}
                       >
@@ -1434,7 +1451,7 @@ export function JobCalculator({
                       No machining operations
                     </p>
                     <p className="text-xs text-muted-foreground/60 mt-0.5">
-                      Drilling · Tapping · Counter-sinking · Milling · Other
+                      Drilling · Machining · Other
                     </p>
                   </div>
                 ) : (
@@ -1475,18 +1492,6 @@ export function JobCalculator({
                                   <SelectContent>
                                     <SelectItem value="drilling">
                                       Drilling
-                                    </SelectItem>
-                                    <SelectItem value="tapping">
-                                      Tapping
-                                    </SelectItem>
-                                    <SelectItem value="countersink">
-                                      Counter-sinking
-                                    </SelectItem>
-                                    <SelectItem value="milling">
-                                      Milling / Slotting
-                                    </SelectItem>
-                                    <SelectItem value="rolling">
-                                      Rolling
                                     </SelectItem>
                                     <SelectItem value="machining">
                                       Machining
@@ -1534,122 +1539,6 @@ export function JobCalculator({
                                     />
                                   </div>
                                 </>
-                              )}
-
-                              {row.opType === "tapping" && (
-                                <div className="flex flex-col gap-1 min-w-[100px]">
-                                  <Label className="text-xs text-muted-foreground">
-                                    Tap Size
-                                  </Label>
-                                  <Select
-                                    value={row.tapSize ?? "M6"}
-                                    onValueChange={(v) =>
-                                      updateMachiningRow(row.rowId, {
-                                        tapSize: v as MachiningRow["tapSize"],
-                                      })
-                                    }
-                                  >
-                                    <SelectTrigger
-                                      className="h-8 text-xs"
-                                      data-ocid={`job.machining.tap_size.select.${idx + 1}`}
-                                    >
-                                      <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      {[
-                                        "M6",
-                                        "M8",
-                                        "M10",
-                                        "M12",
-                                        "M16",
-                                        "M20",
-                                      ].map((s) => (
-                                        <SelectItem key={s} value={s}>
-                                          {s}
-                                        </SelectItem>
-                                      ))}
-                                    </SelectContent>
-                                  </Select>
-                                </div>
-                              )}
-
-                              {row.opType === "countersink" && (
-                                <div className="flex flex-col gap-1">
-                                  <Label className="text-xs text-muted-foreground">
-                                    Hole Dia (mm)
-                                  </Label>
-                                  <Input
-                                    type="number"
-                                    min={0}
-                                    value={row.csDia ?? ""}
-                                    onChange={(e) =>
-                                      updateMachiningRow(row.rowId, {
-                                        csDia: Number(e.target.value),
-                                      })
-                                    }
-                                    className="h-8 text-xs w-24"
-                                    data-ocid={`job.machining.cs_dia.input.${idx + 1}`}
-                                  />
-                                </div>
-                              )}
-
-                              {row.opType === "milling" && (
-                                <>
-                                  <div className="flex flex-col gap-1">
-                                    <Label className="text-xs text-muted-foreground">
-                                      Slot Length (mm)
-                                    </Label>
-                                    <Input
-                                      type="number"
-                                      min={0}
-                                      value={row.slotLength ?? ""}
-                                      onChange={(e) =>
-                                        updateMachiningRow(row.rowId, {
-                                          slotLength: Number(e.target.value),
-                                        })
-                                      }
-                                      className="h-8 text-xs w-28"
-                                      data-ocid={`job.machining.slot_len.input.${idx + 1}`}
-                                    />
-                                  </div>
-                                  <div className="flex flex-col gap-1">
-                                    <Label className="text-xs text-muted-foreground">
-                                      Slot Width (mm)
-                                    </Label>
-                                    <Input
-                                      type="number"
-                                      min={0}
-                                      value={row.slotWidth ?? ""}
-                                      onChange={(e) =>
-                                        updateMachiningRow(row.rowId, {
-                                          slotWidth: Number(e.target.value),
-                                        })
-                                      }
-                                      className="h-8 text-xs w-28"
-                                      data-ocid={`job.machining.slot_wid.input.${idx + 1}`}
-                                    />
-                                  </div>
-                                </>
-                              )}
-
-                              {row.opType === "rolling" && (
-                                <div className="flex flex-col gap-1">
-                                  <Label className="text-xs text-muted-foreground">
-                                    Length (mm)
-                                  </Label>
-                                  <Input
-                                    type="number"
-                                    min={0}
-                                    value={row.rollingLength ?? ""}
-                                    onChange={(e) =>
-                                      updateMachiningRow(row.rowId, {
-                                        rollingLength: Number(e.target.value),
-                                      })
-                                    }
-                                    className="h-8 text-xs w-24"
-                                    data-ocid={`job.machining.rolling_length.input.${idx + 1}`}
-                                  />
-                                </div>
                               )}
 
                               {row.opType === "machining" && (
@@ -1736,7 +1625,6 @@ export function JobCalculator({
 
                               {/* Grade (for all except other, rolling, machining) */}
                               {row.opType !== "other" &&
-                                row.opType !== "rolling" &&
                                 row.opType !== "machining" && (
                                   <div className="flex flex-col gap-1 min-w-[100px]">
                                     <Label className="text-xs text-muted-foreground">

@@ -2,12 +2,7 @@ import { useState } from "react";
 
 const STORAGE_KEY = "jobcalc_predefined_ops";
 
-export type MachiningOpType =
-  | "drilling"
-  | "tapping"
-  | "countersink"
-  | "milling"
-  | "other";
+export type MachiningOpType = "drilling" | "machining" | "other";
 
 export interface PredefinedOperation {
   id: string;
